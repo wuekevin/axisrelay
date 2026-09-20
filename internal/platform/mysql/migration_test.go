@@ -9,6 +9,8 @@ import (
 	drivermysql "github.com/go-sql-driver/mysql"
 )
 
+const testMigrationChecksum = "0000000000000000000000000000000000000000000000000000000000000000"
+
 func TestConfigDSNUsesCommercialMySQLContract(t *testing.T) {
 	cfg := Config{
 		Host:     "db.internal",
@@ -102,16 +104,16 @@ func TestValidateHealthRequiresMySQL8AndUTF8MB4(t *testing.T) {
 func TestPrepareMigrationsSortsWithoutMutatingInput(t *testing.T) {
 	noop := func(context.Context, MigrationDB) error { return nil }
 	input := []Migration{
-		{Version: 30, Name: " third ", Up: noop},
-		{Version: 10, Name: "first", Up: noop},
-		{Version: 20, Name: "second", Up: noop},
+		{Version: 30, Name: " third ", Checksum: testMigrationChecksum, Up: noop},
+		{Version: 10, Name: "first", Checksum: testMigrationChecksum, Up: noop},
+		{Version: 20, Name: "second", Checksum: testMigrationChecksum, Up: noop},
 	}
 
 	ordered, err := prepareMigrations(input)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := []int64{ordered[0].Version, ordered[1].Version, ordered[2].Version}; got[0] != 10 || got[1] != 20 || got[2] != 30 {
+	if got := []uint64{ordered[0].Version, ordered[1].Version, ordered[2].Version}; got[0] != 10 || got[1] != 20 || got[2] != 30 {
 		t.Fatalf("order = %v", got)
 	}
 	if ordered[2].Name != "third" {
@@ -124,17 +126,18 @@ func TestPrepareMigrationsSortsWithoutMutatingInput(t *testing.T) {
 
 func TestPrepareMigrationsRejectsInvalidDefinitions(t *testing.T) {
 	noop := func(context.Context, MigrationDB) error { return nil }
-	longName := strings.Repeat("x", 192)
+	longName := strings.Repeat("x", 256)
 	tests := []struct {
 		name       string
 		migrations []Migration
 	}{
-		{name: "non-positive version", migrations: []Migration{{Version: 0, Name: "bad", Up: noop}}},
-		{name: "empty name", migrations: []Migration{{Version: 1, Name: " ", Up: noop}}},
-		{name: "long name", migrations: []Migration{{Version: 1, Name: longName, Up: noop}}},
-		{name: "nil up", migrations: []Migration{{Version: 1, Name: "bad"}}},
-		{name: "duplicate version", migrations: []Migration{{Version: 1, Name: "a", Up: noop}, {Version: 1, Name: "b", Up: noop}}},
-		{name: "duplicate name", migrations: []Migration{{Version: 1, Name: "same", Up: noop}, {Version: 2, Name: "same", Up: noop}}},
+		{name: "non-positive version", migrations: []Migration{{Version: 0, Name: "bad", Checksum: testMigrationChecksum, Up: noop}}},
+		{name: "empty name", migrations: []Migration{{Version: 1, Name: " ", Checksum: testMigrationChecksum, Up: noop}}},
+		{name: "long name", migrations: []Migration{{Version: 1, Name: longName, Checksum: testMigrationChecksum, Up: noop}}},
+		{name: "invalid checksum", migrations: []Migration{{Version: 1, Name: "bad", Checksum: "xyz", Up: noop}}},
+		{name: "nil up", migrations: []Migration{{Version: 1, Name: "bad", Checksum: testMigrationChecksum}}},
+		{name: "duplicate version", migrations: []Migration{{Version: 1, Name: "a", Checksum: testMigrationChecksum, Up: noop}, {Version: 1, Name: "b", Checksum: testMigrationChecksum, Up: noop}}},
+		{name: "duplicate name", migrations: []Migration{{Version: 1, Name: "same", Checksum: testMigrationChecksum, Up: noop}, {Version: 2, Name: "same", Checksum: testMigrationChecksum, Up: noop}}},
 	}
 
 	for _, tc := range tests {
