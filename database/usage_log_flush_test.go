@@ -3,13 +3,10 @@ package database
 import (
 	"context"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
-
-	"github.com/jackc/pgx/v5/pgconn"
 )
 
 // insertUsageLogs 往缓冲里塞 count 条最简用量日志。
@@ -229,14 +226,22 @@ func TestUsageLogInsertRowsStayUnderPostgresBindLimit(t *testing.T) {
 	}
 }
 
-// dataError 构造一个 PostgreSQL 数据类错误（class 22：超长、非法字节、数值溢出这类）。
+type testSQLStateError struct {
+	code    string
+	message string
+}
+
+func (e testSQLStateError) Error() string    { return e.message }
+func (e testSQLStateError) SQLState() string { return e.code }
+
+// dataError 构造一个确定性 SQLSTATE 数据类错误。
 func dataError() error {
-	return &pgconn.PgError{Code: "22001", Message: "value too long for type character varying(100)"}
+	return testSQLStateError{code: "22001", message: "value too long"}
 }
 
 // transientError 构造一个瞬时故障（class 08：连接异常）。
 func transientError() error {
-	return &pgconn.PgError{Code: "08006", Message: "connection failure"}
+	return testSQLStateError{code: "08006", message: "connection failure"}
 }
 
 func TestIsUsageLogDataError(t *testing.T) {
@@ -247,13 +252,13 @@ func TestIsUsageLogDataError(t *testing.T) {
 	}{
 		{"nil 不是数据错误", nil, false},
 		{"class 22 数据异常", dataError(), true},
-		{"class 23 约束冲突", &pgconn.PgError{Code: "23505"}, true},
+		{"class 23 约束冲突", testSQLStateError{code: "23505"}, true},
 		{"class 08 连接异常要重试", transientError(), false},
-		{"class 40 死锁要重试", &pgconn.PgError{Code: "40P01"}, false},
-		{"class 53 资源不足要重试", &pgconn.PgError{Code: "53100"}, false},
+		{"class 40 死锁要重试", testSQLStateError{code: "40P01"}, false},
+		{"class 53 资源不足要重试", testSQLStateError{code: "53100"}, false},
 		{"包装后的数据错误仍能识别", fmt.Errorf("执行插入: %w", dataError()), true},
-		{"非 PostgreSQL SQLSTATE 错误按瞬时处理", context.DeadlineExceeded, false},
-		{"SQLSTATE 过短不按数据错误处理", &pgconn.PgError{Code: "2"}, false},
+		{"非 SQLSTATE 错误按瞬时处理", context.DeadlineExceeded, false},
+		{"SQLSTATE 过短不按数据错误处理", testSQLStateError{code: "2"}, false},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -393,67 +398,5 @@ func TestRequeueHonorsHardLimit(t *testing.T) {
 	}
 	if stats.DroppedTotal != 100 {
 		t.Fatalf("DroppedTotal = %d，want 100", stats.DroppedTotal)
-	}
-}
-
-// TestSalvageDropsPoisonRowAgainstPostgres 在真实 PostgreSQL 上验证脏数据隔离：
-// SQLite 不校验列宽也不返回 SQLSTATE，isUsageLogDataError 这条路只有真库能走通。
-// 需要一个可写的空库，用 AXISRELAY_TEST_POSTGRES_DSN 指定，未设置时跳过。
-func TestSalvageDropsPoisonRowAgainstPostgres(t *testing.T) {
-	dsn := os.Getenv("AXISRELAY_TEST_POSTGRES_DSN")
-	if dsn == "" {
-		t.Skip("未设置 AXISRELAY_TEST_POSTGRES_DSN，跳过 PostgreSQL 集成用例")
-	}
-
-	db, err := New("postgres", dsn)
-	if err != nil {
-		t.Fatalf("New(postgres) 返回错误: %v", err)
-	}
-	close(db.logStop)
-	db.logWg.Wait()
-	defer db.conn.Close()
-
-	ctx := context.Background()
-	// 用一条 CHECK 约束造出「重试多少次都写不进去」的行：真实成因（超长、非法字节、
-	// 数值溢出）同属 SQLSTATE class 22/23，走的是同一条判定分支。
-	if _, err := db.conn.ExecContext(ctx,
-		`ALTER TABLE usage_logs ADD CONSTRAINT tmp_salvage_poison CHECK (model <> '__poison__')`); err != nil {
-		t.Fatalf("创建约束返回错误: %v", err)
-	}
-	defer db.conn.ExecContext(ctx, `ALTER TABLE usage_logs DROP CONSTRAINT IF EXISTS tmp_salvage_poison`)
-
-	const marker = "/salvage-test"
-	const clean = 8
-	db.SetUsageLogConfig(UsageLogModeFull, maxUsageLogBatchSize, maxUsageLogFlushIntervalSeconds)
-	for i := 0; i < clean; i++ {
-		model := "gpt-5.4"
-		if i == 3 {
-			model = "__poison__"
-		}
-		if err := db.InsertUsageLog(ctx, &UsageLogInput{
-			Endpoint:   marker,
-			Model:      model,
-			StatusCode: 200,
-		}); err != nil {
-			t.Fatalf("InsertUsageLog(%d) 返回错误: %v", i, err)
-		}
-	}
-
-	db.FlushUsageLogs()
-
-	var landed int
-	if err := db.conn.QueryRowContext(ctx,
-		`SELECT count(*) FROM usage_logs WHERE endpoint = $1`, marker).Scan(&landed); err != nil {
-		t.Fatalf("统计落库条数返回错误: %v", err)
-	}
-	if landed != clean-1 {
-		t.Fatalf("落库 %d 条，want %d（脏数据之外的日志必须照常写入）", landed, clean-1)
-	}
-	stats := db.GetUsageLogRuntimeStats()
-	if stats.DroppedTotal != 1 {
-		t.Fatalf("DroppedTotal = %d，want 1", stats.DroppedTotal)
-	}
-	if stats.BufferLength != 0 {
-		t.Fatalf("BufferLength = %d，want 0（脏数据不应留在缓冲区反复重试）", stats.BufferLength)
 	}
 }

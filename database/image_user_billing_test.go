@@ -3,7 +3,6 @@ package database
 import (
 	"context"
 	"math"
-	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -81,13 +80,7 @@ func TestValidateImageUserBilling(t *testing.T) {
 func TestImageUserBillingPersistence(t *testing.T) {
 	testImageUserBillingPersistence(t, "sqlite", filepath.Join(t.TempDir(), "image-fees.db"))
 }
-func TestImageUserBillingPersistencePostgres(t *testing.T) {
-	dsn := os.Getenv("AXISRELAY_TEST_POSTGRES_DSN")
-	if dsn == "" {
-		t.Skip("requires an isolated AXISRELAY_TEST_POSTGRES_DSN database")
-	}
-	testImageUserBillingPersistence(t, "postgres", dsn)
-}
+
 func testImageUserBillingPersistence(t *testing.T, driver, dsn string) {
 	previous := currentModelPricingOverrides()
 	t.Cleanup(func() { SetModelPricingOverrides(previous) })

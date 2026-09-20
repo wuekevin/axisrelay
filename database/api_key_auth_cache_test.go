@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"os"
 	"path/filepath"
 	"sync"
 	"testing"
@@ -14,19 +13,6 @@ import (
 
 func TestAPIKeyAuthRevisionSQLite(t *testing.T) {
 	db, err := New("sqlite", filepath.Join(t.TempDir(), "auth.db"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = db.Close() })
-	testAPIKeyAuthRevision(t, db)
-}
-
-func TestAPIKeyAuthRevisionPostgres(t *testing.T) {
-	dsn := os.Getenv("AXISRELAY_TEST_POSTGRES_DSN")
-	if dsn == "" {
-		t.Skip("requires an isolated PostgreSQL database")
-	}
-	db, err := New("postgres", dsn)
 	if err != nil {
 		t.Fatal(err)
 	}

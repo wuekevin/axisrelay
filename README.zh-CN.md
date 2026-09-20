@@ -287,14 +287,8 @@ Vite 会自动代理 `/api` 和 `/health` 到后端，开发时访问 `http://lo
 | `AXISRELAY_PORT` | HTTP 端口，默认 `8080` |
 | `AXISRELAY_MAX_REQUEST_BODY_SIZE_MB` | HTTP 请求体上限，单位 MB，默认 `48` |
 | `AXISRELAY_ADMIN_SECRET` | 管理后台登录密钥；设置后首次访问 `/admin` 会弹出密码输入框 |
-| `AXISRELAY_DATABASE_DRIVER` | 数据库驱动，支持 `postgres` / `sqlite` |
-| `AXISRELAY_DATABASE_PATH` | SQLite 数据文件路径，`AXISRELAY_DATABASE_DRIVER=sqlite` 时生效 |
-| `AXISRELAY_DATABASE_HOST` | PostgreSQL 主机，`AXISRELAY_DATABASE_DRIVER=postgres` 时生效 |
-| `AXISRELAY_DATABASE_PORT` | PostgreSQL 端口，默认 `5432` |
-| `AXISRELAY_DATABASE_USER` | PostgreSQL 用户 |
-| `AXISRELAY_DATABASE_PASSWORD` | PostgreSQL 密码 |
-| `AXISRELAY_DATABASE_NAME` | PostgreSQL 数据库名 |
-| `AXISRELAY_DATABASE_SSLMODE` | PostgreSQL SSL 模式，默认 `disable` |
+| `AXISRELAY_DATABASE_DRIVER` | S0.3 过渡阶段固定使用 `sqlite`；S0.4 接入 MySQL |
+| `AXISRELAY_DATABASE_PATH` | S0.3 过渡阶段使用的 SQLite 数据文件路径 |
 | `AXISRELAY_CACHE_DRIVER` | 缓存驱动，支持 `redis` / `memory` |
 | `AXISRELAY_REDIS_ADDR` | Redis 地址，例如 `redis:6379`、`redis://default:pass@host:6379/0`、`rediss://default:pass@host:6379/0`，`AXISRELAY_CACHE_DRIVER=redis` 时生效 |
 | `AXISRELAY_REDIS_USERNAME` | Redis ACL 用户名，可选；URL 中带用户名时可不填 |

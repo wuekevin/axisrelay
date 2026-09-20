@@ -1,7 +1,6 @@
 package database
 
 import (
-	"database/sql"
 	"testing"
 )
 
@@ -49,15 +48,6 @@ func TestNormalizeCodexCLIVersionSyncIntervalHours(t *testing.T) {
 	}
 }
 
-func TestSQLOpenDriverNameMapsPostgresToPgx(t *testing.T) {
-	if got := sqlOpenDriverName("postgres"); got != "pgx" {
-		t.Fatalf("sqlOpenDriverName(postgres) = %q, want pgx", got)
-	}
-	if got := sqlOpenDriverName("sqlite"); got != "sqlite" {
-		t.Fatalf("sqlOpenDriverName(sqlite) = %q, want sqlite", got)
-	}
-}
-
 func TestQuotePostgresIdentEscapesAndTruncates(t *testing.T) {
 	cases := []struct {
 		in, want string
@@ -88,15 +78,5 @@ func TestPostgresInt8ArrayTextLiteral(t *testing.T) {
 	nilValue, err := postgresInt8Array(nil).Value()
 	if err != nil || nilValue != nil {
 		t.Fatalf("nil Value() = %#v err=%v, want nil", nilValue, err)
-	}
-}
-
-func TestPgxStdlibDriverIsRegistered(t *testing.T) {
-	db, err := sql.Open("pgx", "host=127.0.0.1 port=1 user=x password=x dbname=x sslmode=disable")
-	if err != nil {
-		t.Fatalf("sql.Open(pgx) failed: %v", err)
-	}
-	if err := db.Close(); err != nil {
-		t.Fatal(err)
 	}
 }

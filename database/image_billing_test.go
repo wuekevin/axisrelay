@@ -2,7 +2,6 @@ package database
 
 import (
 	"context"
-	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -42,14 +41,6 @@ func TestGPTImage25PricingOverrideAndLegacyIsolation(t *testing.T) {
 
 func TestGPTImage25UsagePersistence(t *testing.T) {
 	testGPTImage25UsagePersistence(t, "sqlite", filepath.Join(t.TempDir(), "image-usage.db"))
-}
-
-func TestGPTImage25UsagePersistencePostgres(t *testing.T) {
-	dsn := os.Getenv("AXISRELAY_TEST_POSTGRES_DSN")
-	if dsn == "" {
-		t.Skip("requires an isolated AXISRELAY_TEST_POSTGRES_DSN database")
-	}
-	testGPTImage25UsagePersistence(t, "postgres", dsn)
 }
 
 func testGPTImage25UsagePersistence(t *testing.T, driver, dsn string) {

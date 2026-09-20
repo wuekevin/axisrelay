@@ -6,7 +6,7 @@
 
 **Architecture:** 版本同步逻辑镜像现有 `proxy/codex_cli_version_sync.go`：GitHub releases/latest 为主源、npm dist-tags 回退，同步值存 `system_settings.claude_synced_cli_version` 单列，运行时取"内置常量与同步值的较大者"。生效版本通过 `auth` 包级原子变量发布（`GenerateClaudeFingerprint` 是无 Store 的自由函数，包级访问器比 Store 方法更合适；这是对 spec "Store 访问器"措辞的实现细化，语义不变）。每次同步与服务启动时把生效版本回写到所有 Claude 账号的 `custom_headers.User-Agent` 版本段。`ExecuteClaudeMessagesRequestWithPolicy` 在指纹改写完成后再对最终出站 UA 做一次版本对齐。
 
-**Tech Stack:** Go 1.2x（gin、tidwall/gjson、modernc sqlite / pgx）、React + TypeScript（Vite、react-i18next、node:test 源码守卫测试）。
+**Tech Stack:** Go 1.2x（gin、tidwall/gjson、modernc sqlite / go-sql-driver/mysql）、React + TypeScript（Vite、react-i18next、node:test 源码守卫测试）。
 
 **Spec:** `docs/superpowers/specs/2026-09-02-claude-cli-version-sync-design.md`
 

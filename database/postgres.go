@@ -16,10 +16,8 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/wuekevin/axisrelay/internal/openaiidentity"
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgconn"
-	_ "github.com/jackc/pgx/v5/stdlib"
+	"github.com/wuekevin/axisrelay/internal/openaiidentity"
 	_ "modernc.org/sqlite"
 )
 
@@ -298,31 +296,31 @@ func NormalizeUsageLogFlushIntervalSeconds(n int) int {
 // usageLogEntry 日志缓冲条目
 type usageLogEntry struct {
 	UserBilling
-	RequestID              string
-	UpstreamRequestID      string
-	UpstreamProxyID        int64
-	UpstreamProxyName      string
-	InjectedTurnState      string
-	UpstreamTurnState      string
-	StoreUsageLog          bool
-	AccountID              int64
-	CredentialGeneration   int64
-	Channel                string
-	ClientIP               string
-	ClientUserAgent        string
-	UpstreamUserAgent      string
-	UserAgentOverridden    bool
-	TurnStateOverridden    bool
-	TurnStateRewriteNote   string
-	InternalReason         string
-	ParentRequestID        string
-	Endpoint               string
-	Model                  string
-	EffectiveModel         string
+	RequestID            string
+	UpstreamRequestID    string
+	UpstreamProxyID      int64
+	UpstreamProxyName    string
+	InjectedTurnState    string
+	UpstreamTurnState    string
+	StoreUsageLog        bool
+	AccountID            int64
+	CredentialGeneration int64
+	Channel              string
+	ClientIP             string
+	ClientUserAgent      string
+	UpstreamUserAgent    string
+	UserAgentOverridden  bool
+	TurnStateOverridden  bool
+	TurnStateRewriteNote string
+	InternalReason       string
+	ParentRequestID      string
+	Endpoint             string
+	Model                string
+	EffectiveModel       string
 	// UpstreamResponseModel 是上游响应自报的模型名（观测值，未自报为空串）。
 	UpstreamResponseModel string
 	// UpstreamModelMismatch 三态：nil=上游未自报；true/false=自报与实发是否一致。
-	UpstreamModelMismatch *bool
+	UpstreamModelMismatch  *bool
 	PromptTokens           int
 	CompletionTokens       int
 	TotalTokens            int
@@ -370,44 +368,31 @@ type usageLogEntry struct {
 }
 
 // New 创建数据库连接并自动建表。
-// schema 仅对 PostgreSQL 生效；为空时保持数据库默认 search_path。
-func New(driver string, dsn string, schema ...string) (*DB, error) {
+// S0.3 已移除 PostgreSQL 运行入口；S0.4 会新增独立 MySQL Platform。
+func New(driver string, dsn string) (*DB, error) {
 	driver = normalizeDriver(driver)
-	driverName := sqlOpenDriverName(driver)
+	if driver != "sqlite" {
+		return nil, fmt.Errorf("不支持的数据库驱动: %s", driver)
+	}
 	// 测试注册了 schema 模板且目标文件尚不存在时，直接复制模板并跳过迁移。
 	fromSchemaTemplate := false
-	if driver == "sqlite" {
-		if target, ok := sqliteSchemaTemplateTarget(dsn); ok {
-			fromSchemaTemplate = applySQLiteSchemaTemplate(target)
-		}
-		dsn = sqliteConnectDSN(dsn)
+	if target, ok := sqliteSchemaTemplateTarget(dsn); ok {
+		fromSchemaTemplate = applySQLiteSchemaTemplate(target)
 	}
+	dsn = sqliteConnectDSN(dsn)
+	sqliteSingleConn := strings.TrimSpace(dsn) == ":memory:"
 
-	pgSchema := ""
-	if len(schema) > 0 {
-		pgSchema = strings.TrimSpace(schema[0])
-	}
-	sqliteSingleConn := driver == "sqlite" && strings.TrimSpace(dsn) == ":memory:"
-
-	conn, err := sql.Open(driverName, dsn)
+	conn, err := sql.Open(driver, dsn)
 	if err != nil {
 		return nil, fmt.Errorf("连接数据库失败: %w", err)
 	}
 
-	// ==================== 连接池优化 ====================
-	if driver == "sqlite" {
-		if sqliteSingleConn {
-			conn.SetMaxOpenConns(1)
-			conn.SetMaxIdleConns(1)
-		} else {
-			applySQLiteConnLimits(conn, defaultSQLiteMaxOpenConns)
-		}
+	// ==================== SQLite 连接池优化 ====================
+	if sqliteSingleConn {
+		conn.SetMaxOpenConns(1)
+		conn.SetMaxIdleConns(1)
 	} else {
-		// 高并发场景：大量 RT 刷新 + 前端查询 + 使用日志写入 并行
-		conn.SetMaxOpenConns(100)                 // 增加最大打开连接数以处理更高并发
-		conn.SetMaxIdleConns(50)                  // 增加空闲连接数以保持热连接
-		conn.SetConnMaxLifetime(60 * time.Minute) // 增加连接最大生存时间
-		conn.SetConnMaxIdleTime(30 * time.Minute) // 增加空闲连接最大闲置时间
+		applySQLiteConnLimits(conn, defaultSQLiteMaxOpenConns)
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -430,29 +415,10 @@ func New(driver string, dsn string, schema ...string) (*DB, error) {
 	if db.isSQLite() {
 		db.sqliteWriteSem = make(chan struct{}, 1)
 	}
-	db.authCacheScope = apiKeyAuthDatabaseScope(driver, dsn, pgSchema)
+	db.authCacheScope = apiKeyAuthDatabaseScope(driver, dsn)
 	db.SetUsageLogConfig(defaultUsageLogMode, defaultUsageLogBatchSize, defaultUsageLogFlushIntervalSeconds)
-	if db.isSQLite() {
-		if err := db.configureSQLite(ctx); err != nil {
-			return nil, fmt.Errorf("配置 SQLite 失败: %w", err)
-		}
-	} else {
-		// PostgreSQL: 统一会话时区为 UTC，确保 NOW() 和时间字面量一致
-		if _, err := conn.ExecContext(ctx, "SET timezone = 'UTC'"); err != nil {
-			return nil, fmt.Errorf("设置数据库时区失败: %w", err)
-		}
-		// 自定义 schema：确保 schema 存在并确认当前会话 search_path 已生效。
-		// search_path 已通过 DSN 的 options=-c search_path=... 在所有连接启动时设置；
-		// 这里仅做一次幂等的 CREATE SCHEMA + SET 兜底，便于首次部署时自动建好 schema。
-		if pgSchema != "" {
-			quoted := quotePostgresIdent(pgSchema)
-			if _, err := conn.ExecContext(ctx, "CREATE SCHEMA IF NOT EXISTS "+quoted); err != nil {
-				return nil, fmt.Errorf("创建数据库 schema 失败: %w", err)
-			}
-			if _, err := conn.ExecContext(ctx, "SET search_path TO "+quoted+", public"); err != nil {
-				return nil, fmt.Errorf("设置 search_path 失败: %w", err)
-			}
-		}
+	if err := db.configureSQLite(ctx); err != nil {
+		return nil, fmt.Errorf("配置 SQLite 失败: %w", err)
 	}
 	// 模板复制出来的库已经包含下面全部 schema（模板本身就是走完整路径建出来的），
 	// 跳过迁移与各 ensure*：在 -race 下这些幂等 DDL 每次仍要几百毫秒。
@@ -4179,34 +4145,34 @@ func (db *DB) RebindAccountProxyURLs(ctx context.Context, oldURL, newURL string)
 // UsageLog 请求日志行
 type UsageLog struct {
 	UserBilling
-	RequestID              string    `json:"request_id"`
-	UpstreamRequestID      string    `json:"upstream_request_id"`
-	UpstreamProxyID        int64     `json:"upstream_proxy_id"`
-	UpstreamProxyName      string    `json:"upstream_proxy_name"`
-	InjectedTurnState      string    `json:"injected_turn_state,omitempty"`
-	UpstreamTurnState      string    `json:"upstream_turn_state,omitempty"`
-	ID                     int64     `json:"id"`
-	AccountID              int64     `json:"account_id"`
-	CredentialGeneration   int64     `json:"credential_generation,omitempty"`
-	Channel                string    `json:"channel,omitempty"`
-	ClientIP               string    `json:"client_ip"`
-	ClientUserAgent        string    `json:"client_user_agent"`
-	UpstreamUserAgent      string    `json:"upstream_user_agent"`
-	UserAgentOverridden    bool      `json:"user_agent_overridden"`
-	TurnStateOverridden    bool      `json:"turn_state_overridden"`
-	TurnStateRewriteNote   string    `json:"turn_state_rewrite_note"`
-	InternalReason         string    `json:"internal_reason"`
-	ParentRequestID        string    `json:"parent_request_id"`
-	Endpoint               string    `json:"endpoint"`
-	Model                  string    `json:"model"`
-	EffectiveModel         string    `json:"effective_model"`
+	RequestID            string `json:"request_id"`
+	UpstreamRequestID    string `json:"upstream_request_id"`
+	UpstreamProxyID      int64  `json:"upstream_proxy_id"`
+	UpstreamProxyName    string `json:"upstream_proxy_name"`
+	InjectedTurnState    string `json:"injected_turn_state,omitempty"`
+	UpstreamTurnState    string `json:"upstream_turn_state,omitempty"`
+	ID                   int64  `json:"id"`
+	AccountID            int64  `json:"account_id"`
+	CredentialGeneration int64  `json:"credential_generation,omitempty"`
+	Channel              string `json:"channel,omitempty"`
+	ClientIP             string `json:"client_ip"`
+	ClientUserAgent      string `json:"client_user_agent"`
+	UpstreamUserAgent    string `json:"upstream_user_agent"`
+	UserAgentOverridden  bool   `json:"user_agent_overridden"`
+	TurnStateOverridden  bool   `json:"turn_state_overridden"`
+	TurnStateRewriteNote string `json:"turn_state_rewrite_note"`
+	InternalReason       string `json:"internal_reason"`
+	ParentRequestID      string `json:"parent_request_id"`
+	Endpoint             string `json:"endpoint"`
+	Model                string `json:"model"`
+	EffectiveModel       string `json:"effective_model"`
 	// UpstreamResponseModel 是上游响应自报的模型名（取自 response.model 等字段，
 	// 未经协议转换或改写）。空串=上游未自报或历史行。
 	UpstreamResponseModel string `json:"upstream_response_model,omitempty"`
 	// UpstreamModelMismatch 三态：nil=上游未自报（或历史行），无法比对；
 	// true/false=已比对，上游自报与实发模型是否一致。
-	UpstreamModelMismatch *bool `json:"upstream_model_mismatch,omitempty"`
-	PromptTokens          int   `json:"prompt_tokens"`
+	UpstreamModelMismatch  *bool     `json:"upstream_model_mismatch,omitempty"`
+	PromptTokens           int       `json:"prompt_tokens"`
 	CompletionTokens       int       `json:"completion_tokens"`
 	TotalTokens            int       `json:"total_tokens"`
 	StatusCode             int       `json:"status_code"`
@@ -4278,10 +4244,10 @@ type UsageLog struct {
 // 整条批量 INSERT 回滚，失败的 batch 又会被原样放回缓冲区头部，下一轮继续失败——
 // 单条脏数据就能永久堵死整个日志写入。因此写入前按列宽截断。
 const (
-	usageLogChannelMaxLen    = 16  // channel
-	usageLogImageSizeMaxLen  = 32  // image_size
-	usageLogShortTextMaxLen  = 64  // client_ip / api_key_masked / upstream_error_kind
-	usageLogTextMaxLen       = 100 // endpoint / model / *_service_tier / reasoning_effort ...
+	usageLogChannelMaxLen   = 16  // channel
+	usageLogImageSizeMaxLen = 32  // image_size
+	usageLogShortTextMaxLen = 64  // client_ip / api_key_masked / upstream_error_kind
+	usageLogTextMaxLen      = 100 // endpoint / model / *_service_tier / reasoning_effort ...
 	// upstreamResponseModelMaxLen 与 usage_logs.upstream_response_model 列宽一致：
 	// 上游自报模型名不受网关控制，写入前按列宽截断。
 	upstreamResponseModelMaxLen = 200
@@ -4451,22 +4417,22 @@ type UsageLogInput struct {
 	// credential snapshot that issued it. Zero is legacy/unscoped traffic.
 	CredentialGeneration int64
 	// Channel 是处理该请求的上游渠道（codex/grok），写入时固化，空值表示未知。
-	Channel                string
-	ClientIP               string
-	ClientUserAgent        string
-	UpstreamUserAgent      string
-	UserAgentOverridden    bool
-	TurnStateOverridden    bool
-	TurnStateRewriteNote   string
-	InternalReason         string
-	ParentRequestID        string
-	Endpoint               string
-	Model                  string
-	EffectiveModel         string
+	Channel              string
+	ClientIP             string
+	ClientUserAgent      string
+	UpstreamUserAgent    string
+	UserAgentOverridden  bool
+	TurnStateOverridden  bool
+	TurnStateRewriteNote string
+	InternalReason       string
+	ParentRequestID      string
+	Endpoint             string
+	Model                string
+	EffectiveModel       string
 	// UpstreamResponseModel 是上游响应自报的模型名（观测值，未自报为空串）。
 	UpstreamResponseModel string
 	// UpstreamModelMismatch 三态：nil=上游未自报；true/false=自报与实发是否一致。
-	UpstreamModelMismatch *bool
+	UpstreamModelMismatch  *bool
 	PromptTokens           int
 	CompletionTokens       int
 	TotalTokens            int
@@ -4692,19 +4658,27 @@ func (db *DB) insertUsageLogBatch(ctx context.Context, batch []usageLogEntry) er
 	return db.insertSQLiteUsageLogBatch(ctx, batch)
 }
 
-// isUsageLogDataError 判断失败是不是「这批数据本身写不进去」。PostgreSQL 的 SQLSTATE
-// class 22（数据异常：超长、非法 UTF-8 字节、数值溢出…）和 class 23（约束冲突）重试多少次
-// 都不会成功；其余错误（连接断开、超时、死锁、只读事务）是瞬时故障，必须继续重试，
-// 绝不能顺手把日志丢掉。
+type sqlStateError interface {
+	error
+	SQLState() string
+}
+
+// isUsageLogDataError 判断失败是不是「这批数据本身写不进去」。
+// SQLSTATE class 22（数据异常）和 class 23（约束冲突）属于确定性数据错误；
+// 连接、超时、死锁等仍按瞬时故障重试。具体 MySQL 错误映射在后续 SQL 审计阶段补齐。
 func isUsageLogDataError(err error) bool {
 	if err == nil {
 		return false
 	}
-	var pgErr *pgconn.PgError
-	if !errors.As(err, &pgErr) || len(pgErr.Code) < 2 {
+	var stateErr sqlStateError
+	if !errors.As(err, &stateErr) {
 		return false
 	}
-	switch pgErr.Code[:2] {
+	code := stateErr.SQLState()
+	if len(code) < 2 {
+		return false
+	}
+	switch code[:2] {
 	case "22", "23":
 		return true
 	}

@@ -95,18 +95,12 @@ Codex2API 采用三层配置架构：
 
 ### 数据库配置
 
-#### PostgreSQL 模式
+#### SQLite 过渡模式
 
 | 变量 | 必填 | 默认值 | 说明 |
 |------|------|--------|------|
-| `AXISRELAY_DATABASE_DRIVER` | 是 | postgres | 固定值: postgres |
-| `AXISRELAY_DATABASE_HOST` | 是 | - | PostgreSQL 主机地址 |
-| `AXISRELAY_DATABASE_PORT` | 否 | 5432 | PostgreSQL 端口 |
-| `AXISRELAY_DATABASE_USER` | 是 | - | PostgreSQL 用户名 |
-| `AXISRELAY_DATABASE_PASSWORD` | 是 | - | PostgreSQL 密码 |
-| `AXISRELAY_DATABASE_NAME` | 是 | - | PostgreSQL 数据库名 |
-| `AXISRELAY_DATABASE_SCHEMA` | 否 | - | PostgreSQL schema；适合 Supabase 等多项目共享 database 的场景。配置后启动时自动 `CREATE SCHEMA IF NOT EXISTS` 并将所有连接的 `search_path` 指向该 schema。仅允许字母/数字/下划线，长度 ≤63；留空保持默认（通常是 `public`）。|
-| `AXISRELAY_DATABASE_SSLMODE` | 否 | disable | SSL 模式: disable/require/verify-full |
+| `AXISRELAY_DATABASE_DRIVER` | 是 | sqlite | S0.3 过渡阶段固定为 `sqlite`；MySQL 在 S0.4 接入 |
+| `AXISRELAY_DATABASE_PATH` | 是 | - | SQLite 数据文件路径，例如 `/data/axisrelay.db` |
 
 ### 生图工作台
 
@@ -460,14 +454,9 @@ AXISRELAY_PORT=8080
 AXISRELAY_ADMIN_SECRET=your-secure-admin-password-here
 TZ=Asia/Shanghai
 
-# 数据库配置 (PostgreSQL)
-AXISRELAY_DATABASE_DRIVER=postgres
-AXISRELAY_DATABASE_HOST=postgres
-AXISRELAY_DATABASE_PORT=5432
-AXISRELAY_DATABASE_USER=codex2api
-AXISRELAY_DATABASE_PASSWORD=your-strong-db-password
-AXISRELAY_DATABASE_NAME=codex2api
-AXISRELAY_DATABASE_SSLMODE=disable
+# 数据库配置（S0.3 过渡：SQLite；S0.4 切换 MySQL）
+AXISRELAY_DATABASE_DRIVER=sqlite
+AXISRELAY_DATABASE_PATH=/data/axisrelay.db
 AXISRELAY_IMAGE_ASSET_DIR=/data/images
 AXISRELAY_LOG_DIR=logs
 AXISRELAY_LOG_DISABLED=false
@@ -515,13 +504,9 @@ AXISRELAY_CACHE_DRIVER=memory
 AXISRELAY_PORT=8080
 # AXISRELAY_ADMIN_SECRET=dev  # 开发环境可不设置
 
-# 本地 PostgreSQL
-AXISRELAY_DATABASE_DRIVER=postgres
-AXISRELAY_DATABASE_HOST=localhost
-AXISRELAY_DATABASE_PORT=5432
-AXISRELAY_DATABASE_USER=codex2api
-AXISRELAY_DATABASE_PASSWORD=codex2api
-AXISRELAY_DATABASE_NAME=codex2api
+# 本地数据库（S0.3 过渡）
+AXISRELAY_DATABASE_DRIVER=sqlite
+AXISRELAY_DATABASE_PATH=./data/axisrelay.db
 
 # 本地 Redis
 AXISRELAY_CACHE_DRIVER=redis

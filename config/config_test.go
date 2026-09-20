@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-func TestLoadDefaultsToPostgresAndRedis(t *testing.T) {
+func TestLoadDefaultsToSQLiteAndRedis(t *testing.T) {
 	keys := []string{
 		"AXISRELAY_PORT",
 		"AXISRELAY_MAX_REQUEST_BODY_SIZE_MB",
@@ -20,7 +20,6 @@ func TestLoadDefaultsToPostgresAndRedis(t *testing.T) {
 		"AXISRELAY_DATABASE_USER",
 		"AXISRELAY_DATABASE_PASSWORD",
 		"AXISRELAY_DATABASE_NAME",
-		"AXISRELAY_DATABASE_SSLMODE",
 		"AXISRELAY_CACHE_DRIVER",
 		"AXISRELAY_REDIS_ADDR",
 		"AXISRELAY_REDIS_USERNAME",
@@ -33,8 +32,8 @@ func TestLoadDefaultsToPostgresAndRedis(t *testing.T) {
 		t.Setenv(key, "")
 	}
 
-	// 不设置 AXISRELAY_DATABASE_DRIVER / AXISRELAY_CACHE_DRIVER，只提供各自默认驱动所需的最小参数。
-	t.Setenv("AXISRELAY_DATABASE_HOST", "postgres")
+	// S0.3 过渡阶段默认 SQLite；缓存仍默认 Redis。
+	t.Setenv("AXISRELAY_DATABASE_PATH", filepath.Join(t.TempDir(), "axisrelay.db"))
 	t.Setenv("AXISRELAY_REDIS_ADDR", "redis:6379")
 
 	cfg, err := Load("__not_exists__.env")
@@ -42,17 +41,11 @@ func TestLoadDefaultsToPostgresAndRedis(t *testing.T) {
 		t.Fatalf("Load() 返回错误: %v", err)
 	}
 
-	if got := cfg.Database.Driver; got != "postgres" {
-		t.Fatalf("Database.Driver = %q, want %q", got, "postgres")
+	if got := cfg.Database.Driver; got != "sqlite" {
+		t.Fatalf("Database.Driver = %q, want %q", got, "sqlite")
 	}
 	if got := cfg.Cache.Driver; got != "redis" {
 		t.Fatalf("Cache.Driver = %q, want %q", got, "redis")
-	}
-	if got := cfg.Database.Port; got != 5432 {
-		t.Fatalf("Database.Port = %d, want %d", got, 5432)
-	}
-	if got := cfg.Database.SSLMode; got != "disable" {
-		t.Fatalf("Database.SSLMode = %q, want %q", got, "disable")
 	}
 	if got := cfg.Port; got != 8080 {
 		t.Fatalf("Port = %d, want %d", got, 8080)
@@ -77,7 +70,6 @@ func TestLoadAllowsExplicitSQLiteAndMemory(t *testing.T) {
 		"AXISRELAY_DATABASE_USER",
 		"AXISRELAY_DATABASE_PASSWORD",
 		"AXISRELAY_DATABASE_NAME",
-		"AXISRELAY_DATABASE_SSLMODE",
 		"AXISRELAY_CACHE_DRIVER",
 		"AXISRELAY_REDIS_ADDR",
 		"AXISRELAY_REDIS_USERNAME",
@@ -122,7 +114,6 @@ func TestLoadReadsAdminSecretFromEnv(t *testing.T) {
 		"AXISRELAY_DATABASE_USER",
 		"AXISRELAY_DATABASE_PASSWORD",
 		"AXISRELAY_DATABASE_NAME",
-		"AXISRELAY_DATABASE_SSLMODE",
 		"AXISRELAY_CACHE_DRIVER",
 		"AXISRELAY_REDIS_ADDR",
 		"AXISRELAY_REDIS_USERNAME",
@@ -135,7 +126,7 @@ func TestLoadReadsAdminSecretFromEnv(t *testing.T) {
 		t.Setenv(key, "")
 	}
 
-	t.Setenv("AXISRELAY_DATABASE_HOST", "postgres")
+	t.Setenv("AXISRELAY_DATABASE_PATH", filepath.Join(t.TempDir(), "axisrelay.db"))
 	t.Setenv("AXISRELAY_REDIS_ADDR", "redis:6379")
 	t.Setenv("AXISRELAY_ADMIN_SECRET", "from-env-secret")
 
@@ -161,7 +152,6 @@ func TestLoadReadsMaxRequestBodySizeFromEnv(t *testing.T) {
 		"AXISRELAY_DATABASE_USER",
 		"AXISRELAY_DATABASE_PASSWORD",
 		"AXISRELAY_DATABASE_NAME",
-		"AXISRELAY_DATABASE_SSLMODE",
 		"AXISRELAY_CACHE_DRIVER",
 		"AXISRELAY_REDIS_ADDR",
 		"AXISRELAY_REDIS_USERNAME",
@@ -174,7 +164,7 @@ func TestLoadReadsMaxRequestBodySizeFromEnv(t *testing.T) {
 		t.Setenv(key, "")
 	}
 
-	t.Setenv("AXISRELAY_DATABASE_HOST", "postgres")
+	t.Setenv("AXISRELAY_DATABASE_PATH", filepath.Join(t.TempDir(), "axisrelay.db"))
 	t.Setenv("AXISRELAY_REDIS_ADDR", "redis:6379")
 	t.Setenv("AXISRELAY_MAX_REQUEST_BODY_SIZE_MB", "64")
 
@@ -190,7 +180,7 @@ func TestLoadReadsMaxRequestBodySizeFromEnv(t *testing.T) {
 
 func TestLoadParsesTrustedProxiesEnv(t *testing.T) {
 	t.Setenv("AXISRELAY_DATABASE_DRIVER", "")
-	t.Setenv("AXISRELAY_DATABASE_HOST", "postgres")
+	t.Setenv("AXISRELAY_DATABASE_PATH", filepath.Join(t.TempDir(), "axisrelay.db"))
 	t.Setenv("AXISRELAY_CACHE_DRIVER", "")
 	t.Setenv("AXISRELAY_REDIS_ADDR", "redis:6379")
 	t.Setenv("AXISRELAY_TRUSTED_PROXIES", "10.0.0.0/8, 172.16.0.0/12;192.168.1.10")
@@ -206,7 +196,7 @@ func TestLoadParsesTrustedProxiesEnv(t *testing.T) {
 
 func TestLoadCanDisableTrustedProxies(t *testing.T) {
 	t.Setenv("AXISRELAY_DATABASE_DRIVER", "")
-	t.Setenv("AXISRELAY_DATABASE_HOST", "postgres")
+	t.Setenv("AXISRELAY_DATABASE_PATH", filepath.Join(t.TempDir(), "axisrelay.db"))
 	t.Setenv("AXISRELAY_CACHE_DRIVER", "")
 	t.Setenv("AXISRELAY_REDIS_ADDR", "redis:6379")
 	t.Setenv("AXISRELAY_TRUSTED_PROXIES", "none")
@@ -222,7 +212,7 @@ func TestLoadCanDisableTrustedProxies(t *testing.T) {
 
 func TestLoadDefaultsCodexUpstreamTransportToHTTP(t *testing.T) {
 	t.Setenv("AXISRELAY_DATABASE_DRIVER", "")
-	t.Setenv("AXISRELAY_DATABASE_HOST", "postgres")
+	t.Setenv("AXISRELAY_DATABASE_PATH", filepath.Join(t.TempDir(), "axisrelay.db"))
 	t.Setenv("AXISRELAY_CACHE_DRIVER", "")
 	t.Setenv("AXISRELAY_REDIS_ADDR", "redis:6379")
 	t.Setenv("AXISRELAY_UPSTREAM_TRANSPORT", "")
@@ -241,7 +231,7 @@ func TestLoadDefaultsCodexUpstreamTransportToHTTP(t *testing.T) {
 
 func TestLoadHonorsCodexUpstreamTransportWS(t *testing.T) {
 	t.Setenv("AXISRELAY_DATABASE_DRIVER", "")
-	t.Setenv("AXISRELAY_DATABASE_HOST", "postgres")
+	t.Setenv("AXISRELAY_DATABASE_PATH", filepath.Join(t.TempDir(), "axisrelay.db"))
 	t.Setenv("AXISRELAY_CACHE_DRIVER", "")
 	t.Setenv("AXISRELAY_REDIS_ADDR", "redis:6379")
 	t.Setenv("AXISRELAY_UPSTREAM_TRANSPORT", "websocket")
@@ -270,7 +260,6 @@ func TestLoadReadsRedisTLSSettings(t *testing.T) {
 		"AXISRELAY_DATABASE_USER",
 		"AXISRELAY_DATABASE_PASSWORD",
 		"AXISRELAY_DATABASE_NAME",
-		"AXISRELAY_DATABASE_SSLMODE",
 		"AXISRELAY_CACHE_DRIVER",
 		"AXISRELAY_REDIS_ADDR",
 		"AXISRELAY_REDIS_USERNAME",
@@ -283,7 +272,7 @@ func TestLoadReadsRedisTLSSettings(t *testing.T) {
 		t.Setenv(key, "")
 	}
 
-	t.Setenv("AXISRELAY_DATABASE_HOST", "postgres")
+	t.Setenv("AXISRELAY_DATABASE_PATH", filepath.Join(t.TempDir(), "axisrelay.db"))
 	t.Setenv("AXISRELAY_REDIS_ADDR", "rediss://default:url-pass@example.upstash.io:6379/2")
 	t.Setenv("AXISRELAY_REDIS_USERNAME", "env-user")
 	t.Setenv("AXISRELAY_REDIS_PASSWORD", "env-pass")
@@ -316,66 +305,6 @@ func TestLoadReadsRedisTLSSettings(t *testing.T) {
 	}
 }
 
-func TestLoadAcceptsValidDatabaseSchema(t *testing.T) {
-	t.Setenv("AXISRELAY_DATABASE_DRIVER", "")
-	t.Setenv("AXISRELAY_DATABASE_HOST", "postgres")
-	t.Setenv("AXISRELAY_DATABASE_NAME", "postgres")
-	t.Setenv("AXISRELAY_DATABASE_SCHEMA", "codex2api")
-	t.Setenv("AXISRELAY_CACHE_DRIVER", "")
-	t.Setenv("AXISRELAY_REDIS_ADDR", "redis:6379")
-
-	cfg, err := Load("__not_exists__.env")
-	if err != nil {
-		t.Fatalf("Load() 返回错误: %v", err)
-	}
-	if got := cfg.Database.Schema; got != "codex2api" {
-		t.Fatalf("Database.Schema = %q, want codex2api", got)
-	}
-	dsn := cfg.Database.DSN()
-	if !strings.Contains(dsn, "options='-c search_path=codex2api,public'") {
-		t.Fatalf("DSN 未包含 search_path 选项: %s", dsn)
-	}
-}
-
-func TestLoadRejectsInvalidDatabaseSchema(t *testing.T) {
-	cases := []string{
-		"public; DROP TABLE users",
-		"with space",
-		"1leading-digit",
-		"with-dash",
-		"中文",
-		strings.Repeat("a", 64),
-	}
-	for _, name := range cases {
-		t.Run(name, func(t *testing.T) {
-			t.Setenv("AXISRELAY_DATABASE_DRIVER", "")
-			t.Setenv("AXISRELAY_DATABASE_HOST", "postgres")
-			t.Setenv("AXISRELAY_DATABASE_SCHEMA", name)
-			t.Setenv("AXISRELAY_CACHE_DRIVER", "")
-			t.Setenv("AXISRELAY_REDIS_ADDR", "redis:6379")
-
-			if _, err := Load("__not_exists__.env"); err == nil {
-				t.Fatalf("非法 schema %q 应当被拒绝，但 Load() 通过了", name)
-			}
-		})
-	}
-}
-
-func TestDSNOmitsSchemaWhenEmpty(t *testing.T) {
-	d := DatabaseConfig{
-		Driver:   "postgres",
-		Host:     "h",
-		Port:     5432,
-		User:     "u",
-		Password: "p",
-		DBName:   "db",
-		SSLMode:  "disable",
-	}
-	if got := d.DSN(); strings.Contains(got, "search_path") {
-		t.Fatalf("空 schema 时 DSN 不应包含 search_path: %s", got)
-	}
-}
-
 // issue #498: .env 里的 TZ 必须作用于 time.Local,否则自然日限额按宿主机时区重置。
 func TestLoadAppliesTimezoneFromEnvFile(t *testing.T) {
 	origLocal := time.Local
@@ -384,7 +313,7 @@ func TestLoadAppliesTimezoneFromEnvFile(t *testing.T) {
 	if err := os.Unsetenv("TZ"); err != nil {
 		t.Fatalf("Unsetenv(TZ) 失败: %v", err)
 	}
-	t.Setenv("AXISRELAY_DATABASE_HOST", "postgres")
+	t.Setenv("AXISRELAY_DATABASE_PATH", filepath.Join(t.TempDir(), "axisrelay.db"))
 	t.Setenv("AXISRELAY_REDIS_ADDR", "redis:6379")
 
 	envPath := filepath.Join(t.TempDir(), ".env")
@@ -423,7 +352,7 @@ func TestApplyTimezoneKeepsLocalOnInvalidTZ(t *testing.T) {
 }
 
 func TestLoadIgnoresLegacyEnvironmentAliases(t *testing.T) {
-	t.Setenv("AXISRELAY_DATABASE_HOST", "postgres")
+	t.Setenv("AXISRELAY_DATABASE_PATH", filepath.Join(t.TempDir(), "axisrelay.db"))
 	t.Setenv("AXISRELAY_REDIS_ADDR", "redis:6379")
 	t.Setenv("AXISRELAY_PORT", "")
 	t.Setenv("AXISRELAY_ADMIN_SECRET", "")

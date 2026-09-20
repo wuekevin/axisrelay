@@ -3,7 +3,6 @@ package database
 import (
 	"context"
 	"errors"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -13,84 +12,75 @@ import (
 )
 
 func TestCodexRefreshTransactions(t *testing.T) {
-	for _, driver := range []string{"sqlite", "postgres"} {
-		t.Run(driver, func(t *testing.T) {
-			dsn := filepath.Join(t.TempDir(), "refresh.db")
-			if driver == "postgres" {
-				dsn = os.Getenv("AXISRELAY_TEST_POSTGRES_DSN")
-				if dsn == "" {
-					t.Skip("requires isolated AXISRELAY_TEST_POSTGRES_DSN")
-				}
-			}
-			db, err := New(driver, dsn)
-			if err != nil {
-				t.Fatal(err)
-			}
-			defer db.Close()
-			ctx := context.Background()
-			rt := "old-" + uuid.NewString()
-			var ids []int64
-			for range 3 {
-				id, err := db.InsertAccountWithCredentials(ctx, "refresh-transaction", map[string]any{"refresh_token": rt, "access_token": "old-at", "custom_headers": map[string]string{"Chatgpt-Account-Id": "keep-route"}}, "")
-				if err != nil {
-					t.Fatal(err)
-				}
-				ids = append(ids, id)
-			}
-			first, err := db.GetAccountByID(ctx, ids[0])
-			if err != nil {
-				t.Fatal(err)
-			}
-			attempt, err := db.BeginCodexRefresh(ctx, ids[0], first.CredentialGeneration, rt)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if _, err := db.BeginCodexRefresh(ctx, ids[1], first.CredentialGeneration, rt); !errors.Is(err, ErrCodexRefreshUncertain) {
-				t.Fatalf("duplicate consumer admitted: %v", err)
-			}
-			// A replacement using the same RT but a different AT still advances
-			// identity generation and must not be overwritten by an older result.
-			if err := db.UpdateCredentials(ctx, ids[2], map[string]any{"access_token": "admin-at"}); err != nil {
-				t.Fatal(err)
-			}
-			published, err := db.FinishCodexRefresh(ctx, attempt, map[string]any{"access_token": "new-at", "refresh_token": "new-" + rt})
-			if err != nil || len(published) != 2 {
-				t.Fatalf("publish count %d: %v", len(published), err)
-			}
-			for _, id := range ids[:2] {
-				row, err := db.GetAccountByID(ctx, id)
-				if err != nil {
-					t.Fatal(err)
-				}
-				if row.GetCredential("refresh_token") != "new-"+rt || row.GetCredentialStringMap("custom_headers")["Chatgpt-Account-Id"] != "keep-route" {
-					t.Fatal("atomic shared route publication failed")
-				}
-			}
-			replaced, err := db.GetAccountByID(ctx, ids[2])
-			if err != nil {
-				t.Fatal(err)
-			}
-			if replaced.GetCredential("access_token") != "admin-at" {
-				t.Fatal("administrative replacement overwritten")
-			}
-			if _, err := db.BeginCodexRefresh(ctx, ids[2], replaced.CredentialGeneration, rt); !errors.Is(err, ErrCodexRefreshUncertain) {
-				t.Fatalf("old RT reuse after conflicting replacement: %v", err)
-			}
-			// A complete transaction can be retried after an unknown commit result.
-			newAttempt, err := db.BeginCodexRefresh(ctx, ids[0], first.CredentialGeneration+1, "new-"+rt)
-			if err != nil {
-				t.Fatal(err)
-			}
-			updates := map[string]any{"access_token": "next-at", "refresh_token": "next-" + rt}
-			for range 2 {
-				published, err = db.FinishCodexRefresh(ctx, newAttempt, updates)
-				if err != nil || len(published) != 2 {
-					t.Fatalf("idempotent finish: count=%d err=%v", len(published), err)
-				}
-			}
-			testCodexKeepaliveSettings(t, db)
-		})
+	driver := "sqlite"
+	dsn := filepath.Join(t.TempDir(), "refresh.db")
+	db, err := New(driver, dsn)
+	if err != nil {
+		t.Fatal(err)
 	}
+	defer db.Close()
+	ctx := context.Background()
+	rt := "old-" + uuid.NewString()
+	var ids []int64
+	for range 3 {
+		id, err := db.InsertAccountWithCredentials(ctx, "refresh-transaction", map[string]any{"refresh_token": rt, "access_token": "old-at", "custom_headers": map[string]string{"Chatgpt-Account-Id": "keep-route"}}, "")
+		if err != nil {
+			t.Fatal(err)
+		}
+		ids = append(ids, id)
+	}
+	first, err := db.GetAccountByID(ctx, ids[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	attempt, err := db.BeginCodexRefresh(ctx, ids[0], first.CredentialGeneration, rt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.BeginCodexRefresh(ctx, ids[1], first.CredentialGeneration, rt); !errors.Is(err, ErrCodexRefreshUncertain) {
+		t.Fatalf("duplicate consumer admitted: %v", err)
+	}
+	// A replacement using the same RT but a different AT still advances
+	// identity generation and must not be overwritten by an older result.
+	if err := db.UpdateCredentials(ctx, ids[2], map[string]any{"access_token": "admin-at"}); err != nil {
+		t.Fatal(err)
+	}
+	published, err := db.FinishCodexRefresh(ctx, attempt, map[string]any{"access_token": "new-at", "refresh_token": "new-" + rt})
+	if err != nil || len(published) != 2 {
+		t.Fatalf("publish count %d: %v", len(published), err)
+	}
+	for _, id := range ids[:2] {
+		row, err := db.GetAccountByID(ctx, id)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if row.GetCredential("refresh_token") != "new-"+rt || row.GetCredentialStringMap("custom_headers")["Chatgpt-Account-Id"] != "keep-route" {
+			t.Fatal("atomic shared route publication failed")
+		}
+	}
+	replaced, err := db.GetAccountByID(ctx, ids[2])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if replaced.GetCredential("access_token") != "admin-at" {
+		t.Fatal("administrative replacement overwritten")
+	}
+	if _, err := db.BeginCodexRefresh(ctx, ids[2], replaced.CredentialGeneration, rt); !errors.Is(err, ErrCodexRefreshUncertain) {
+		t.Fatalf("old RT reuse after conflicting replacement: %v", err)
+	}
+	// A complete transaction can be retried after an unknown commit result.
+	newAttempt, err := db.BeginCodexRefresh(ctx, ids[0], first.CredentialGeneration+1, "new-"+rt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	updates := map[string]any{"access_token": "next-at", "refresh_token": "next-" + rt}
+	for range 2 {
+		published, err = db.FinishCodexRefresh(ctx, newAttempt, updates)
+		if err != nil || len(published) != 2 {
+			t.Fatalf("idempotent finish: count=%d err=%v", len(published), err)
+		}
+	}
+	testCodexKeepaliveSettings(t, db)
 }
 
 func testCodexKeepaliveSettings(t *testing.T, db *DB) {

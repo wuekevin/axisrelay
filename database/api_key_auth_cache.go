@@ -9,8 +9,8 @@ import (
 	"github.com/google/uuid"
 )
 
-func apiKeyAuthDatabaseScope(driver, dsn, schema string) string {
-	return fmt.Sprintf("%x", sha256.Sum256([]byte(driver+"\x00"+dsn+"\x00"+schema)))
+func apiKeyAuthDatabaseScope(driver, dsn string) string {
+	return fmt.Sprintf("%x", sha256.Sum256([]byte(driver+"\x00"+dsn)))
 }
 
 // APIKeyAuthRevision is committed atomically with authentication configuration.

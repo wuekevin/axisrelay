@@ -236,14 +236,8 @@ Vite proxies `/api` and `/health` to the backend. During development, open `http
 | `AXISRELAY_PORT` | HTTP port, default `8080` |
 | `AXISRELAY_MAX_REQUEST_BODY_SIZE_MB` | HTTP request body limit in MB, default `48` |
 | `AXISRELAY_ADMIN_SECRET` | Admin dashboard secret. When set, `/admin` prompts for authentication |
-| `AXISRELAY_DATABASE_DRIVER` | Database driver: `postgres` or `sqlite` |
-| `AXISRELAY_DATABASE_PATH` | SQLite database file path, used when `AXISRELAY_DATABASE_DRIVER=sqlite` |
-| `AXISRELAY_DATABASE_HOST` | PostgreSQL host |
-| `AXISRELAY_DATABASE_PORT` | PostgreSQL port, default `5432` |
-| `AXISRELAY_DATABASE_USER` | PostgreSQL user |
-| `AXISRELAY_DATABASE_PASSWORD` | PostgreSQL password |
-| `AXISRELAY_DATABASE_NAME` | PostgreSQL database name |
-| `AXISRELAY_DATABASE_SSLMODE` | PostgreSQL SSL mode, default `disable` |
+| `AXISRELAY_DATABASE_DRIVER` | S0.3 transition driver: `sqlite`; MySQL support is introduced in S0.4 |
+| `AXISRELAY_DATABASE_PATH` | SQLite database file path used during the S0.3 transition |
 | `AXISRELAY_CACHE_DRIVER` | Cache driver: `redis` or `memory` |
 | `AXISRELAY_REDIS_ADDR` | Redis address, for example `redis:6379`, `redis://default:pass@host:6379/0`, or `rediss://default:pass@host:6379/0` |
 | `AXISRELAY_REDIS_USERNAME` | Optional Redis ACL username |

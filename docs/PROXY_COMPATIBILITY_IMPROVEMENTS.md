@@ -64,7 +64,7 @@ go vet ./...
 go test ./proxy -run '^$' -bench '^BenchmarkResponseCacheReplay128Turns$' -benchtime=5x -count=3
 ```
 
-`TestPostgresTraceAndCapabilities` 使用 `AXISRELAY_TEST_POSTGRES_DSN` 指定的空白临时 PostgreSQL 数据库验证迁移、日志读写和快照恢复。真实上游模型的可用性、Ultrafast 权限及实际计费仍由部署使用的上游决定。
+S0.3 已移除旧 PostgreSQL 集成测试入口；数据库集成覆盖将在 MySQL Platform 与迁移阶段重新建立。真实上游模型的可用性、Ultrafast 权限及实际计费仍由部署使用的上游决定。
 
 ## 失效密文记忆的边界
 

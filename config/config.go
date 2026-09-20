@@ -4,24 +4,12 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"regexp"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/joho/godotenv"
 )
-
-// schemaNameRegex 限定 PostgreSQL schema 名为 ASCII 标识符，避免 DSN/DDL 注入。
-var schemaNameRegex = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
-
-// IsValidSchemaName 校验 PostgreSQL schema 名（首字母为字母或下划线，余下为字母/数字/下划线，长度 ≤63）。
-func IsValidSchemaName(name string) bool {
-	if name == "" || len(name) > 63 {
-		return false
-	}
-	return schemaNameRegex.MatchString(name)
-}
 
 // DatabaseConfig 数据库核心配置。
 type DatabaseConfig struct {
@@ -32,8 +20,6 @@ type DatabaseConfig struct {
 	User     string
 	Password string
 	DBName   string
-	Schema   string // PostgreSQL schema（search_path）；空值保持数据库默认行为
-	SSLMode  string
 }
 
 // DSN 返回当前驱动的连接字符串。
@@ -41,18 +27,7 @@ func (d *DatabaseConfig) DSN() string {
 	if strings.EqualFold(d.Driver, "sqlite") {
 		return d.Path
 	}
-	sslMode := d.SSLMode
-	if sslMode == "" {
-		sslMode = "disable"
-	}
-	dsn := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=%s",
-		d.Host, d.Port, d.User, d.Password, d.DBName, sslMode)
-	if d.Schema != "" {
-		// 通过 PostgreSQL startup options 在连接启动时设置 search_path，覆盖连接池中的所有连接。
-		// schema 已在 Load() 阶段做白名单校验，此处可安全拼接。
-		dsn += fmt.Sprintf(" options='-c search_path=%s,public'", d.Schema)
-	}
-	return dsn
+	return ""
 }
 
 // Label 返回用于展示的数据库标签。
@@ -60,7 +35,7 @@ func (d *DatabaseConfig) Label() string {
 	if strings.EqualFold(d.Driver, "sqlite") {
 		return "SQLite"
 	}
-	return "PostgreSQL"
+	return strings.ToUpper(strings.TrimSpace(d.Driver))
 }
 
 // RedisConfig Redis 核心配置
@@ -201,7 +176,7 @@ func Load(envPath string) (*Config, error) {
 	}
 
 	// 数据库配置
-	cfg.Database.Driver = normalizeDriver(os.Getenv("AXISRELAY_DATABASE_DRIVER"), "postgres")
+	cfg.Database.Driver = normalizeDriver(os.Getenv("AXISRELAY_DATABASE_DRIVER"), "sqlite")
 	cfg.Database.Path = strings.TrimSpace(os.Getenv("AXISRELAY_DATABASE_PATH"))
 	cfg.Database.Host = os.Getenv("AXISRELAY_DATABASE_HOST")
 	if v := os.Getenv("AXISRELAY_DATABASE_PORT"); v != "" {
@@ -212,15 +187,6 @@ func Load(envPath string) (*Config, error) {
 	cfg.Database.User = os.Getenv("AXISRELAY_DATABASE_USER")
 	cfg.Database.Password = os.Getenv("AXISRELAY_DATABASE_PASSWORD")
 	cfg.Database.DBName = os.Getenv("AXISRELAY_DATABASE_NAME")
-	if v := strings.TrimSpace(os.Getenv("AXISRELAY_DATABASE_SCHEMA")); v != "" {
-		if !IsValidSchemaName(v) {
-			return nil, fmt.Errorf("非法的 AXISRELAY_DATABASE_SCHEMA: %q（仅允许字母、数字、下划线，且不能以数字开头，长度不超过 63）", v)
-		}
-		cfg.Database.Schema = v
-	}
-	if v := os.Getenv("AXISRELAY_DATABASE_SSLMODE"); v != "" {
-		cfg.Database.SSLMode = v
-	}
 
 	// 缓存配置
 	cfg.Cache.Driver = normalizeDriver(os.Getenv("AXISRELAY_CACHE_DRIVER"), "redis")
@@ -241,18 +207,8 @@ func Load(envPath string) (*Config, error) {
 		if cfg.Database.Path == "" {
 			return nil, fmt.Errorf("必须通过 .env 或环境变量配置 SQLite 数据库路径 (AXISRELAY_DATABASE_PATH)")
 		}
-	case "postgres":
-		if cfg.Database.Host == "" {
-			return nil, fmt.Errorf("必须通过 .env 或环境变量配置 PostgreSQL (AXISRELAY_DATABASE_HOST)")
-		}
 	default:
-		return nil, fmt.Errorf("不支持的数据库驱动: %s", cfg.Database.Driver)
-	}
-	if cfg.Database.Port == 0 {
-		cfg.Database.Port = 5432
-	}
-	if cfg.Database.SSLMode == "" {
-		cfg.Database.SSLMode = "disable"
+		return nil, fmt.Errorf("S0.3 已移除 PostgreSQL，当前阶段仅支持 sqlite；MySQL 将由 S0.4 接入: %s", cfg.Database.Driver)
 	}
 
 	switch cfg.Cache.Driver {

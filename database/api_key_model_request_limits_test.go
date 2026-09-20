@@ -3,7 +3,6 @@ package database
 import (
 	"context"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -96,16 +95,6 @@ func TestAPIKeyModelRequestWindowCalendarAndDST(t *testing.T) {
 
 func TestAPIKeyModelRequestQuotasSQLite(t *testing.T) {
 	runAPIKeyModelRequestQuotaSuite(t, "sqlite", filepath.Join(t.TempDir(), "quota.db"))
-}
-
-// Uses a writable test database, like the other PostgreSQL integration tests.
-// Two independent DB handles verify serialization across process-local locks.
-func TestAPIKeyModelRequestQuotasPostgres(t *testing.T) {
-	dsn := os.Getenv("AXISRELAY_TEST_POSTGRES_DSN")
-	if dsn == "" {
-		t.Skip("AXISRELAY_TEST_POSTGRES_DSN is not set")
-	}
-	runAPIKeyModelRequestQuotaSuite(t, "postgres", dsn)
 }
 
 func runAPIKeyModelRequestQuotaSuite(t *testing.T, driver, dsn string) {

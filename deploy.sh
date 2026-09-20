@@ -329,58 +329,15 @@ step_database() {
   echo ""
   printf "${BOLD}${CYAN}━━━ 3/6 数据库模式 ━━━${NC}\n"
   echo ""
-  echo "  1) SQLite   — 轻量单文件，适合个人 / 测试"
-  echo "  2) PG+Redis — PostgreSQL + Redis，适合生产 / 多并发"
-  echo ""
-  local db_default db_choice_default
-  db_default="$(env_default AXISRELAY_DATABASE_DRIVER "sqlite")"
-  db_default="$(printf "%s" "$db_default" | tr '[:upper:]' '[:lower:]')"
-  case "$db_default" in
-    postgres|postgresql|pg)
-      db_choice_default="2"
-      ;;
-    *)
-      db_choice_default="1"
-      ;;
-  esac
-  ask "请选择 (1 或 2)" "$db_choice_default" DB_CHOICE
-
-  case "$DB_CHOICE" in
-    1|sqlite|SQLite)
-      DB_MODE="sqlite"
-      success "数据库模式: SQLite (轻量)"
-      step_sqlite_config
-      ;;
-    2|pg|postgres|PG)
-      DB_MODE="postgres"
-      success "数据库模式: PostgreSQL + Redis"
-      step_pg_config
-      ;;
-    *)
-      error "无效选择: $DB_CHOICE"
-      ;;
-  esac
+  info "S0.3 已移除 PostgreSQL；当前部署脚本仅保留 SQLite 过渡模式，MySQL 将在后续阶段接入。"
+  DB_MODE="sqlite"
+  success "数据库模式: SQLite (过渡)"
+  step_sqlite_config
 }
 
 step_sqlite_config() {
   echo ""
   ask "SQLite 数据文件路径 (容器内)" "$(env_default AXISRELAY_DATABASE_PATH "/data/codex2api.db")" SQLITE_PATH
-}
-
-step_pg_config() {
-  echo ""
-  info "PostgreSQL 配置 (Docker 内置，通常保持默认即可)"
-  ask "数据库用户名" "$(env_default AXISRELAY_DATABASE_USER "$(env_default POSTGRES_USER "codex2api")")" PG_USER
-  ask "数据库名称"   "$(env_default AXISRELAY_DATABASE_NAME "$(env_default POSTGRES_DB "codex2api")")" PG_DB
-  echo ""
-  ask_secret "数据库密码" "$(env_default AXISRELAY_DATABASE_PASSWORD "$(env_default POSTGRES_PASSWORD "")")" PG_PASS
-  if [[ -z "$PG_PASS" ]]; then
-    PG_PASS=$(gen_secret)
-    success "已自动生成数据库密码"
-  fi
-  echo ""
-  info "Redis 配置"
-  ask_secret "Redis 密码 (留空则无密码)" "$(env_default AXISRELAY_REDIS_PASSWORD "")" REDIS_PASS
 }
 
 # ---------- 第四步：密钥 ----------
@@ -435,14 +392,8 @@ step_confirm() {
     echo "  监听范围:   0.0.0.0 (全部网络)"
   fi
   echo "  数据库:     $DB_MODE"
-  if [[ "$DB_MODE" == "sqlite" ]]; then
-    echo "  数据路径:   $SQLITE_PATH"
-    echo "  缓存:       memory"
-  else
-    echo "  PG 用户:    $PG_USER"
-    echo "  PG 数据库:  $PG_DB"
-    echo "  Redis:      内置容器"
-  fi
+  echo "  数据路径:   $SQLITE_PATH"
+  echo "  缓存:       memory"
   echo "  构建方式:   $( [[ "$BUILD_MODE" == "image" ]] && echo "拉取镜像" || echo "本地构建" )"
   echo "  管理密钥:   ${AXISRELAY_ADMIN_SECRET}"
   echo ""
@@ -463,8 +414,7 @@ generate_env() {
     warn "已备份原 .env 文件"
   fi
 
-  if [[ "$DB_MODE" == "sqlite" ]]; then
-    cat > .env << EOF
+  cat > .env << EOF
 # ============================
 #  codex2api 配置 (SQLite 模式)
 #  由 deploy.sh 自动生成于 $(date '+%Y-%m-%d %H:%M:%S')
@@ -489,47 +439,6 @@ AXISRELAY_CACHE_DRIVER=memory
 # 时区
 TZ=Asia/Shanghai
 EOF
-  else
-    cat > .env << EOF
-# ============================
-#  codex2api 配置 (PG + Redis 模式)
-#  由 deploy.sh 自动生成于 $(date '+%Y-%m-%d %H:%M:%S')
-# ============================
-
-# 服务端口
-AXISRELAY_PORT=${PORT}
-
-# 端口绑定地址 (127.0.0.1=仅本机, 0.0.0.0=全部网络)
-AXISRELAY_BIND_HOST=${AXISRELAY_BIND_HOST}
-
-# 管理后台密钥
-AXISRELAY_ADMIN_SECRET=${AXISRELAY_ADMIN_SECRET}
-
-# 数据库 — PostgreSQL
-AXISRELAY_DATABASE_DRIVER=postgres
-AXISRELAY_DATABASE_HOST=postgres
-AXISRELAY_DATABASE_PORT=5432
-AXISRELAY_DATABASE_USER=${PG_USER}
-AXISRELAY_DATABASE_PASSWORD=${PG_PASS}
-AXISRELAY_DATABASE_NAME=${PG_DB}
-AXISRELAY_DATABASE_SSLMODE=disable
-POSTGRES_USER=${PG_USER}
-POSTGRES_PASSWORD=${PG_PASS}
-POSTGRES_DB=${PG_DB}
-
-# 缓存 — Redis
-AXISRELAY_CACHE_DRIVER=redis
-AXISRELAY_REDIS_ADDR=redis:6379
-AXISRELAY_REDIS_USERNAME=
-AXISRELAY_REDIS_PASSWORD=${REDIS_PASS:-}
-AXISRELAY_REDIS_DB=0
-AXISRELAY_REDIS_TLS=false
-AXISRELAY_REDIS_INSECURE_SKIP_VERIFY=false
-
-# 时区
-TZ=Asia/Shanghai
-EOF
-  fi
 
 
   success ".env 已生成"
@@ -537,14 +446,10 @@ EOF
 
 # ---------- 选择 compose 文件 ----------
 resolve_compose_file() {
-  if [[ "$DB_MODE" == "sqlite" && "$BUILD_MODE" == "local" ]]; then
+  if [[ "$BUILD_MODE" == "local" ]]; then
     COMPOSE_FILE="docker-compose.sqlite.local.yml"
-  elif [[ "$DB_MODE" == "sqlite" ]]; then
-    COMPOSE_FILE="docker-compose.sqlite.yml"
-  elif [[ "$BUILD_MODE" == "local" ]]; then
-    COMPOSE_FILE="docker-compose.local.yml"
   else
-    COMPOSE_FILE="docker-compose.yml"
+    COMPOSE_FILE="docker-compose.sqlite.yml"
   fi
 
   if [[ ! -f "$COMPOSE_FILE" ]]; then

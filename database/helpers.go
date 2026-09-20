@@ -15,17 +15,7 @@ import (
 func normalizeDriver(driver string) string {
 	driver = strings.TrimSpace(strings.ToLower(driver))
 	if driver == "" {
-		return "postgres"
-	}
-	return driver
-}
-
-// sqlOpenDriverName maps the application driver name onto the registered
-// database/sql driver. The public config value stays "postgres"; the connector
-// is pgx's stdlib adapter (lib/pq is unmaintained for the 2026 protocol advisories).
-func sqlOpenDriverName(driver string) string {
-	if driver == "postgres" {
-		return "pgx"
+		return "sqlite"
 	}
 	return driver
 }
