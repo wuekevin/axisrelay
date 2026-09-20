@@ -7,7 +7,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/codex2api/security"
+	"github.com/wuekevin/axisrelay/security"
 )
 
 const (

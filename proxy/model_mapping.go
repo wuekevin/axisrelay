@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"strings"
 
-	"github.com/codex2api/auth"
+	"github.com/wuekevin/axisrelay/auth"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 )

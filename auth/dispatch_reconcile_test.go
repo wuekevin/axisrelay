@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/codex2api/database"
+	"github.com/wuekevin/axisrelay/database"
 )
 
 func TestReconcileDispatchStateLoadsAccountAddedAfterStartup(t *testing.T) {

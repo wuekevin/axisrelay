@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/codex2api/auth"
+	"github.com/wuekevin/axisrelay/auth"
 )
 
 // Grok billing 端点（cli-chat-proxy，与官方 Grok CLI 对齐）。

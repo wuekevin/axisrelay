@@ -12,7 +12,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/tidwall/gjson"
 
-	"github.com/codex2api/auth"
+	"github.com/wuekevin/axisrelay/auth"
 )
 
 func fingerprintAccount(t *testing.T, mode string) *auth.Account {

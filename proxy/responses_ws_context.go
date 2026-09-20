@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/codex2api/api"
+	"github.com/wuekevin/axisrelay/api"
 	"github.com/gorilla/websocket"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"

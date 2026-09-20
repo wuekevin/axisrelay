@@ -3,7 +3,7 @@ package proxy
 import (
 	"testing"
 
-	"github.com/codex2api/auth"
+	"github.com/wuekevin/axisrelay/auth"
 )
 
 // issue #446：维护类旁路请求（wham 用量/重置券、模型清单、alpha search、订阅同步）

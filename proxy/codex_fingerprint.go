@@ -13,7 +13,7 @@ import (
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 
-	"github.com/codex2api/auth"
+	"github.com/wuekevin/axisrelay/auth"
 )
 
 // Codex 设备指纹收敛：把出站请求里携带的客户端标识改写成账号级恒定值，

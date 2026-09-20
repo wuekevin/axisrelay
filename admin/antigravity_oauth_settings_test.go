@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/codex2api/auth"
+	"github.com/wuekevin/axisrelay/auth"
 )
 
 // resetAntigravityOAuthSettingsEnv 清空环境变量与包级配置态，避免用例间串扰。

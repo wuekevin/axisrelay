@@ -7,7 +7,7 @@ package api
 // automatic rotation, usage tracking, and administrative management.
 //
 // @contact.name API Support
-// @contact.url https://github.com/codex2api
+// @contact.url https://github.com/wuekevin/axisrelay
 // @contact.email support@codex2api.local
 //
 // @license.name MIT

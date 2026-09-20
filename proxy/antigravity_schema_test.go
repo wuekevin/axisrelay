@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/codex2api/api"
+	"github.com/wuekevin/axisrelay/api"
 )
 
 func TestAntigravityFlattenSchemaUnionsAnyOf(t *testing.T) {

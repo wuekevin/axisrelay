@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/codex2api/auth"
+	"github.com/wuekevin/axisrelay/auth"
 )
 
 // ==================== 账号维护请求的 HTTP Client 池（issue #446） ====================

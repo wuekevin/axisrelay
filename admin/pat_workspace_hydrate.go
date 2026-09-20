@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/codex2api/auth"
+	"github.com/wuekevin/axisrelay/auth"
 )
 
 // patWorkspaceHydrateBackoff 是 whoami 补全失败后的重试间隔。失败多半是 token 本身

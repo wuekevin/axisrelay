@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/codex2api/database"
+	"github.com/wuekevin/axisrelay/database"
 )
 
 // This opt-in test performs a real official-source fetch but writes only to a

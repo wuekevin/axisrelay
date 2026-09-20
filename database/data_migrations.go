@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/codex2api/internal/openaiidentity"
+	"github.com/wuekevin/axisrelay/internal/openaiidentity"
 )
 
 const (

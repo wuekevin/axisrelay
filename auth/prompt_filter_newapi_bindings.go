@@ -3,7 +3,7 @@ package auth
 import (
 	"context"
 
-	"github.com/codex2api/database"
+	"github.com/wuekevin/axisrelay/database"
 )
 
 // GetPromptFilterNewAPIBinding returns an immutable value copy of the binding

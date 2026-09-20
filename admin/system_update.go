@@ -22,8 +22,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/codex2api/internal/version"
-	"github.com/codex2api/proxy"
+	"github.com/wuekevin/axisrelay/internal/version"
+	"github.com/wuekevin/axisrelay/proxy"
 	"github.com/gin-gonic/gin"
 )
 

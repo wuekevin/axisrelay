@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/codex2api/database"
+	"github.com/wuekevin/axisrelay/database"
 )
 
 func newGrokRuntimeFactTestAccount(t *testing.T, seedSettings bool) (*database.DB, *Store, *Account, int64, string, time.Time) {

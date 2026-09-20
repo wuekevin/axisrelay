@@ -24,7 +24,7 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/codex2api/auth"
+	"github.com/wuekevin/axisrelay/auth"
 	"github.com/tidwall/gjson"
 )
 

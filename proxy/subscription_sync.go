@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/codex2api/auth"
+	"github.com/wuekevin/axisrelay/auth"
 )
 
 // 订阅到期时间同步：wham/usage 不返回订阅到期字段，JWT 里的

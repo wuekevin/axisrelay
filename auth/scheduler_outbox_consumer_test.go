@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/codex2api/database"
+	"github.com/wuekevin/axisrelay/database"
 )
 
 func waitForSchedulerProjection(t *testing.T, predicate func() bool) {

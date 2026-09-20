@@ -10,7 +10,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/codex2api/auth"
+	"github.com/wuekevin/axisrelay/auth"
 )
 
 // WhamDailyTokenBreakdownURL 是 ChatGPT 后端按天、按模型×速度拆分用量的端点。

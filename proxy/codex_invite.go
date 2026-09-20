@@ -13,7 +13,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/codex2api/auth"
+	"github.com/wuekevin/axisrelay/auth"
 )
 
 // 推荐邀请端点。上游已把 wham/ 前缀下的旧路径下线（GET 返回 404 Not Found），

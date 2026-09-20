@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/codex2api/database"
+	"github.com/wuekevin/axisrelay/database"
 )
 
 func newProxyPoolReloadTestDB(t *testing.T) *database.DB {

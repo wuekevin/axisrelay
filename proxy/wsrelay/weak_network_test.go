@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/codex2api/proxy"
+	"github.com/wuekevin/axisrelay/proxy"
 )
 
 func setWeakNetworkModeForTest(t *testing.T, enabled bool) {

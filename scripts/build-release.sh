@@ -102,7 +102,7 @@ echo "build_step=backend"
   cd "$repo_root"
   CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
     go build -trimpath \
-      -ldflags "-s -w -X github.com/codex2api/internal/version.Version=$version" \
+      -ldflags "-s -w -X github.com/wuekevin/axisrelay/internal/version.Version=$version" \
       -o "$build_dir/codex2api" .
 )
 

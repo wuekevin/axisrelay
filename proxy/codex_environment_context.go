@@ -10,7 +10,7 @@ import (
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 
-	"github.com/codex2api/auth"
+	"github.com/wuekevin/axisrelay/auth"
 )
 
 // Codex 账号绑定时区：把出站请求体里由客户端生成的 <environment_context> 时区与日期

@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/codex2api/database"
+	"github.com/wuekevin/axisrelay/database"
 )
 
 func TestPromptRiskTrustSnapshotRequiresActiveUnexpiredLowRiskPolicy(t *testing.T) {

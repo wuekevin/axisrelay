@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/codex2api/api"
-	"github.com/codex2api/security"
+	"github.com/wuekevin/axisrelay/api"
+	"github.com/wuekevin/axisrelay/security"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 	"github.com/tidwall/gjson"

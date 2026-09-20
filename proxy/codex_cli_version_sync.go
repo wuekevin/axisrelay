@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/codex2api/database"
+	"github.com/wuekevin/axisrelay/database"
 )
 
 // CodexReleasesLatestURL 是 openai/codex 官方最新稳定 release 的 GitHub API 端点。

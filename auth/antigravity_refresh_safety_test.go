@@ -14,7 +14,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/codex2api/database"
+	"github.com/wuekevin/axisrelay/database"
 )
 
 func useAntigravityTestEndpoints(t *testing.T, baseURL string) {

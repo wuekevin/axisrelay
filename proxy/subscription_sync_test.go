@@ -12,8 +12,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/codex2api/auth"
-	"github.com/codex2api/database"
+	"github.com/wuekevin/axisrelay/auth"
+	"github.com/wuekevin/axisrelay/database"
 )
 
 const testWorkspaceUUID = "288c5d93-a113-4ed3-b6a9-08b6a4d35417"

@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/codex2api/proxy"
+	"github.com/wuekevin/axisrelay/proxy"
 	"github.com/gin-gonic/gin"
 )
 

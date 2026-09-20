@@ -9,8 +9,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/codex2api/database"
-	"github.com/codex2api/internal/openaiidentity"
+	"github.com/wuekevin/axisrelay/database"
+	"github.com/wuekevin/axisrelay/internal/openaiidentity"
 )
 
 func (s *Store) GetCodexOAuthKeepalive() bool        { return s.codexOAuthKeepalive.Load() }

@@ -5,7 +5,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/codex2api/auth"
+	"github.com/wuekevin/axisrelay/auth"
 )
 
 // Codex 会话标识头保真。

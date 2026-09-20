@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/codex2api/database"
+	"github.com/wuekevin/axisrelay/database"
 )
 
 const (

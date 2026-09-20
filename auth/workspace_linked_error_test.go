@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/codex2api/internal/openaiidentity"
+	"github.com/wuekevin/axisrelay/internal/openaiidentity"
 )
 
 func newWorkspaceLinkedAccount(id int64, workspaceID string) *Account {

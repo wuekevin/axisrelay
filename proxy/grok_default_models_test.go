@@ -3,7 +3,7 @@ package proxy
 import (
 	"testing"
 
-	"github.com/codex2api/auth"
+	"github.com/wuekevin/axisrelay/auth"
 )
 
 // TestDefaultGrokModelIDsForAccountByAuthKind 守护两条通道目录不同这一实测事实：

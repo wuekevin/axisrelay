@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/codex2api/database"
+	"github.com/wuekevin/axisrelay/database"
 )
 
 func newPremium5hTestAccount(plan string, resetAt time.Time) *Account {

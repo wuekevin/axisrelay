@@ -116,7 +116,7 @@ api/
 ### Using Validation
 
 ```go
-import "github.com/codex2api/api"
+import "github.com/wuekevin/axisrelay/api"
 
 validator := api.NewValidator(body)
 result := validator.ValidateRequest(api.ChatCompletionValidationRules())

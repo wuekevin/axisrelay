@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/codex2api/security/promptfilter"
+	"github.com/wuekevin/axisrelay/security/promptfilter"
 	"github.com/tidwall/gjson"
 )
 

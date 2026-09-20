@@ -4,7 +4,7 @@ import (
 	"bufio"
 	"strings"
 
-	"github.com/codex2api/database"
+	"github.com/wuekevin/axisrelay/database"
 )
 
 // 官方图片价格按同一模型的 Image/Text 两行发布；只读取图片章节第一张

@@ -856,7 +856,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/codex2api/auth"
+	"github.com/wuekevin/axisrelay/auth"
 )
 
 func withClaudeVersionSources(t *testing.T, github, npm string) {
@@ -980,8 +980,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/codex2api/auth"
-	"github.com/codex2api/database"
+	"github.com/wuekevin/axisrelay/auth"
+	"github.com/wuekevin/axisrelay/database"
 )
 
 const (
@@ -1466,7 +1466,7 @@ func newClaudeConfigTestDB(t *testing.T) *database.DB {
 }
 ```
 
-并 import `path/filepath` 与 `github.com/codex2api/database`。若 `Handler.db` 字段类型不是 `*database.DB`，按 `admin/handler.go` 中 `db` 字段的实际类型调整。
+并 import `path/filepath` 与 `github.com/wuekevin/axisrelay/database`。若 `Handler.db` 字段类型不是 `*database.DB`，按 `admin/handler.go` 中 `db` 字段的实际类型调整。
 
 - [ ] **Step 2: 运行确认失败**
 
@@ -1508,7 +1508,7 @@ Expected: FAIL，JSON 字段缺失。
 
 `cfg := auth.ClaudeConfig{...}` 增加 `CLIVersionSyncEnabled: boolPtr(syncEnabled), CLIVersionSyncIntervalHours: syncInterval,`；热更新段加 `h.store.SetClaudeCLIVersionSync(syncEnabled, syncInterval)`；响应 `gin.H` 增加 `"cli_version_sync_enabled": syncEnabled, "cli_version_sync_interval_hours": syncInterval`。
 
-新增 handler（同文件末尾，需 import `context`、`github.com/codex2api/proxy`）：
+新增 handler（同文件末尾，需 import `context`、`github.com/wuekevin/axisrelay/proxy`）：
 
 ```go
 // SyncClaudeCLIVersion 供设置页「立即同步」调用：拉取最新 Claude Code CLI 版本并回写账号指纹。

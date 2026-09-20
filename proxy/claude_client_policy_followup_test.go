@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/codex2api/auth"
-	"github.com/codex2api/database"
+	"github.com/wuekevin/axisrelay/auth"
+	"github.com/wuekevin/axisrelay/database"
 )
 
 // The allowed-model projection must be deterministic when official rows

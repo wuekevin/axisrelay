@@ -11,7 +11,7 @@ import (
 
 	xproxy "golang.org/x/net/proxy"
 
-	"github.com/codex2api/security"
+	"github.com/wuekevin/axisrelay/security"
 )
 
 type contextDialer interface {

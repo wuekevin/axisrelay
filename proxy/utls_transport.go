@@ -18,7 +18,7 @@ import (
 	"golang.org/x/net/http2"
 	xproxy "golang.org/x/net/proxy"
 
-	"github.com/codex2api/security"
+	"github.com/wuekevin/axisrelay/security"
 )
 
 // ==================== utls RoundTripper（Chrome 指纹 + HTTP/2） ====================

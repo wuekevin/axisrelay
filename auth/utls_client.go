@@ -17,7 +17,7 @@ import (
 	"golang.org/x/net/http2"
 	xproxy "golang.org/x/net/proxy"
 
-	"github.com/codex2api/security"
+	"github.com/wuekevin/axisrelay/security"
 )
 
 // utlsAuthRoundTripper 使用 Chrome TLS 指纹的 http.RoundTripper，

@@ -3,7 +3,7 @@ package admin
 import (
 	"testing"
 
-	"github.com/codex2api/security/promptfilter"
+	"github.com/wuekevin/axisrelay/security/promptfilter"
 )
 
 func TestDefaultBootstrapSettingsUseRecommendedPromptFilterPreset(t *testing.T) {

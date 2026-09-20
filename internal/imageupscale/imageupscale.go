@@ -17,7 +17,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/codex2api/internal/imageproc"
+	"github.com/wuekevin/axisrelay/internal/imageproc"
 )
 
 const maxUpscalerResponseBytes = 64 << 20

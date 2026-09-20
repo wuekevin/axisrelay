@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/codex2api/security/promptfilter"
+	"github.com/wuekevin/axisrelay/security/promptfilter"
 )
 
 func newOutputScannerForTest(t *testing.T, bufferBytes int) *promptfilter.OutputScanner {

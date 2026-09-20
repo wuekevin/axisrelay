@@ -5,7 +5,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/codex2api/database"
+	"github.com/wuekevin/axisrelay/database"
 )
 
 // TestMain 只初始化一次 SQLite schema 模板：之后每个测试建库直接复制模板、跳过迁移，

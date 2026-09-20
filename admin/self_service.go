@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/codex2api/security"
+	"github.com/wuekevin/axisrelay/security"
 	"github.com/gin-gonic/gin"
 )
 

@@ -13,11 +13,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/codex2api/auth"
-	"github.com/codex2api/config"
-	"github.com/codex2api/database"
-	"github.com/codex2api/internal/imagestore"
-	"github.com/codex2api/proxy"
+	"github.com/wuekevin/axisrelay/auth"
+	"github.com/wuekevin/axisrelay/config"
+	"github.com/wuekevin/axisrelay/database"
+	"github.com/wuekevin/axisrelay/internal/imagestore"
+	"github.com/wuekevin/axisrelay/proxy"
 )
 
 func TestStudioImageBillingSettlesSavedOutputs(t *testing.T) {
