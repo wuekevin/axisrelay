@@ -17,8 +17,8 @@ import (
 
 const (
 	imageAssetPathPrefix       = "/p/img"
-	imageAssetPublicBaseURLEnv = "IMAGE_ASSET_PUBLIC_BASE_URL"
-	imageAssetSigningSecretEnv = "IMAGE_ASSET_SIGNING_SECRET"
+	imageAssetPublicBaseURLEnv = "AXISRELAY_IMAGE_ASSET_PUBLIC_BASE_URL"
+	imageAssetSigningSecretEnv = "AXISRELAY_IMAGE_ASSET_SIGNING_SECRET"
 	defaultImageAssetTTL       = 24 * time.Hour
 )
 

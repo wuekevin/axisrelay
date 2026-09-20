@@ -17,6 +17,7 @@ import (
 	// 这类名字仍可解析(系统自带 zoneinfo 时优先用系统的)。issue #498。
 	_ "time/tzdata"
 
+	"github.com/gin-gonic/gin"
 	"github.com/wuekevin/axisrelay/admin"
 	"github.com/wuekevin/axisrelay/api"
 	"github.com/wuekevin/axisrelay/auth"
@@ -29,14 +30,13 @@ import (
 	"github.com/wuekevin/axisrelay/proxy/wsrelay"
 	"github.com/wuekevin/axisrelay/security"
 	"github.com/wuekevin/axisrelay/security/promptfilter"
-	"github.com/gin-gonic/gin"
 )
 
 //go:embed frontend/dist/*
 var frontendFS embed.FS
 
 func migrateOnlyEnabled() bool {
-	value := strings.TrimSpace(os.Getenv("CODEX_MIGRATE_ONLY"))
+	value := strings.TrimSpace(os.Getenv("AXISRELAY_MIGRATE_ONLY"))
 	return value == "1" || strings.EqualFold(value, "true")
 }
 
@@ -61,7 +61,7 @@ func main() {
 	defer db.Close()
 	proxy.SetCodexTurnStateTemplateDatabase(db)
 	if migrateOnlyEnabled() {
-		log.Println("数据库迁移完成，CODEX_MIGRATE_ONLY 已启用，进程退出")
+		log.Println("数据库迁移完成，AXISRELAY_MIGRATE_ONLY 已启用，进程退出")
 		return
 	}
 	switch cfg.Database.Driver {
@@ -121,7 +121,7 @@ func main() {
 			StreamFlushIntervalMS:             20,
 			FirstTokenMode:                    proxy.FirstTokenModeLoose,
 			FirstTokenTimeoutSeconds:          0,
-			BillingTierPolicy:                 proxy.NormalizeBillingTierPolicy(os.Getenv("CODEX_BILLING_TIER_POLICY")),
+			BillingTierPolicy:                 proxy.NormalizeBillingTierPolicy(os.Getenv("AXISRELAY_BILLING_TIER_POLICY")),
 			ImageStorageConfig:                "{}",
 			PublicKeyUsagePageEnabled:         true,
 			PublicImageStudioPageEnabled:      true,
@@ -173,7 +173,7 @@ func main() {
 			StreamFlushIntervalMS:             20,
 			FirstTokenMode:                    proxy.FirstTokenModeLoose,
 			FirstTokenTimeoutSeconds:          0,
-			BillingTierPolicy:                 proxy.NormalizeBillingTierPolicy(os.Getenv("CODEX_BILLING_TIER_POLICY")),
+			BillingTierPolicy:                 proxy.NormalizeBillingTierPolicy(os.Getenv("AXISRELAY_BILLING_TIER_POLICY")),
 			ImageStorageConfig:                "{}",
 			PublicKeyUsagePageEnabled:         true,
 			PublicImageStudioPageEnabled:      true,
@@ -205,7 +205,7 @@ func main() {
 	settings.OAuthModelCooldownMode = modelCooldownSettings.OAuthMode
 	settings.OAuthModelCooldownSeconds = modelCooldownSettings.OAuthSeconds
 	settings.OAuthModelCooldownBackoffEnabled = modelCooldownSettings.OAuthBackoffEnabled
-	if envPolicy := strings.TrimSpace(os.Getenv("CODEX_BILLING_TIER_POLICY")); envPolicy != "" {
+	if envPolicy := strings.TrimSpace(os.Getenv("AXISRELAY_BILLING_TIER_POLICY")); envPolicy != "" {
 		settings.BillingTierPolicy = proxy.NormalizeBillingTierPolicy(envPolicy)
 	}
 	responseCacheCtx, responseCacheCancel := context.WithTimeout(context.Background(), 3*time.Second)
@@ -304,7 +304,7 @@ func main() {
 	)
 
 	// 4b'. 应用图片存储后端配置
-	imgLocalDir := strings.TrimSpace(os.Getenv("IMAGE_ASSET_DIR"))
+	imgLocalDir := strings.TrimSpace(os.Getenv("AXISRELAY_IMAGE_ASSET_DIR"))
 	if imgLocalDir == "" {
 		imgLocalDir = "/data/images"
 	}
@@ -378,7 +378,7 @@ func main() {
 
 	// 后台定时同步 Codex CLI 模拟版本（启动即拉一次，之后按设置的间隔）；
 	// 出上游新版本门槛时无需发版即可跟进。开关/间隔在设置页可调，
-	// CODEX_DISABLE_CLI_VERSION_SYNC 为硬关闭。
+	// AXISRELAY_DISABLE_CLI_VERSION_SYNC 为硬关闭。
 	proxy.StartCodexCLIVersionSync(backgroundCtx, db, store.GetProxyURL)
 
 	// Claude Code CLI 版本同步：启动先用生效版本回写账号指纹，再按 ClaudeConfig 开关/间隔联网同步。
@@ -390,7 +390,7 @@ func main() {
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.New()
 	// 默认信任本机回环与常见私有网段，兼顾同机 / Docker WAF 反代获取真实 IP 与公网直连防伪造；
-	// 如需收紧或扩展可信代理范围，可通过 CODEX_TRUSTED_PROXIES 显式配置 CIDR/IP。
+	// 如需收紧或扩展可信代理范围，可通过 AXISRELAY_TRUSTED_PROXIES 显式配置 CIDR/IP。
 	if err := configureTrustedProxies(r, cfg.TrustedProxies); err != nil {
 		log.Fatalf("配置可信代理失败: %v", err)
 	}
@@ -400,8 +400,8 @@ func main() {
 	security.MaxRequestBodySize = cfg.MaxRequestBodySize
 	security.ConfigureRequestMemoryBudget(cfg.RequestMemoryBudgetBytes)
 	// 账号导入端点(multipart 文件上传)单独放宽体积上限,默认 200MB,可用
-	// CODEX_MAX_IMPORT_BODY_SIZE_MB 覆盖。前端按大小分批发送,单批控制在此上限内。
-	if v := strings.TrimSpace(os.Getenv("CODEX_MAX_IMPORT_BODY_SIZE_MB")); v != "" {
+	// AXISRELAY_MAX_IMPORT_BODY_SIZE_MB 覆盖。前端按大小分批发送,单批控制在此上限内。
+	if v := strings.TrimSpace(os.Getenv("AXISRELAY_MAX_IMPORT_BODY_SIZE_MB")); v != "" {
 		if mb, err := strconv.Atoi(v); err == nil && mb > 0 {
 			security.MaxImportBodySize = int64(mb) * 1024 * 1024
 		}
@@ -730,7 +730,7 @@ func loggerMiddleware() gin.HandlerFunc {
 }
 
 // printSecurityBanner 启动时打印安全状态自检 banner：
-//   - 不再自动生成 ADMIN_SECRET。若两端都空，则提示用户首次访问页面进行初始化。
+//   - 不再自动生成 AXISRELAY_ADMIN_SECRET。若两端都空，则提示用户首次访问页面进行初始化。
 //   - 检查 API Key 数量、监听地址、匿名开关，命中风险时给出对应提示。
 func printSecurityBanner(db *database.DB, cfg *config.Config, settings *database.SystemSettings) {
 	if db == nil || cfg == nil || settings == nil {
@@ -759,19 +759,19 @@ func printSecurityBanner(db *database.DB, cfg *config.Config, settings *database
 
 	switch {
 	case needsBootstrap:
-		log.Println("⚠ 尚未配置 ADMIN_SECRET（环境变量与数据库均为空）。")
+		log.Println("⚠ 尚未配置 AXISRELAY_ADMIN_SECRET（环境变量与数据库均为空）。")
 		log.Printf("  请使用浏览器访问管理台 http://%s:%d/admin/ 完成首次初始化，", bannerDisplayHost(bind), cfg.Port)
 		log.Println("  设置一个强随机的管理密钥；该密钥也将作为登录密钥。")
 		log.Println("  在初始化完成之前，所有 /api/admin/* 接口（除初始化端点外）均返回 503。")
 	case envSecret != "":
-		log.Println("✓ ADMIN_SECRET 来源：环境变量 (.env)")
+		log.Println("✓ AXISRELAY_ADMIN_SECRET 来源：环境变量 (.env)")
 	default:
-		log.Println("✓ ADMIN_SECRET 来源：数据库（如需修改请进入「设置」页面）")
+		log.Println("✓ AXISRELAY_ADMIN_SECRET 来源：数据库（如需修改请进入「设置」页面）")
 	}
 
 	if apiKeyCount == 0 {
 		if cfg.AllowAnonymousV1 {
-			log.Println("⚠ /v1/* 当前处于【匿名访问】模式（CODEX_ALLOW_ANONYMOUS=true）。")
+			log.Println("⚠ /v1/* 当前处于【匿名访问】模式（AXISRELAY_ALLOW_ANONYMOUS=true）。")
 			log.Println("  任何能访问端口的人均可调用 /v1/* 消耗你的账号池配额，请仅在内网/测试环境使用！")
 		} else {
 			log.Println("⚠ 尚未创建任何对外 API Key。/v1/* 接口在创建第一把 Key 之前会返回 503。")
@@ -783,8 +783,8 @@ func printSecurityBanner(db *database.DB, cfg *config.Config, settings *database
 
 	if publicBind {
 		log.Printf("ℹ 监听地址 = %s （所有网卡，兼容 Docker / 反代 / 公网）。", bind)
-		log.Println("  生产环境请确认已部署反向代理 + HTTPS、配置防火墙白名单，并使用强 ADMIN_SECRET 与 API Key。")
-		log.Println("  如希望服务只在本机回环可达，可设置 CODEX_BIND=127.0.0.1。")
+		log.Println("  生产环境请确认已部署反向代理 + HTTPS、配置防火墙白名单，并使用强 AXISRELAY_ADMIN_SECRET 与 API Key。")
+		log.Println("  如希望服务只在本机回环可达，可设置 AXISRELAY_BIND=127.0.0.1。")
 	} else {
 		log.Printf("✓ 监听地址 = %s （受限访问）。", bind)
 	}

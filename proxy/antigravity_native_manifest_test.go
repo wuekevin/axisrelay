@@ -10,11 +10,11 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/gin-gonic/gin"
 	"github.com/wuekevin/axisrelay/api"
 	"github.com/wuekevin/axisrelay/auth"
 	"github.com/wuekevin/axisrelay/config"
 	"github.com/wuekevin/axisrelay/database"
-	"github.com/gin-gonic/gin"
 )
 
 func TestMergedAntigravityManifestReplacesStaleCapabilities(t *testing.T) {
@@ -98,7 +98,7 @@ func TestAntigravityNativeManifestContract(t *testing.T) {
 			t.Fatalf("invented future/non-Gemini controls: %+v", model)
 		}
 	}
-	if path := os.Getenv("CODEX_MODEL_MANIFEST_FIXTURE_PATH"); path != "" {
+	if path := os.Getenv("AXISRELAY_MODEL_MANIFEST_FIXTURE_PATH"); path != "" {
 		if err := os.WriteFile(path, body, 0600); err != nil {
 			t.Fatal(err)
 		}

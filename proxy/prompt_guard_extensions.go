@@ -16,8 +16,8 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/wuekevin/axisrelay/security/promptfilter"
 	"github.com/gin-gonic/gin"
+	"github.com/wuekevin/axisrelay/security/promptfilter"
 )
 
 const (
@@ -290,7 +290,7 @@ func (h *Handler) enrichPromptGuardAttachments(ctx context.Context, cfg promptfi
 		return err
 	}
 	req.Header.Set("Content-Type", "application/json")
-	if key := strings.TrimSpace(os.Getenv("PROMPT_FILTER_ATTACHMENT_API_KEY")); key != "" {
+	if key := strings.TrimSpace(os.Getenv("AXISRELAY_PROMPT_FILTER_ATTACHMENT_API_KEY")); key != "" {
 		req.Header.Set("Authorization", "Bearer "+key)
 	}
 	resp, err := http.DefaultClient.Do(req)

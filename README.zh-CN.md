@@ -129,7 +129,7 @@ bash deploy.sh
 | 1) 仅本机访问 | `127.0.0.1` | 服务放在 nginx / Caddy 等反向代理后端，外网无法直接访问端口 |
 | 2) 全部网络 (默认) | `0.0.0.0` | 直接通过服务器 IP 对外暴露，部署完成后会展示本机 / 内网 / 公网地址 |
 
-绑定地址会写入 `.env` 的 `BIND_HOST`，后续可手动修改后 `docker compose up -d` 重启生效。
+绑定地址会写入 `.env` 的 `AXISRELAY_BIND_HOST`，后续可手动修改后 `docker compose up -d` 重启生效。
 
 **可选环境变量**（用于自定义自举行为）
 
@@ -200,7 +200,7 @@ docker compose -f docker-compose.sqlite.local.yml logs -f codex2api
 - SQLite 镜像版容器名：`codex2api-sqlite`
 - SQLite 本地构建版容器名：`codex2api-sqlite-local`
 - SQLite 轻量版只启动 `codex2api` 单容器，数据保存在 `/data/codex2api.db`
-- **SQLite compose 文件默认绑定 `127.0.0.1`，仅本机可访问。** 如需暴露给外部，请在 `.env` 中设置 `BIND_HOST=0.0.0.0` 或修改 compose 文件中的端口绑定。标准版 compose 文件默认绑定 `0.0.0.0`（所有网络接口）。
+- **SQLite compose 文件默认绑定 `127.0.0.1`，仅本机可访问。** 如需暴露给外部，请在 `.env` 中设置 `AXISRELAY_BIND_HOST=0.0.0.0` 或修改 compose 文件中的端口绑定。标准版 compose 文件默认绑定 `0.0.0.0`（所有网络接口）。
 - 生图工作台图库默认保存在 `/data/images`，上传的后台背景默认保存在 `/data/backgrounds`，标准版和 SQLite 版 Docker 配置都会持久化 `/data`
 - `docker compose down` 默认不会删除命名卷；只有 `docker compose down -v`、`docker volume rm` 或 `docker volume prune` 才会删除持久化数据
 - 不同部署模式的数据卷彼此隔离；切换 compose 文件后看到空数据，通常是切到了另一组卷，而不是原卷被自动删除
@@ -216,7 +216,7 @@ docker compose -f docker-compose.sqlite.local.yml logs -f codex2api
 
 ## Antigravity 渠道（API Key 路径为实验性）
 
-Antigravity 作为独立 Google 渠道管理，支持浏览器/导入 OAuth 凭据以及 Google API Key 账号。管理端提供含密钥的 JSON/ZIP 凭据导出、脱敏状态读取、显式控制面同步与有界能力探测。OAuth 请求使用 Cloud Code `v1internal` 适配器。API Key 请求指向 Generative Language `v1beta/interactions`，但普通调度默认关闭，只有显式设置 `ANTIGRAVITY_ENABLE_EXPERIMENTAL_INTERACTIONS=true` 才会放行。当前环境尚未成功运行真实上游集成测试，因此 API Key 路径仍为实验性，不能宣称已具备生产可用性。运行方法、安全风险与认证清单见 [docs/ANTIGRAVITY.md](docs/ANTIGRAVITY.md)。
+Antigravity 作为独立 Google 渠道管理，支持浏览器/导入 OAuth 凭据以及 Google API Key 账号。管理端提供含密钥的 JSON/ZIP 凭据导出、脱敏状态读取、显式控制面同步与有界能力探测。OAuth 请求使用 Cloud Code `v1internal` 适配器。API Key 请求指向 Generative Language `v1beta/interactions`，但普通调度默认关闭，只有显式设置 `AXISRELAY_ANTIGRAVITY_ENABLE_EXPERIMENTAL_INTERACTIONS=true` 才会放行。当前环境尚未成功运行真实上游集成测试，因此 API Key 路径仍为实验性，不能宣称已具备生产可用性。运行方法、安全风险与认证清单见 [docs/ANTIGRAVITY.md](docs/ANTIGRAVITY.md)。
 
 ## 完整文档
 
@@ -284,29 +284,29 @@ Vite 会自动代理 `/api` 和 `/health` 到后端，开发时访问 `http://lo
 
 | 变量 | 说明 |
 | --- | --- |
-| `CODEX_PORT` | HTTP 端口，默认 `8080` |
-| `CODEX_MAX_REQUEST_BODY_SIZE_MB` | HTTP 请求体上限，单位 MB，默认 `48` |
-| `ADMIN_SECRET` | 管理后台登录密钥；设置后首次访问 `/admin` 会弹出密码输入框 |
-| `DATABASE_DRIVER` | 数据库驱动，支持 `postgres` / `sqlite` |
-| `DATABASE_PATH` | SQLite 数据文件路径，`DATABASE_DRIVER=sqlite` 时生效 |
-| `DATABASE_HOST` | PostgreSQL 主机，`DATABASE_DRIVER=postgres` 时生效 |
-| `DATABASE_PORT` | PostgreSQL 端口，默认 `5432` |
-| `DATABASE_USER` | PostgreSQL 用户 |
-| `DATABASE_PASSWORD` | PostgreSQL 密码 |
-| `DATABASE_NAME` | PostgreSQL 数据库名 |
-| `DATABASE_SSLMODE` | PostgreSQL SSL 模式，默认 `disable` |
-| `CACHE_DRIVER` | 缓存驱动，支持 `redis` / `memory` |
-| `REDIS_ADDR` | Redis 地址，例如 `redis:6379`、`redis://default:pass@host:6379/0`、`rediss://default:pass@host:6379/0`，`CACHE_DRIVER=redis` 时生效 |
-| `REDIS_USERNAME` | Redis ACL 用户名，可选；URL 中带用户名时可不填 |
-| `REDIS_PASSWORD` | Redis 密码 |
-| `REDIS_DB` | Redis DB 库号 |
-| `REDIS_TLS` | 是否为 `host:port` 形式的 Redis 启用 TLS；使用 `rediss://` 时会自动启用 |
-| `REDIS_INSECURE_SKIP_VERIFY` | 跳过 Redis TLS 证书校验，默认 `false`，仅用于自签证书或排障 |
+| `AXISRELAY_PORT` | HTTP 端口，默认 `8080` |
+| `AXISRELAY_MAX_REQUEST_BODY_SIZE_MB` | HTTP 请求体上限，单位 MB，默认 `48` |
+| `AXISRELAY_ADMIN_SECRET` | 管理后台登录密钥；设置后首次访问 `/admin` 会弹出密码输入框 |
+| `AXISRELAY_DATABASE_DRIVER` | 数据库驱动，支持 `postgres` / `sqlite` |
+| `AXISRELAY_DATABASE_PATH` | SQLite 数据文件路径，`AXISRELAY_DATABASE_DRIVER=sqlite` 时生效 |
+| `AXISRELAY_DATABASE_HOST` | PostgreSQL 主机，`AXISRELAY_DATABASE_DRIVER=postgres` 时生效 |
+| `AXISRELAY_DATABASE_PORT` | PostgreSQL 端口，默认 `5432` |
+| `AXISRELAY_DATABASE_USER` | PostgreSQL 用户 |
+| `AXISRELAY_DATABASE_PASSWORD` | PostgreSQL 密码 |
+| `AXISRELAY_DATABASE_NAME` | PostgreSQL 数据库名 |
+| `AXISRELAY_DATABASE_SSLMODE` | PostgreSQL SSL 模式，默认 `disable` |
+| `AXISRELAY_CACHE_DRIVER` | 缓存驱动，支持 `redis` / `memory` |
+| `AXISRELAY_REDIS_ADDR` | Redis 地址，例如 `redis:6379`、`redis://default:pass@host:6379/0`、`rediss://default:pass@host:6379/0`，`AXISRELAY_CACHE_DRIVER=redis` 时生效 |
+| `AXISRELAY_REDIS_USERNAME` | Redis ACL 用户名，可选；URL 中带用户名时可不填 |
+| `AXISRELAY_REDIS_PASSWORD` | Redis 密码 |
+| `AXISRELAY_REDIS_DB` | Redis DB 库号 |
+| `AXISRELAY_REDIS_TLS` | 是否为 `host:port` 形式的 Redis 启用 TLS；使用 `rediss://` 时会自动启用 |
+| `AXISRELAY_REDIS_INSECURE_SKIP_VERIFY` | 跳过 Redis TLS 证书校验，默认 `false`，仅用于自签证书或排障 |
 | `TZ` | 时区，例如 `Asia/Shanghai` |
 
-> Aiven、Upstash 等云 Redis 通常要求 TLS。推荐直接将 `REDIS_ADDR` 配置为平台提供的 `rediss://...` URL；如果只填写 `host:port`，请同时设置 `REDIS_TLS=true`。
+> Aiven、Upstash 等云 Redis 通常要求 TLS。推荐直接将 `AXISRELAY_REDIS_ADDR` 配置为平台提供的 `rediss://...` URL；如果只填写 `host:port`，请同时设置 `AXISRELAY_REDIS_TLS=true`。
 
-标准版 `.env.example` 已显式声明 `DATABASE_DRIVER=postgres` 与 `CACHE_DRIVER=redis`；SQLite 轻量版请改用 `.env.sqlite.example`。
+标准版 `.env.example` 已显式声明 `AXISRELAY_DATABASE_DRIVER=postgres` 与 `AXISRELAY_CACHE_DRIVER=redis`；SQLite 轻量版请改用 `.env.sqlite.example`。
 
 ### 业务运行配置
 
@@ -336,8 +336,8 @@ Redis 模式下，共享上下文只要没有超过重建上限，即使大于 L
 
 - **对外 API Key**：以数据库中的 API Keys 为准。如果没有配置任何 Key，则 `/v1/*` 跳过鉴权。
 - **管理后台 Admin Secret**：
-  - 如果 `.env` 中设置了 `ADMIN_SECRET`，则优先使用环境变量。
-  - 如果未设置 `ADMIN_SECRET`，则回退到数据库中的 `AdminSecret`。
+  - 如果 `.env` 中设置了 `AXISRELAY_ADMIN_SECRET`，则优先使用环境变量。
+  - 如果未设置 `AXISRELAY_ADMIN_SECRET`，则回退到数据库中的 `AdminSecret`。
   - 鉴权生效时，首次访问 `/admin` 会弹出密码输入框；前端登录成功后通过 `X-Admin-Key` 请求头访问 `/api/admin/*`。
 
 ---

@@ -31,10 +31,10 @@ docker compose logs -f codex2api
 
 | 错误信息 | 原因 | 解决方案 |
 |----------|------|----------|
-| `DATABASE_HOST is empty` | 未配置数据库主机 | 检查 `.env` 文件 |
-| `REDIS_ADDR is empty` | Redis 模式未配置地址 | 检查 `.env` 文件 |
-| `Redis 连接失败: EOF` | 云 Redis 要求 TLS，但当前按明文连接 | 使用 `rediss://...` 地址，或设置 `REDIS_TLS=true` |
-| `DATABASE_PATH is empty` | SQLite 未配置路径 | 检查 `.env` 文件 |
+| `AXISRELAY_DATABASE_HOST is empty` | 未配置数据库主机 | 检查 `.env` 文件 |
+| `AXISRELAY_REDIS_ADDR is empty` | Redis 模式未配置地址 | 检查 `.env` 文件 |
+| `Redis 连接失败: EOF` | 云 Redis 要求 TLS，但当前按明文连接 | 使用 `rediss://...` 地址，或设置 `AXISRELAY_REDIS_TLS=true` |
+| `AXISRELAY_DATABASE_PATH is empty` | SQLite 未配置路径 | 检查 `.env` 文件 |
 | `connection refused` | 数据库未就绪 | 等待依赖服务启动 |
 
 **健康检查脚本:**
@@ -70,8 +70,8 @@ echo "All services healthy!"
 sudo lsof -i :8080
 sudo netstat -tlnp | grep 8080
 
-# 解决方案: 修改 .env 中的 CODEX_PORT
-CODEX_PORT=8081
+# 解决方案: 修改 .env 中的 AXISRELAY_PORT
+AXISRELAY_PORT=8081
 ```
 
 ---
@@ -213,7 +213,7 @@ curl -s -H "X-Admin-Key: your-secret" http://localhost:8080/api/admin/accounts |
 # 1. 检查是否配置了 API Key
 curl -s -H "X-Admin-Key: your-secret" http://localhost:8080/api/admin/keys
 
-# 2. 默认仍要求认证；只有未配置任何 Key 且显式开启 CODEX_ALLOW_ANONYMOUS=true 才允许普通公共接口匿名访问
+# 2. 默认仍要求认证；只有未配置任何 Key 且显式开启 AXISRELAY_ALLOW_ANONYMOUS=true 才允许普通公共接口匿名访问
 # 3. 如果配置了，确认请求头格式
 curl -H "Authorization: Bearer sk-your-key" http://localhost:8080/v1/models
 ```
@@ -350,7 +350,7 @@ RedisPoolSize: 50
 
 2. **切换索引调度器**
 ```bash
-CODEX_SCHEDULER_ENGINE=indexed
+AXISRELAY_SCHEDULER_ENGINE=indexed
 ```
 
 3. **优化代理配置**
@@ -390,7 +390,7 @@ curl -s -H "X-Admin-Key: your-secret" \
 - `outbox_backlog` 持续增长、`outbox_lag_ms > 5000` 或错误数增加，说明跨实例内存投影落后，应先检查数据库连接、触发器和实例日志。
 - `waiters` 高但 `wait_wakeups` 不增长，检查是否所有账号都被永久禁用；正常的并发释放或冷却恢复应产生事件唤醒。
 
-生产切换建议先在管理后台设为 `shadow`，观察一段真实流量下 `shadow_mismatches` 是否保持为 0 或能由瞬时并发竞争解释，再切到 `indexed`。如出现选号异常，可立即切回 `legacy`；数据库 outbox 和维护任务表可以保留，不需要回滚 schema。环境变量 `CODEX_SCHEDULER_ENGINE` 的优先级高于管理后台，若页面切换不生效，请先检查容器环境。
+生产切换建议先在管理后台设为 `shadow`，观察一段真实流量下 `shadow_mismatches` 是否保持为 0 或能由瞬时并发竞争解释，再切到 `indexed`。如出现选号异常，可立即切回 `legacy`；数据库 outbox 和维护任务表可以保留，不需要回滚 schema。环境变量 `AXISRELAY_SCHEDULER_ENGINE` 的优先级高于管理后台，若页面切换不生效，请先检查容器环境。
 
 ### 调度 outbox 的版本要求与回滚
 
@@ -450,7 +450,7 @@ curl http://localhost:8080/debug/pprof/heap > heap.prof
 
 1. 限制日志保留时间
 2. 同时对照 L1 的 `current_bytes` 与 `shared_payload_bytes`。多个快照可共享正文，降低逻辑预算可能主要减少可回放的历史响应，并可能增加 Memory 模式的 409，不一定同比降低 RSS。
-3. 检查 `request_memory` 和 `response_cache_writer` 的在途字节、等待数与拒绝数。`CODEX_REQUEST_MEMORY_BUDGET_MB` 控制进程内正文准入；它不包含所有输出、JSON 工作副本或 Go 堆开销。调低会更早返回可重试的 503/1013，调高须结合实际可用内存。
+3. 检查 `request_memory` 和 `response_cache_writer` 的在途字节、等待数与拒绝数。`AXISRELAY_REQUEST_MEMORY_BUDGET_MB` 控制进程内正文准入；它不包含所有输出、JSON 工作副本或 Go 堆开销。调低会更早返回可重试的 503/1013，调高须结合实际可用内存。
 4. 区分每次累计分配和请求结束后的存活堆。合并流刷新主要降低 flush 频率，不能替代正文生命周期管理；慢 Redis 和慢客户端也可能放大在途内存。
 
 ---
@@ -639,7 +639,7 @@ echo "========== 诊断完成 =========="
 ```bash
 # 方法1: 通过环境变量
 docker compose down
-export ADMIN_SECRET=new-secret
+export AXISRELAY_ADMIN_SECRET=new-secret
 docker compose up -d
 
 # 方法2: 直接修改数据库

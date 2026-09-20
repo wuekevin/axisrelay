@@ -217,22 +217,22 @@ if pool.AcquireConnection("http://proxy1:8080") {
 
 ```bash
 # 代理池策略: round_robin, weighted, least_connections
-PROXY_POOL_STRATEGY=round_robin
+AXISRELAY_PROXY_POOL_STRATEGY=round_robin
 
 # 健康检查间隔
-PROXY_POOL_CHECK_INTERVAL=30s
+AXISRELAY_PROXY_POOL_CHECK_INTERVAL=30s
 
 # 健康检查超时
-PROXY_POOL_TIMEOUT=10s
+AXISRELAY_PROXY_POOL_TIMEOUT=10s
 
 # 隔离阈值（连续失败次数）
-PROXY_POOL_ISOLATION_THRESHOLD=3
+AXISRELAY_PROXY_POOL_ISOLATION_THRESHOLD=3
 
 # 隔离持续时间
-PROXY_POOL_ISOLATION_DURATION=5m
+AXISRELAY_PROXY_POOL_ISOLATION_DURATION=5m
 
 # 健康检查 URL
-PROXY_POOL_HEALTH_CHECK_URL=http://www.google.com/generate_204
+AXISRELAY_PROXY_POOL_HEALTH_CHECK_URL=http://www.google.com/generate_204
 ```
 
 ## 代理生效优先级

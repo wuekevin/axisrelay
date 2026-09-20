@@ -22,16 +22,16 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
+	"github.com/tidwall/gjson"
+	"github.com/tidwall/sjson"
 	"github.com/wuekevin/axisrelay/api"
 	"github.com/wuekevin/axisrelay/auth"
 	"github.com/wuekevin/axisrelay/cache"
 	"github.com/wuekevin/axisrelay/config"
 	"github.com/wuekevin/axisrelay/database"
 	"github.com/wuekevin/axisrelay/security"
-	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
-	"github.com/tidwall/gjson"
-	"github.com/tidwall/sjson"
 	"golang.org/x/sync/singleflight"
 )
 
@@ -2431,9 +2431,9 @@ const capacityShedRetryableClientCode = "server_error"
 const maxCapacityShedSameAccountRetries = 2
 
 // capacityShedHandlingDisabled 报告是否通过环境变量退回旧行为（把降载当普通 500
-// 惩罚账号并立即换号）。CODEX_DISABLE_CAPACITY_SHED_HANDLING=1（或 true）时生效。
+// 惩罚账号并立即换号）。AXISRELAY_DISABLE_CAPACITY_SHED_HANDLING=1（或 true）时生效。
 func capacityShedHandlingDisabled() bool {
-	switch strings.ToLower(strings.TrimSpace(os.Getenv("CODEX_DISABLE_CAPACITY_SHED_HANDLING"))) {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("AXISRELAY_DISABLE_CAPACITY_SHED_HANDLING"))) {
 	case "1", "true", "yes", "on":
 		return true
 	default:
@@ -3131,7 +3131,7 @@ func (h *Handler) APIKeyReadAuthMiddleware() gin.HandlerFunc {
 //
 // 安全策略（fail-closed）：
 //   - 默认情况下，未配置任何 API Key 时直接拒绝请求（503），避免裸奔账号池。
-//   - 仅当显式设置 CODEX_ALLOW_ANONYMOUS=true 时才在无密钥情况下放行（兼容内网/测试）。
+//   - 仅当显式设置 AXISRELAY_ALLOW_ANONYMOUS=true 时才在无密钥情况下放行（兼容内网/测试）。
 func (h *Handler) authMiddleware() gin.HandlerFunc {
 	return h.authMiddlewareWithQuotaRead(false)
 }
@@ -3152,7 +3152,7 @@ func (h *Handler) authMiddlewareWithQuotaRead(allowQuotaRead bool) gin.HandlerFu
 		}
 		if !hasKeys {
 			if allowAnonymous {
-				// 显式允许匿名访问（旧行为，仅在 CODEX_ALLOW_ANONYMOUS=true 时启用）
+				// 显式允许匿名访问（旧行为，仅在 AXISRELAY_ALLOW_ANONYMOUS=true 时启用）
 				c.Next()
 				return
 			}
@@ -3160,7 +3160,7 @@ func (h *Handler) authMiddlewareWithQuotaRead(allowQuotaRead bool) gin.HandlerFu
 			security.SecurityAuditLog("V1_BLOCKED_NO_KEYS", fmt.Sprintf("path=%s ip=%s", c.Request.URL.Path, c.ClientIP()))
 			api.SendError(c, api.NewAPIError(
 				api.ErrCodeServiceUnavailable,
-				"Service is not configured: no API key has been created yet. Please add at least one API key in the admin dashboard, or set CODEX_ALLOW_ANONYMOUS=true to disable this check.",
+				"Service is not configured: no API key has been created yet. Please add at least one API key in the admin dashboard, or set AXISRELAY_ALLOW_ANONYMOUS=true to disable this check.",
 				api.ErrorTypeServer,
 			))
 			c.Abort()

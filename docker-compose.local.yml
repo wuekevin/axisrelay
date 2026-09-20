@@ -5,7 +5,7 @@ services:
     build: .
     container_name: codex2api
     ports:
-      - "${BIND_HOST:-0.0.0.0}:${CODEX_PORT:-8080}:${CODEX_PORT:-8080}"
+      - "${AXISRELAY_BIND_HOST:-0.0.0.0}:${AXISRELAY_PORT:-8080}:${AXISRELAY_PORT:-8080}"
     env_file:
       - .env
     volumes:
@@ -24,9 +24,9 @@ services:
     image: postgres:18-alpine
     container_name: codex2api-postgres
     environment:
-      POSTGRES_USER: ${DATABASE_USER:-codex2api}
-      POSTGRES_PASSWORD: ${DATABASE_PASSWORD:-codex2api}
-      POSTGRES_DB: ${DATABASE_NAME:-codex2api}
+      POSTGRES_USER: ${AXISRELAY_DATABASE_USER:-codex2api}
+      POSTGRES_PASSWORD: ${AXISRELAY_DATABASE_PASSWORD:-codex2api}
+      POSTGRES_DB: ${AXISRELAY_DATABASE_NAME:-codex2api}
       PGDATA: /var/lib/postgresql/data
       TZ: ${TZ:-Asia/Shanghai}
     volumes:
@@ -34,7 +34,7 @@ services:
     # ports:
     #   - "5432:5432"   # 取消注释以便本地调试
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DATABASE_USER:-codex2api}"]
+      test: ["CMD-SHELL", "pg_isready -U ${AXISRELAY_DATABASE_USER:-codex2api}"]
       interval: 5s
       timeout: 3s
       retries: 5

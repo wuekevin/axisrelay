@@ -22,7 +22,7 @@ import (
 // 不同的头**；thread-id 与 x-client-request-id 则完全缺失。也就是说，凡是走本网关的
 // 请求，其会话头集合与任何真实 Codex 客户端都不重合，且这个差异每请求都在。
 //
-// 逃生阀：CODEX_SESSION_HEADER_MODE=legacy 恢复旧的 Session_id 形态。默认 native，
+// 逃生阀：AXISRELAY_SESSION_HEADER_MODE=legacy 恢复旧的 Session_id 形态。默认 native，
 // 因为旧形态是缺陷而非可选风格——但如果哪天发现上游反而依赖下划线写法，
 // 单个环境变量就能整体回退，不必改代码重新发版。
 const (
@@ -37,7 +37,7 @@ const (
 // codexSessionHeaderModeFromEnv 读取会话头形态档位。只有显式写 legacy 才回退，
 // 其余取值（含空、含拼错）都按 native 处理。
 func codexSessionHeaderModeFromEnv() string {
-	if strings.EqualFold(strings.TrimSpace(os.Getenv("CODEX_SESSION_HEADER_MODE")), codexSessionHeaderModeLegacy) {
+	if strings.EqualFold(strings.TrimSpace(os.Getenv("AXISRELAY_SESSION_HEADER_MODE")), codexSessionHeaderModeLegacy) {
 		return codexSessionHeaderModeLegacy
 	}
 	return codexSessionHeaderModeNative
@@ -60,7 +60,7 @@ func codexSessionHeaderModeFromEnv() string {
 // 头与体，成本远高于看一眼 UUID 版本位。所以默认留在安全的一侧，
 // 由部署者在确认上游缓存行为后显式打开。
 func codexSessionHeaderAlignsConverged() bool {
-	switch strings.ToLower(strings.TrimSpace(os.Getenv("CODEX_SESSION_HEADER_ALIGN_CONVERGED"))) {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("AXISRELAY_SESSION_HEADER_ALIGN_CONVERGED"))) {
 	case "1", "true", "yes", "y", "on":
 		return true
 	default:

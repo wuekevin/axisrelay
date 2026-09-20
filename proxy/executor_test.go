@@ -11,9 +11,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/wuekevin/axisrelay/auth"
 	"github.com/google/uuid"
 	"github.com/tidwall/gjson"
+	"github.com/wuekevin/axisrelay/auth"
 )
 
 type maxChunkReader struct {
@@ -1676,14 +1676,14 @@ func TestExecuteOpenAIResponsesRequestRetriesForbiddenErrorOfficialClients(t *te
 }
 
 func TestCodexTransportModeDefaultsToStandard(t *testing.T) {
-	t.Setenv("CODEX_TRANSPORT_MODE", "")
+	t.Setenv("AXISRELAY_TRANSPORT_MODE", "")
 	if _, ok := newCodexTransport("").(*http.Transport); !ok {
 		t.Fatalf("newCodexTransport default = %T, want *http.Transport", newCodexTransport(""))
 	}
 }
 
 func TestCodexTransportModeCanUseUTLSChrome(t *testing.T) {
-	t.Setenv("CODEX_TRANSPORT_MODE", "utls_chrome")
+	t.Setenv("AXISRELAY_TRANSPORT_MODE", "utls_chrome")
 	if _, ok := newCodexTransport("").(*utlsRoundTripper); !ok {
 		t.Fatalf("newCodexTransport utls_chrome = %T, want *utlsRoundTripper", newCodexTransport(""))
 	}

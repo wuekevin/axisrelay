@@ -82,9 +82,9 @@ func TestImageUserBillingPersistence(t *testing.T) {
 	testImageUserBillingPersistence(t, "sqlite", filepath.Join(t.TempDir(), "image-fees.db"))
 }
 func TestImageUserBillingPersistencePostgres(t *testing.T) {
-	dsn := os.Getenv("CODEX2API_TEST_POSTGRES_DSN")
+	dsn := os.Getenv("AXISRELAY_TEST_POSTGRES_DSN")
 	if dsn == "" {
-		t.Skip("requires an isolated CODEX2API_TEST_POSTGRES_DSN database")
+		t.Skip("requires an isolated AXISRELAY_TEST_POSTGRES_DSN database")
 	}
 	testImageUserBillingPersistence(t, "postgres", dsn)
 }

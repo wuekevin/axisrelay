@@ -859,7 +859,7 @@ func TestApplyCodexRequestHeadersConvergesForwardedClientRequestID(t *testing.T)
 		t.Fatalf("X-Client-Request-Id = %q, want converged thread id %q", got, ids.threadID)
 	}
 	// 出站会话键仍归 resolveUpstreamSessionID 管，收敛默认不得介入
-	// （对齐需显式开 CODEX_SESSION_HEADER_ALIGN_CONVERGED）。头名改成真实形态，
+	// （对齐需显式开 AXISRELAY_SESSION_HEADER_ALIGN_CONVERGED）。头名改成真实形态，
 	// 但取值语义不变。
 	if got := req.Header.Get("Session-Id"); got != "upstream-cache-key" {
 		t.Fatalf("Session-Id = %q, want the cache key untouched", got)

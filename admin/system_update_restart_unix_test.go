@@ -11,8 +11,8 @@ import (
 )
 
 func TestDefaultRestartProcessExecsProvidedPathAndKeepsEnvironment(t *testing.T) {
-	if os.Getenv("CODEX2API_RESTART_EXEC_HELPER") == "1" {
-		targetPath := os.Getenv("CODEX2API_RESTART_EXEC_TARGET")
+	if os.Getenv("AXISRELAY_RESTART_EXEC_HELPER") == "1" {
+		targetPath := os.Getenv("AXISRELAY_RESTART_EXEC_TARGET")
 		if err := defaultRestartProcess(targetPath); err != nil {
 			t.Fatalf("defaultRestartProcess(%q) error: %v", targetPath, err)
 		}
@@ -28,8 +28,8 @@ func TestDefaultRestartProcessExecsProvidedPathAndKeepsEnvironment(t *testing.T)
 
 	cmd := exec.Command(os.Args[0], "-test.run=TestDefaultRestartProcessExecsProvidedPathAndKeepsEnvironment")
 	cmd.Env = append(os.Environ(),
-		"CODEX2API_RESTART_EXEC_HELPER=1",
-		"CODEX2API_RESTART_EXEC_TARGET="+targetPath,
+		"AXISRELAY_RESTART_EXEC_HELPER=1",
+		"AXISRELAY_RESTART_EXEC_TARGET="+targetPath,
 		"CODEX2API_RESTART_EXEC_VALUE=kept",
 	)
 

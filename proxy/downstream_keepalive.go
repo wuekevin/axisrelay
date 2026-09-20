@@ -20,7 +20,7 @@ var downstreamSSEKeepaliveInterval = downstreamSSEKeepaliveIntervalFromEnv()
 
 // downstreamSSEKeepaliveIntervalFromEnv 读取下游 HTTP/SSE 保活周期配置。
 func downstreamSSEKeepaliveIntervalFromEnv() time.Duration {
-	return durationFromEnv("DOWNSTREAM_HTTP_KEEPALIVE_INTERVAL", defaultDownstreamSSEKeepaliveInterval)
+	return durationFromEnv("AXISRELAY_DOWNSTREAM_HTTP_KEEPALIVE_INTERVAL", defaultDownstreamSSEKeepaliveInterval)
 }
 
 // ConfigureDownstreamKeepaliveFromEnv 在 config.Load 读取 .env 后刷新保活配置。

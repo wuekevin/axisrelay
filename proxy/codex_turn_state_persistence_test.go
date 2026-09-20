@@ -88,7 +88,7 @@ func TestTurnStateAdminProbeInjectsWithoutChangingOrdinaryRequests(t *testing.T)
 	if GetCodexTurnStateStatus(a).State != "recovering" {
 		t.Fatal("successful send not reflected")
 	}
-	t.Setenv("CODEX_TURN_STATE_DRY_RUN", "true")
+	t.Setenv("AXISRELAY_TURN_STATE_DRY_RUN", "true")
 	headers = http.Header{}
 	ApplyCodexTurnStateTemplate(WithCodexTurnStateAdminProbe(nil), headers, a, "gpt-5.6-luna")
 	if len(headers) != 0 {

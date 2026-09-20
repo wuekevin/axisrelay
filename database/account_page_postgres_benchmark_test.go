@@ -14,12 +14,12 @@ import (
 //  1. the cold, non-secret 40k account projection;
 //  2. the bounded current-page base/stat/usage/health queries (20 accounts).
 //
-// It requires an empty, disposable database in CODEX2API_TEST_POSTGRES_DSN.
+// It requires an empty, disposable database in AXISRELAY_TEST_POSTGRES_DSN.
 // Ordinary `go test` runs do not execute benchmarks or create these fixtures.
 func BenchmarkPostgresFortyThousandAccountPage(b *testing.B) {
-	dsn := os.Getenv("CODEX2API_TEST_POSTGRES_DSN")
+	dsn := os.Getenv("AXISRELAY_TEST_POSTGRES_DSN")
 	if dsn == "" {
-		b.Skip("CODEX2API_TEST_POSTGRES_DSN is not set")
+		b.Skip("AXISRELAY_TEST_POSTGRES_DSN is not set")
 	}
 
 	db, err := New("postgres", dsn)

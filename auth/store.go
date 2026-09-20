@@ -3694,7 +3694,7 @@ const (
 type runtimeCooldownRecord = cache.RuntimeCooldown
 
 func sessionAffinityTTL() time.Duration {
-	raw := strings.TrimSpace(os.Getenv("CODEX_SESSION_AFFINITY_TTL"))
+	raw := strings.TrimSpace(os.Getenv("AXISRELAY_SESSION_AFFINITY_TTL"))
 	if raw == "" {
 		return defaultSessionAffinityTTL
 	}
@@ -3708,9 +3708,9 @@ func sessionAffinityTTL() time.Duration {
 }
 
 // sessionAffinityIdleEscape 返回 bounded 模式的空闲逃逸阈值,可用
-// CODEX_SESSION_AFFINITY_IDLE_ESCAPE 覆盖(Duration 或纯秒数)。
+// AXISRELAY_SESSION_AFFINITY_IDLE_ESCAPE 覆盖(Duration 或纯秒数)。
 func sessionAffinityIdleEscape() time.Duration {
-	raw := strings.TrimSpace(os.Getenv("CODEX_SESSION_AFFINITY_IDLE_ESCAPE"))
+	raw := strings.TrimSpace(os.Getenv("AXISRELAY_SESSION_AFFINITY_IDLE_ESCAPE"))
 	if raw == "" {
 		return defaultAffinityIdleEscape
 	}
@@ -4105,15 +4105,6 @@ func (s *Store) WithModelCooldownFilterContext(ctx context.Context, model string
 	}
 }
 
-func fastSchedulerEnabledFromEnv() bool {
-	for _, key := range []string{"FAST_SCHEDULER_ENABLED", "CODEX_FAST_SCHEDULER"} {
-		if truthyEnv(os.Getenv(key)) {
-			return true
-		}
-	}
-	return false
-}
-
 func truthyEnv(v string) bool {
 	switch strings.ToLower(strings.TrimSpace(v)) {
 	case "1", "true", "yes", "on", "enable", "enabled":
@@ -4238,9 +4229,9 @@ func NewStore(db *database.DB, tc cache.TokenCache, settings *database.SystemSet
 		// persisted value can never prevent Store initialization.
 		s.SetPromptFilterConfig(promptFilterCfg)
 	}
-	// 新调度引擎环境变量优先；未配置时兼容旧 fast_scheduler_enabled。
-	legacyFastEnabled := fastSchedulerEnabledFromEnv() || settings.FastSchedulerEnabled
-	engineSetting := strings.TrimSpace(os.Getenv("CODEX_SCHEDULER_ENGINE"))
+	// AxisRelay 环境变量优先；数据库中的既有 fast_scheduler_enabled 仅作为持久化设置兼容。
+	legacyFastEnabled := settings.FastSchedulerEnabled
+	engineSetting := strings.TrimSpace(os.Getenv("AXISRELAY_SCHEDULER_ENGINE"))
 	if engineSetting == "" {
 		engineSetting = settings.SchedulerEngine
 	}

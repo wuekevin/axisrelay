@@ -316,7 +316,7 @@ func TestCodexDesktopMetricIdentity(t *testing.T) {
 }
 
 func TestCodexTelemetryTransportHeaders(t *testing.T) {
-	t.Setenv("CODEX_STATSIG_API_KEY", "test-statsig-key")
+	t.Setenv("AXISRELAY_STATSIG_API_KEY", "test-statsig-key")
 	requests := make(chan http.Header, 2)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
 		_, _ = io.Copy(io.Discard, request.Body)
@@ -369,19 +369,19 @@ func TestCodexTelemetryStartupMetricPartition(t *testing.T) {
 
 // TestCodexTelemetryTimingProbeGate 校验临时计时探针默认关闭、按 env 开启。
 func TestCodexTelemetryTimingProbeGate(t *testing.T) {
-	t.Setenv("CODEX_TELEMETRY_TIMING_DEBUG", "")
+	t.Setenv("AXISRELAY_TELEMETRY_TIMING_DEBUG", "")
 	if codexTelemetryTimingDebug() {
 		t.Fatal("timing probe must default off")
 	}
-	t.Setenv("CODEX_TELEMETRY_TIMING_DEBUG", "1")
+	t.Setenv("AXISRELAY_TELEMETRY_TIMING_DEBUG", "1")
 	if !codexTelemetryTimingDebug() {
-		t.Fatal("timing probe must honor CODEX_TELEMETRY_TIMING_DEBUG=1")
+		t.Fatal("timing probe must honor AXISRELAY_TELEMETRY_TIMING_DEBUG=1")
 	}
 }
 
 // TestCodexTelemetryTimingProbeRecordsParse 校验探针开启时统计事件数与解析耗时。
 func TestCodexTelemetryTimingProbeRecordsParse(t *testing.T) {
-	t.Setenv("CODEX_TELEMETRY_TIMING_DEBUG", "1")
+	t.Setenv("AXISRELAY_TELEMETRY_TIMING_DEBUG", "1")
 	attempt := &codexTelemetryAttempt{profile: testCodexTelemetryProfile(), timing: true}
 	stream := "data: {\"type\":\"response.output_text.delta\",\"delta\":\"hi\"}\n\n" +
 		"data: {\"type\":\"response.completed\",\"response\":{\"id\":\"resp_ws\"}}\n\n"

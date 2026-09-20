@@ -34,11 +34,11 @@ import (
 
 // codexRequestCompressionEnabled 判定本次请求是否压缩。
 //
-// 环境变量 CODEX_REQUEST_COMPRESSION 显式设置时优先于系统设置：它是部署级逃生阀，
+// 环境变量 AXISRELAY_REQUEST_COMPRESSION 显式设置时优先于系统设置：它是部署级逃生阀，
 // 在 DB 不可达、后台打不开、或需要整机强制回退时仍然有效。未设置（或取值无法识别）
 // 时以系统设置为准，由管理后台控制。
 func codexRequestCompressionEnabled() bool {
-	switch strings.ToLower(strings.TrimSpace(os.Getenv("CODEX_REQUEST_COMPRESSION"))) {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("AXISRELAY_REQUEST_COMPRESSION"))) {
 	case "zstd", "on", "true", "1":
 		return true
 	case "off", "none", "false", "0", "plain":

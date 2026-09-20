@@ -279,7 +279,7 @@ preflight() {
 step_port() {
   echo ""
   printf "${BOLD}${CYAN}━━━ 1/6 服务端口 ━━━${NC}\n"
-  ask "服务监听端口" "$(env_default CODEX_PORT "$(env_default PORT "8080")")" PORT
+  ask "服务监听端口" "$(env_default AXISRELAY_PORT "$(env_default PORT "8080")")" PORT
 
   if ! [[ "$PORT" =~ ^[0-9]+$ ]] || (( PORT < 1 || PORT > 65535 )); then
     error "无效端口号: $PORT"
@@ -296,7 +296,7 @@ step_bind() {
   echo "  2) 全部网络    — 绑定 0.0.0.0，可通过内网/公网 IP 访问 (默认)"
   echo ""
   local bind_default bind_choice_default
-  bind_default="$(env_default BIND_HOST "0.0.0.0")"
+  bind_default="$(env_default AXISRELAY_BIND_HOST "0.0.0.0")"
   case "$bind_default" in
     127.*|localhost)
       bind_choice_default="1"
@@ -309,12 +309,12 @@ step_bind() {
 
   case "$BIND_CHOICE" in
     1|local|loopback|127*)
-      BIND_HOST="127.0.0.1"
+      AXISRELAY_BIND_HOST="127.0.0.1"
       BIND_MODE="loopback"
       success "监听范围: 仅本机 (127.0.0.1)"
       ;;
     2|all|public|0*)
-      BIND_HOST="0.0.0.0"
+      AXISRELAY_BIND_HOST="0.0.0.0"
       BIND_MODE="all"
       success "监听范围: 全部网络 (0.0.0.0)"
       ;;
@@ -333,7 +333,7 @@ step_database() {
   echo "  2) PG+Redis — PostgreSQL + Redis，适合生产 / 多并发"
   echo ""
   local db_default db_choice_default
-  db_default="$(env_default DATABASE_DRIVER "sqlite")"
+  db_default="$(env_default AXISRELAY_DATABASE_DRIVER "sqlite")"
   db_default="$(printf "%s" "$db_default" | tr '[:upper:]' '[:lower:]')"
   case "$db_default" in
     postgres|postgresql|pg)
@@ -364,23 +364,23 @@ step_database() {
 
 step_sqlite_config() {
   echo ""
-  ask "SQLite 数据文件路径 (容器内)" "$(env_default DATABASE_PATH "/data/codex2api.db")" SQLITE_PATH
+  ask "SQLite 数据文件路径 (容器内)" "$(env_default AXISRELAY_DATABASE_PATH "/data/codex2api.db")" SQLITE_PATH
 }
 
 step_pg_config() {
   echo ""
   info "PostgreSQL 配置 (Docker 内置，通常保持默认即可)"
-  ask "数据库用户名" "$(env_default DATABASE_USER "$(env_default POSTGRES_USER "codex2api")")" PG_USER
-  ask "数据库名称"   "$(env_default DATABASE_NAME "$(env_default POSTGRES_DB "codex2api")")" PG_DB
+  ask "数据库用户名" "$(env_default AXISRELAY_DATABASE_USER "$(env_default POSTGRES_USER "codex2api")")" PG_USER
+  ask "数据库名称"   "$(env_default AXISRELAY_DATABASE_NAME "$(env_default POSTGRES_DB "codex2api")")" PG_DB
   echo ""
-  ask_secret "数据库密码" "$(env_default DATABASE_PASSWORD "$(env_default POSTGRES_PASSWORD "")")" PG_PASS
+  ask_secret "数据库密码" "$(env_default AXISRELAY_DATABASE_PASSWORD "$(env_default POSTGRES_PASSWORD "")")" PG_PASS
   if [[ -z "$PG_PASS" ]]; then
     PG_PASS=$(gen_secret)
     success "已自动生成数据库密码"
   fi
   echo ""
   info "Redis 配置"
-  ask_secret "Redis 密码 (留空则无密码)" "$(env_default REDIS_PASSWORD "")" REDIS_PASS
+  ask_secret "Redis 密码 (留空则无密码)" "$(env_default AXISRELAY_REDIS_PASSWORD "")" REDIS_PASS
 }
 
 # ---------- 第四步：密钥 ----------
@@ -389,14 +389,13 @@ step_secrets() {
   printf "${BOLD}${CYAN}━━━ 4/6 安全密钥 ━━━${NC}\n"
   echo ""
 
-  ask_secret "管理后台密钥 (ADMIN_SECRET)" "$(env_default ADMIN_SECRET "")" ADMIN_SECRET
-  if [[ -z "$ADMIN_SECRET" ]]; then
-    ADMIN_SECRET=$(gen_secret)
+  ask_secret "管理后台密钥 (AXISRELAY_ADMIN_SECRET)" "$(env_default AXISRELAY_ADMIN_SECRET "")" AXISRELAY_ADMIN_SECRET
+  if [[ -z "$AXISRELAY_ADMIN_SECRET" ]]; then
+    AXISRELAY_ADMIN_SECRET=$(gen_secret)
     success "已自动生成管理密钥"
   fi
 
   echo ""
-  ask "下游 API 密钥 (CODEX_API_KEYS, 多个用逗号分隔, 留空不启用)" "$(env_default CODEX_API_KEYS "")" API_KEYS
 }
 
 # ---------- 第五步：构建方式 ----------
@@ -445,12 +444,7 @@ step_confirm() {
     echo "  Redis:      内置容器"
   fi
   echo "  构建方式:   $( [[ "$BUILD_MODE" == "image" ]] && echo "拉取镜像" || echo "本地构建" )"
-  echo "  管理密钥:   ${ADMIN_SECRET}"
-  if [[ -n "${API_KEYS:-}" ]]; then
-    echo "  API 密钥:   已设置"
-  else
-    echo "  API 密钥:   未启用"
-  fi
+  echo "  管理密钥:   ${AXISRELAY_ADMIN_SECRET}"
   echo ""
   ask "确认部署? (y/n)" "y" CONFIRM
   if [[ "$CONFIRM" != "y" && "$CONFIRM" != "Y" ]]; then
@@ -477,20 +471,20 @@ generate_env() {
 # ============================
 
 # 服务端口
-CODEX_PORT=${PORT}
+AXISRELAY_PORT=${PORT}
 
 # 端口绑定地址 (127.0.0.1=仅本机, 0.0.0.0=全部网络)
-BIND_HOST=${BIND_HOST}
+AXISRELAY_BIND_HOST=${AXISRELAY_BIND_HOST}
 
 # 管理后台密钥
-ADMIN_SECRET=${ADMIN_SECRET}
+AXISRELAY_ADMIN_SECRET=${AXISRELAY_ADMIN_SECRET}
 
 # 数据库 — SQLite
-DATABASE_DRIVER=sqlite
-DATABASE_PATH=${SQLITE_PATH}
+AXISRELAY_DATABASE_DRIVER=sqlite
+AXISRELAY_DATABASE_PATH=${SQLITE_PATH}
 
 # 缓存 — 内存
-CACHE_DRIVER=memory
+AXISRELAY_CACHE_DRIVER=memory
 
 # 时区
 TZ=Asia/Shanghai
@@ -503,46 +497,40 @@ EOF
 # ============================
 
 # 服务端口
-CODEX_PORT=${PORT}
+AXISRELAY_PORT=${PORT}
 
 # 端口绑定地址 (127.0.0.1=仅本机, 0.0.0.0=全部网络)
-BIND_HOST=${BIND_HOST}
+AXISRELAY_BIND_HOST=${AXISRELAY_BIND_HOST}
 
 # 管理后台密钥
-ADMIN_SECRET=${ADMIN_SECRET}
+AXISRELAY_ADMIN_SECRET=${AXISRELAY_ADMIN_SECRET}
 
 # 数据库 — PostgreSQL
-DATABASE_DRIVER=postgres
-DATABASE_HOST=postgres
-DATABASE_PORT=5432
-DATABASE_USER=${PG_USER}
-DATABASE_PASSWORD=${PG_PASS}
-DATABASE_NAME=${PG_DB}
-DATABASE_SSLMODE=disable
+AXISRELAY_DATABASE_DRIVER=postgres
+AXISRELAY_DATABASE_HOST=postgres
+AXISRELAY_DATABASE_PORT=5432
+AXISRELAY_DATABASE_USER=${PG_USER}
+AXISRELAY_DATABASE_PASSWORD=${PG_PASS}
+AXISRELAY_DATABASE_NAME=${PG_DB}
+AXISRELAY_DATABASE_SSLMODE=disable
 POSTGRES_USER=${PG_USER}
 POSTGRES_PASSWORD=${PG_PASS}
 POSTGRES_DB=${PG_DB}
 
 # 缓存 — Redis
-CACHE_DRIVER=redis
-REDIS_ADDR=redis:6379
-REDIS_USERNAME=
-REDIS_PASSWORD=${REDIS_PASS:-}
-REDIS_DB=0
-REDIS_TLS=false
-REDIS_INSECURE_SKIP_VERIFY=false
+AXISRELAY_CACHE_DRIVER=redis
+AXISRELAY_REDIS_ADDR=redis:6379
+AXISRELAY_REDIS_USERNAME=
+AXISRELAY_REDIS_PASSWORD=${REDIS_PASS:-}
+AXISRELAY_REDIS_DB=0
+AXISRELAY_REDIS_TLS=false
+AXISRELAY_REDIS_INSECURE_SKIP_VERIFY=false
 
 # 时区
 TZ=Asia/Shanghai
 EOF
   fi
 
-  # 追加 API Keys
-  if [[ -n "${API_KEYS:-}" ]]; then
-    echo "" >> .env
-    echo "# 下游 API 密钥鉴权" >> .env
-    echo "CODEX_API_KEYS=${API_KEYS}" >> .env
-  fi
 
   success ".env 已生成"
 }
@@ -641,7 +629,7 @@ deploy() {
     fi
   fi
   echo ""
-  echo "  管理密钥 : ${ADMIN_SECRET}"
+  echo "  管理密钥 : ${AXISRELAY_ADMIN_SECRET}"
   echo "  查看日志 : $(compose_cmd_display) logs -f"
   echo "  停止服务 : $(compose_cmd_display) down"
   echo ""
@@ -649,7 +637,7 @@ deploy() {
     warn "服务对外开放，请确认防火墙/安全组已放行 ${PORT} 端口"
   fi
   if [[ "$BIND_MODE" == "loopback" ]]; then
-    info "如需对外暴露，可重新运行 deploy.sh 选择「全部网络」，或在 .env 中将 BIND_HOST 改为 0.0.0.0"
+    info "如需对外暴露，可重新运行 deploy.sh 选择「全部网络」，或在 .env 中将 AXISRELAY_BIND_HOST 改为 0.0.0.0"
   fi
   echo ""
 }

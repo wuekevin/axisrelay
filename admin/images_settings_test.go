@@ -37,7 +37,7 @@ func newImagesSettingsHandler(t *testing.T) (*Handler, *database.DB, string) {
 
 func TestImagesSettingsPartialUpdatePersistenceAndClear(t *testing.T) {
 	handler, db, _ := newImagesSettingsHandler(t)
-	t.Setenv("CODEX_IMAGES_MAIN_MODEL", "gpt-5.5")
+	t.Setenv("AXISRELAY_IMAGES_MAIN_MODEL", "gpt-5.5")
 	for _, tc := range []struct {
 		patch map[string]any
 		want  string

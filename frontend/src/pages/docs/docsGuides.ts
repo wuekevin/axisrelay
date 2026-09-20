@@ -35,8 +35,8 @@ export function buildGuides(baseUrl: string, locale: DocsLocale): GuideSpec[] {
           "Clients connect to this service. An account's proxy_url controls the service's outbound proxy; it is not the client API Base URL.",
         ),
         c(
-          "公共接口通常使用后台创建的 API Key；管理接口使用 Admin Secret，不需要再叠加一个下游 API Key。仅在未配置任何 API Key 且显式开启 CODEX_ALLOW_ANONYMOUS=true 时，普通公共接口才允许匿名访问。异步生图任务仍要求后台创建的 API Key。",
-          "Public endpoints normally use an API key created in the dashboard. Admin endpoints use the Admin Secret without an additional downstream API key. Anonymous access to ordinary public endpoints requires both no configured keys and CODEX_ALLOW_ANONYMOUS=true. Async image jobs still require a dashboard-created API key.",
+          "公共接口通常使用后台创建的 API Key；管理接口使用 Admin Secret，不需要再叠加一个下游 API Key。仅在未配置任何 API Key 且显式开启 AXISRELAY_ALLOW_ANONYMOUS=true 时，普通公共接口才允许匿名访问。异步生图任务仍要求后台创建的 API Key。",
+          "Public endpoints normally use an API key created in the dashboard. Admin endpoints use the Admin Secret without an additional downstream API key. Anonymous access to ordinary public endpoints requires both no configured keys and AXISRELAY_ALLOW_ANONYMOUS=true. Async image jobs still require a dashboard-created API key.",
         ),
       ],
       table: {

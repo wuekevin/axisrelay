@@ -124,7 +124,7 @@ jobs:
           go-version-file: go.mod
       - name: Test PostgreSQL trace, indexes, capabilities and legacy daily usage
         env:
-          CODEX2API_TEST_POSTGRES_DSN: postgres://codex2api_test:test-only@localhost:5432/codex2api_test?sslmode=disable
+          AXISRELAY_TEST_POSTGRES_DSN: postgres://codex2api_test:test-only@localhost:5432/codex2api_test?sslmode=disable
         run: go test -race -count=1 ./database -run '^TestPostgresTraceAndCapabilities$'
 
   test-race:

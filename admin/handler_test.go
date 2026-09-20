@@ -18,13 +18,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gin-gonic/gin"
 	"github.com/wuekevin/axisrelay/auth"
 	"github.com/wuekevin/axisrelay/cache"
 	"github.com/wuekevin/axisrelay/database"
 	"github.com/wuekevin/axisrelay/internal/imagestore"
 	"github.com/wuekevin/axisrelay/internal/openaiidentity"
 	"github.com/wuekevin/axisrelay/proxy"
-	"github.com/gin-gonic/gin"
 )
 
 func TestRefreshAccountRejectsInvalidID(t *testing.T) {
@@ -395,7 +395,7 @@ func TestBackgroundUploadLimitBytes(t *testing.T) {
 
 func TestUploadBackgroundAssetStoresFile(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	t.Setenv("BACKGROUND_ASSET_DIR", t.TempDir())
+	t.Setenv("AXISRELAY_BACKGROUND_ASSET_DIR", t.TempDir())
 
 	var body bytes.Buffer
 	writer := multipart.NewWriter(&body)

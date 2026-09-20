@@ -21,9 +21,9 @@ const (
 	antigravityAuthorizationURL     = "https://accounts.google.com/o/oauth2/v2/auth"
 	antigravityOAuthScopes          = "openid https://www.googleapis.com/auth/cloud-platform https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/cclog https://www.googleapis.com/auth/experimentsandconfigs https://www.googleapis.com/auth/aicode"
 	antigravityOAuthCallbackPath    = "/oauth-callback"
-	antigravityOAuthClientsEnv      = "ANTIGRAVITY_OAUTH_CLIENTS"
-	antigravityActiveOAuthClientEnv = "ANTIGRAVITY_OAUTH_CLIENT_KEY"
-	antigravityUserAgentEnv         = "ANTIGRAVITY_USER_AGENT"
+	antigravityOAuthClientsEnv      = "AXISRELAY_ANTIGRAVITY_OAUTH_CLIENTS"
+	antigravityActiveOAuthClientEnv = "AXISRELAY_ANTIGRAVITY_OAUTH_CLIENT_KEY"
+	antigravityUserAgentEnv         = "AXISRELAY_ANTIGRAVITY_USER_AGENT"
 	antigravityResponseLimit        = 4 << 20
 
 	// 官方 Antigravity 桌面端的 Desktop OAuth client。Google 把 secret 打进安装包，

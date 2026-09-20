@@ -15,9 +15,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gin-gonic/gin"
 	"github.com/wuekevin/axisrelay/auth"
 	"github.com/wuekevin/axisrelay/database"
-	"github.com/gin-gonic/gin"
 )
 
 func TestParseAntigravityImportContentSupportsManagerExports(t *testing.T) {
@@ -1972,7 +1972,7 @@ func TestFindAntigravityDuplicateDoesNotUseEmailAcrossAuthoritativeSubjects(t *t
 }
 
 func TestUpdateAntigravityAccountPersistsFailedCredentialReplacement(t *testing.T) {
-	t.Setenv("ANTIGRAVITY_OAUTH_CLIENTS", "test|test-client|test-secret")
+	t.Setenv("AXISRELAY_ANTIGRAVITY_OAUTH_CLIENTS", "test|test-client|test-secret")
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		switch r.URL.Path {

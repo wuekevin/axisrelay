@@ -15,8 +15,8 @@ import (
 // temporary SQLite database. It is intentionally excluded from ordinary test
 // runs so CI never depends on external network availability.
 func TestLiveOfficialPricingSyncIsolated(t *testing.T) {
-	if os.Getenv("CODEX_LIVE_OFFICIAL_PRICING_TEST") != "1" {
-		t.Skip("set CODEX_LIVE_OFFICIAL_PRICING_TEST=1 to run live official pricing verification")
+	if os.Getenv("AXISRELAY_LIVE_OFFICIAL_PRICING_TEST") != "1" {
+		t.Skip("set AXISRELAY_LIVE_OFFICIAL_PRICING_TEST=1 to run live official pricing verification")
 	}
 	database.SetModelPricingOverrides(nil)
 	t.Cleanup(func() { database.SetModelPricingOverrides(nil) })

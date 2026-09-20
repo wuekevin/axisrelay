@@ -49,17 +49,17 @@ const (
 	GrokDefaultOAuthScope       = "openid profile email offline_access grok-cli:access api:access"
 	GrokDefaultOAuthRedirectURI = "http://127.0.0.1:56121/callback"
 
-	// EnvGrokOAuthClientID 沿用既有 grokEnv 覆盖约定（类比 proxy 包的 GROK_CLIENT_VERSION / GROK_CLIENT_IDENTIFIER）：
+	// EnvGrokOAuthClientID 沿用既有 grokEnv 覆盖约定（类比 proxy 包的 AXISRELAY_GROK_CLIENT_VERSION / AXISRELAY_GROK_CLIENT_IDENTIFIER）：
 	// 留空回退到 GrokDefaultOAuthClientID，默认行为零变化。服务于多 client_id 部署、灰度对照与端点测试。
-	EnvGrokOAuthClientID = "GROK_OAUTH_CLIENT_ID"
+	EnvGrokOAuthClientID = "AXISRELAY_GROK_OAUTH_CLIENT_ID"
 	// EnvGrokOAuthHostAllowlist 是部署侧显式允许的额外 OAuth issuer/token
 	// endpoint 主机列表（逗号分隔）。导入文件本身无权扩大该列表，避免恶意
 	// auth.json 把 refresh token 或服务端请求导向任意主机。
-	EnvGrokOAuthHostAllowlist = "GROK_OAUTH_HOST_ALLOWLIST"
+	EnvGrokOAuthHostAllowlist = "AXISRELAY_GROK_OAUTH_HOST_ALLOWLIST"
 )
 
 // EffectiveGrokOAuthClientID 返回生效的 OAuth client_id，优先级从高到低：
-// 环境变量 GROK_OAUTH_CLIENT_ID > 系统设置 grok_config.oauth_client_id > 内置的官方
+// 环境变量 AXISRELAY_GROK_OAUTH_CLIENT_ID > 系统设置 grok_config.oauth_client_id > 内置的官方
 // Grok CLI 公开 id。环境变量压在系统设置之上：它属于部署级配置，数据库里的值被误改
 // 或前端配错时仍能从部署侧兜住，且不需要进后台就能改回来。
 func EffectiveGrokOAuthClientID() string {

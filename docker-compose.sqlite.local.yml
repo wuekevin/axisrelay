@@ -6,8 +6,8 @@ services:
     container_name: codex2api-sqlite-local
     ports:
       # Bind to localhost only by default for security.
-      # To expose on all interfaces, set BIND_HOST=0.0.0.0 in .env or override here.
-      - "${BIND_HOST:-127.0.0.1}:${CODEX_PORT:-8080}:${CODEX_PORT:-8080}"
+      # To expose on all interfaces, set AXISRELAY_BIND_HOST=0.0.0.0 in .env or override here.
+      - "${AXISRELAY_BIND_HOST:-127.0.0.1}:${AXISRELAY_PORT:-8080}:${AXISRELAY_PORT:-8080}"
     env_file:
       - .env
     volumes:

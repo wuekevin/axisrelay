@@ -15,7 +15,7 @@ func TestMigrateOnlyEnabled(t *testing.T) {
 		{value: "", want: false},
 	} {
 		t.Run(test.value, func(t *testing.T) {
-			t.Setenv("CODEX_MIGRATE_ONLY", test.value)
+			t.Setenv("AXISRELAY_MIGRATE_ONLY", test.value)
 			if got := migrateOnlyEnabled(); got != test.want {
 				t.Fatalf("migrateOnlyEnabled() = %v, want %v", got, test.want)
 			}

@@ -275,7 +275,7 @@ func (e *EnhancedProxyPool) SetProxyWeight(url string, weight int64) {
 
 // StoreProxyPoolIntegration Store 与代理池集成
 type StoreProxyPoolIntegration struct {
-	store       *Store
+	store        *Store
 	enhancedPool *EnhancedProxyPool
 	useEnhanced  atomic.Bool
 }
@@ -289,12 +289,12 @@ func NewStoreProxyPoolIntegration(store *Store, db *database.DB, settings *datab
 	// 如果启用代理池，创建增强代理池
 	if settings != nil && settings.ProxyPoolEnabled {
 		config := &ProxyPoolConfig{
-			Strategy:           ParseStrategy(getEnv("PROXY_POOL_STRATEGY", "round_robin")),
-			CheckInterval:      parseDuration(getEnv("PROXY_POOL_CHECK_INTERVAL", "30s"), 30*time.Second),
-			Timeout:            parseDuration(getEnv("PROXY_POOL_TIMEOUT", "10s"), 10*time.Second),
-			IsolationThreshold: parseInt(getEnv("PROXY_POOL_ISOLATION_THRESHOLD", "3"), 3),
-			IsolationDuration:  parseDuration(getEnv("PROXY_POOL_ISOLATION_DURATION", "5m"), 5*time.Minute),
-			HealthCheckURL:     getEnv("PROXY_POOL_HEALTH_CHECK_URL", "http://www.google.com/generate_204"),
+			Strategy:           ParseStrategy(getEnv("AXISRELAY_PROXY_POOL_STRATEGY", "round_robin")),
+			CheckInterval:      parseDuration(getEnv("AXISRELAY_PROXY_POOL_CHECK_INTERVAL", "30s"), 30*time.Second),
+			Timeout:            parseDuration(getEnv("AXISRELAY_PROXY_POOL_TIMEOUT", "10s"), 10*time.Second),
+			IsolationThreshold: parseInt(getEnv("AXISRELAY_PROXY_POOL_ISOLATION_THRESHOLD", "3"), 3),
+			IsolationDuration:  parseDuration(getEnv("AXISRELAY_PROXY_POOL_ISOLATION_DURATION", "5m"), 5*time.Minute),
+			HealthCheckURL:     getEnv("AXISRELAY_PROXY_POOL_HEALTH_CHECK_URL", "http://www.google.com/generate_204"),
 		}
 
 		integration.enhancedPool = NewEnhancedProxyPool(db, config)

@@ -18,10 +18,10 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/wuekevin/axisrelay/auth"
 	"github.com/google/uuid"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
+	"github.com/wuekevin/axisrelay/auth"
 	"golang.org/x/net/http2"
 )
 
@@ -38,7 +38,7 @@ import (
 // relay 链路已有完整的 Ping/Pong 保活与复用前探活，不走这里。
 // 默认值对直连是合适的；经高延迟代理或弱网出口时 15s 偏激进——一次 PING 未按时
 // 应答就会拆掉整条连接及其上全部复用中的流（表现为 "http2: client connection
-// lost"）。故允许用 CODEX_HTTP2_READ_IDLE_TIMEOUT / CODEX_HTTP2_PING_TIMEOUT
+// lost"）。故允许用 AXISRELAY_HTTP2_READ_IDLE_TIMEOUT / AXISRELAY_HTTP2_PING_TIMEOUT
 // 覆盖（Go duration 写法，如 "45s"；填 0 关闭主动 PING，退回标准库默认）。
 const (
 	defaultCodexHTTP2ReadIdleTimeout = 15 * time.Second
@@ -46,8 +46,8 @@ const (
 )
 
 var (
-	codexHTTP2ReadIdleTimeout = durationFromEnv("CODEX_HTTP2_READ_IDLE_TIMEOUT", defaultCodexHTTP2ReadIdleTimeout)
-	codexHTTP2PingTimeout     = durationFromEnv("CODEX_HTTP2_PING_TIMEOUT", defaultCodexHTTP2PingTimeout)
+	codexHTTP2ReadIdleTimeout = durationFromEnv("AXISRELAY_HTTP2_READ_IDLE_TIMEOUT", defaultCodexHTTP2ReadIdleTimeout)
+	codexHTTP2PingTimeout     = durationFromEnv("AXISRELAY_HTTP2_PING_TIMEOUT", defaultCodexHTTP2PingTimeout)
 )
 
 // durationFromEnv 读取 Go duration 格式的环境变量；缺省或非法值回退默认值，
@@ -128,7 +128,7 @@ const clientPoolTTL = 5 * time.Minute
 // 有自己的回收策略，赶上回收窗口时在途流会被 RST。到点主动换新连接即可错开：
 // 轮转只是把 entry 移出池并关闭其空闲连接，新请求走新连接，在途请求不受影响。
 // WS 链路已有同类机制（50 分钟主动轮转，issue #346）。设为 0 关闭本机制。
-var clientPoolMaxAge = durationFromEnv("CODEX_HTTP_CLIENT_MAX_AGE", 30*time.Minute)
+var clientPoolMaxAge = durationFromEnv("AXISRELAY_HTTP_CLIENT_MAX_AGE", 30*time.Minute)
 
 // clientPoolCleanupInterval 清理协程执行间隔
 const clientPoolCleanupInterval = 60 * time.Second
@@ -191,7 +191,7 @@ const (
 )
 
 func codexTransportModeFromEnv() string {
-	switch strings.ToLower(strings.TrimSpace(os.Getenv("CODEX_TRANSPORT_MODE"))) {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("AXISRELAY_TRANSPORT_MODE"))) {
 	case "", "standard", "go", "default":
 		return codexTransportModeStandard
 	case "utls", "utls_chrome", "chrome":
@@ -272,7 +272,7 @@ func newCodexTransport(proxyURL string) http.RoundTripper {
 }
 
 func codexFingerprintDebugEnabled() bool {
-	switch strings.ToLower(strings.TrimSpace(os.Getenv("CODEX_FINGERPRINT_DEBUG"))) {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("AXISRELAY_FINGERPRINT_DEBUG"))) {
 	case "1", "true", "yes", "y", "on":
 		return true
 	default:
@@ -1271,7 +1271,7 @@ func applyCodexRequestHeaders(req *http.Request, account *auth.Account, accessTo
 		req.Header.Set("Chatgpt-Account-Id", accountID)
 	}
 	// 会话标识头按真实客户端形态写出（session-id / thread-id / x-client-request-id）；
-	// 收敛开启时与 turn metadata 报同一组身份。CODEX_SESSION_HEADER_MODE=legacy
+	// 收敛开启时与 turn metadata 报同一组身份。AXISRELAY_SESSION_HEADER_MODE=legacy
 	// 可整体退回旧的 Session_id 形态。
 	ApplyCodexSessionHeaders(req.Header, account, cacheKey, downstreamHeaders, false)
 	applyAccountCustomHeaders(req, account)

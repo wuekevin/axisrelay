@@ -14,7 +14,7 @@
 
 - 内置常量 `auth.BuiltinClaudeCLIVersion = "2.1.258"`；生效版本永不低于内置常量。
 - 版本源顺序固定：GitHub `https://api.github.com/repos/anthropics/claude-code/releases/latest` → npm `https://registry.npmjs.org/-/package/@anthropic-ai/claude-code/dist-tags`。
-- 环境变量硬开关 `CLAUDE_DISABLE_CLI_VERSION_SYNC=1|true|yes|on`。
+- 环境变量硬开关 `AXISRELAY_CLAUDE_DISABLE_CLI_VERSION_SYNC=1|true|yes|on`。
 - 同步间隔小时钳到 `[1, 720]`，缺失或 0 视为 12；`cli_version_sync_enabled` 缺失视为 true。
 - 指纹回写只改 UA 的版本号段；UA 缺失或不可识别为 CLI 的账号跳过。
 - 前端禁止手写 `<select>`，一律用 `components/ui/select.tsx` 的 `Select`。
@@ -997,10 +997,10 @@ var (
 	claudeNpmDistTagsURLForTest    = ""
 )
 
-// ClaudeCLIVersionSyncDisabled 报告是否通过 CLAUDE_DISABLE_CLI_VERSION_SYNC 关闭了联网同步。
+// ClaudeCLIVersionSyncDisabled 报告是否通过 AXISRELAY_CLAUDE_DISABLE_CLI_VERSION_SYNC 关闭了联网同步。
 // 关闭后仍会在启动时用内置版本做一次本地指纹回写；管理端「立即同步」不受影响。
 func ClaudeCLIVersionSyncDisabled() bool {
-	switch strings.ToLower(strings.TrimSpace(os.Getenv("CLAUDE_DISABLE_CLI_VERSION_SYNC"))) {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("AXISRELAY_CLAUDE_DISABLE_CLI_VERSION_SYNC"))) {
 	case "1", "true", "yes", "on":
 		return true
 	}

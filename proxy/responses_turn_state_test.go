@@ -13,12 +13,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/wuekevin/axisrelay/auth"
-	"github.com/wuekevin/axisrelay/config"
-	"github.com/wuekevin/axisrelay/database"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 	"github.com/tidwall/gjson"
+	"github.com/wuekevin/axisrelay/auth"
+	"github.com/wuekevin/axisrelay/config"
+	"github.com/wuekevin/axisrelay/database"
 )
 
 func readResponsesWSTerminalEvent(t *testing.T, conn *websocket.Conn) []byte {
@@ -95,7 +95,7 @@ func TestResponsesTurnStateAllowsOnlyBoundTurnPastWHAMLimit(t *testing.T) {
 
 func TestResponsesTurnStateExpiredBindingUsesBaselineSchedulerWhenContinuousRetryDisabled(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	t.Setenv("CODEX_SESSION_AFFINITY_TTL", "1ns")
+	t.Setenv("AXISRELAY_SESSION_AFFINITY_TTL", "1ns")
 	previousRuntime := CurrentRuntimeSettings()
 	nextRuntime := previousRuntime
 	nextRuntime.ContinuousRetryPolicy = database.ContinuousRetryPolicy{}
@@ -349,7 +349,7 @@ func TestResponsesWebSocketTurnStateRetainsLimitedAccountOnlyWithinTurn(t *testi
 
 func TestResponsesWebSocketTurnStateExpiredBindingUsesBaselineSchedulerWhenContinuousRetryDisabled(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	t.Setenv("CODEX_SESSION_AFFINITY_TTL", "1ns")
+	t.Setenv("AXISRELAY_SESSION_AFFINITY_TTL", "1ns")
 	previousRuntime := CurrentRuntimeSettings()
 	nextRuntime := previousRuntime
 	nextRuntime.ContinuousRetryPolicy = database.ContinuousRetryPolicy{}

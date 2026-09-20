@@ -23,6 +23,10 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
+	"github.com/tidwall/gjson"
+	"github.com/tidwall/sjson"
 	"github.com/wuekevin/axisrelay/auth"
 	"github.com/wuekevin/axisrelay/database"
 	"github.com/wuekevin/axisrelay/internal/imageproc"
@@ -30,10 +34,6 @@ import (
 	"github.com/wuekevin/axisrelay/internal/imageupscale"
 	"github.com/wuekevin/axisrelay/security"
 	"github.com/wuekevin/axisrelay/security/promptfilter"
-	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
-	"github.com/tidwall/gjson"
-	"github.com/tidwall/sjson"
 )
 
 const (
@@ -42,7 +42,7 @@ const (
 	// 2026-09 起 ChatGPT 账号的 Codex manifest 已不含 gpt-5.4-mini,上游对它直接回
 	// 400 "The 'gpt-5.4-mini' model is not supported when using Codex with a ChatGPT
 	// account",整条生图链路随之全断;free/plus/pro 三档 manifest 均含 gpt-5.6-luna,
-	// 故改用它。系统生图设置或 CODEX_IMAGES_MAIN_MODEL 可覆盖;上游再次下线时,
+	// 故改用它。系统生图设置或 AXISRELAY_IMAGES_MAIN_MODEL 可覆盖;上游再次下线时,
 	// imagesMainModelFallbacks 会在同一账号上按序换驱动重试,不会把 400 记到生图模型头上。
 	defaultImagesMainModel = "gpt-5.6-luna"
 	defaultImagesToolModel = "gpt-image-2"
@@ -56,7 +56,7 @@ const (
 	imageModel2KSuffix = "-2k"
 	imageModel4KSuffix = "-4k"
 
-	imagesMainModelEnv = "CODEX_IMAGES_MAIN_MODEL"
+	imagesMainModelEnv = "AXISRELAY_IMAGES_MAIN_MODEL"
 
 	defaultImages1KSize = "1024x1024"
 	defaultImages2KSize = "2048x2048"

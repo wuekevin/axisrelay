@@ -198,7 +198,7 @@ func TestClaudeCLIVersionSyncDisabled(t *testing.T) {
 	}
 	for value, want := range cases {
 		t.Run(value, func(t *testing.T) {
-			t.Setenv("CLAUDE_DISABLE_CLI_VERSION_SYNC", value)
+			t.Setenv("AXISRELAY_CLAUDE_DISABLE_CLI_VERSION_SYNC", value)
 			if got := ClaudeCLIVersionSyncDisabled(); got != want {
 				t.Errorf("ClaudeCLIVersionSyncDisabled() with env %q = %v, want %v", value, got, want)
 			}

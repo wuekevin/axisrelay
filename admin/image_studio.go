@@ -20,6 +20,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
+	"github.com/tidwall/gjson"
 	"github.com/wuekevin/axisrelay/database"
 	"github.com/wuekevin/axisrelay/internal/imageproc"
 	"github.com/wuekevin/axisrelay/internal/imagestore"
@@ -27,9 +30,6 @@ import (
 	"github.com/wuekevin/axisrelay/internal/signedasset"
 	"github.com/wuekevin/axisrelay/proxy"
 	"github.com/wuekevin/axisrelay/security"
-	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
-	"github.com/tidwall/gjson"
 )
 
 const defaultImageAssetDir = "/data/images"
@@ -1542,7 +1542,7 @@ func imageDimensions(data []byte) (int, int) {
 }
 
 func imageAssetDir() string {
-	if dir := strings.TrimSpace(os.Getenv("IMAGE_ASSET_DIR")); dir != "" {
+	if dir := strings.TrimSpace(os.Getenv("AXISRELAY_IMAGE_ASSET_DIR")); dir != "" {
 		return dir
 	}
 	return defaultImageAssetDir

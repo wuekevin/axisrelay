@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gin-gonic/gin"
 	"github.com/wuekevin/axisrelay/auth"
 	"github.com/wuekevin/axisrelay/database"
-	"github.com/gin-gonic/gin"
 )
 
 // syntheticTurnState builds a valid Fernet-shaped X-Codex-Turn-State for blocks.
@@ -30,13 +30,13 @@ func enableTurnStateTemplateCache(t *testing.T) {
 	next.CodexTurnStateTemplateCache = true
 	next.CodexTurnStateAccountMode = CodexTurnStateAccountModePersonal
 	ApplyRuntimeSettings(next)
-	t.Setenv("CODEX_TURN_STATE_INJECT_MODE", "replace-only")
-	t.Setenv("CODEX_TURN_STATE_TTL", "1h")
-	t.Setenv("CODEX_TURN_STATE_LOG_DECISIONS", "false")
-	t.Setenv("CODEX_TURN_STATE_DRY_RUN", "false")
-	t.Setenv("CODEX_TURN_STATE_MAX_ENTRIES", "8")
-	t.Setenv("CODEX_TURN_STATE_TEMPLATE_LENGTH", "")
-	t.Setenv("CODEX_TURN_STATE_REPLACE_LENGTH", "")
+	t.Setenv("AXISRELAY_TURN_STATE_INJECT_MODE", "replace-only")
+	t.Setenv("AXISRELAY_TURN_STATE_TTL", "1h")
+	t.Setenv("AXISRELAY_TURN_STATE_LOG_DECISIONS", "false")
+	t.Setenv("AXISRELAY_TURN_STATE_DRY_RUN", "false")
+	t.Setenv("AXISRELAY_TURN_STATE_MAX_ENTRIES", "8")
+	t.Setenv("AXISRELAY_TURN_STATE_TEMPLATE_LENGTH", "")
+	t.Setenv("AXISRELAY_TURN_STATE_REPLACE_LENGTH", "")
 	resetTurnStateTemplateStoreForTest()
 	t.Cleanup(func() {
 		ApplyRuntimeSettings(prev)
@@ -344,7 +344,7 @@ func TestApplyCodexTurnStateTemplateReplaceOnlyAndAlways(t *testing.T) {
 	}
 
 	// always + empty → inject
-	t.Setenv("CODEX_TURN_STATE_INJECT_MODE", "always")
+	t.Setenv("AXISRELAY_TURN_STATE_INJECT_MODE", "always")
 	alwaysEmpty := http.Header{}
 	ApplyCodexTurnStateTemplate(nil, alwaysEmpty, acc, model)
 	if got := alwaysEmpty.Get(codexTurnStateHeader); got != tmpl {
@@ -371,7 +371,7 @@ func TestApplyCodexTurnStateTemplateDryRunAndDisabled(t *testing.T) {
 	hCap.Set(codexTurnStateHeader, tmpl)
 	CaptureCodexTurnStateTemplate(nil, acc, model, hCap)
 
-	t.Setenv("CODEX_TURN_STATE_DRY_RUN", "true")
+	t.Setenv("AXISRELAY_TURN_STATE_DRY_RUN", "true")
 	out := http.Header{}
 	degraded := syntheticTurnState(11, now, 'D')
 	out.Set(codexTurnStateHeader, degraded)
@@ -380,7 +380,7 @@ func TestApplyCodexTurnStateTemplateDryRunAndDisabled(t *testing.T) {
 		t.Fatal("dry-run must not mutate headers")
 	}
 
-	t.Setenv("CODEX_TURN_STATE_DRY_RUN", "false")
+	t.Setenv("AXISRELAY_TURN_STATE_DRY_RUN", "false")
 	off := CurrentRuntimeSettings()
 	off.CodexTurnStateTemplateCache = false
 	ApplyRuntimeSettings(off)
@@ -419,7 +419,7 @@ func TestGuardThenApplyReplaceOnlyLeavesStrippedEmpty(t *testing.T) {
 		t.Fatalf("replace-only after strip must not reinject, got len=%d", len(got))
 	}
 
-	t.Setenv("CODEX_TURN_STATE_INJECT_MODE", "always")
+	t.Setenv("AXISRELAY_TURN_STATE_INJECT_MODE", "always")
 	ApplyCodexTurnStateTemplate(nil, echo, other, model)
 	if got := echo.Get(codexTurnStateHeader); got != tmpl {
 		t.Fatalf("always after strip should inject current tmpl, got len=%d", len(got))
@@ -428,7 +428,7 @@ func TestGuardThenApplyReplaceOnlyLeavesStrippedEmpty(t *testing.T) {
 
 func TestTurnStateTemplateMaxEntriesEvictsOldest(t *testing.T) {
 	enableTurnStateTemplateCache(t)
-	t.Setenv("CODEX_TURN_STATE_MAX_ENTRIES", "2")
+	t.Setenv("AXISRELAY_TURN_STATE_MAX_ENTRIES", "2")
 	now := time.Date(2026, 9, 19, 12, 0, 0, 0, time.UTC)
 	setTurnStateTemplateNowForTest(func() time.Time { return now })
 
@@ -480,7 +480,7 @@ func TestApplyCodexTurnStateTemplateSkipsRelayAccounts(t *testing.T) {
 
 func TestCaptureRejectsUnusableWithoutEvictingFullCache(t *testing.T) {
 	enableTurnStateTemplateCache(t)
-	t.Setenv("CODEX_TURN_STATE_MAX_ENTRIES", "2")
+	t.Setenv("AXISRELAY_TURN_STATE_MAX_ENTRIES", "2")
 	now := time.Date(2026, 9, 19, 12, 0, 0, 0, time.UTC)
 	setTurnStateTemplateNowForTest(func() time.Time { return now })
 

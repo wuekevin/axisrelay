@@ -398,11 +398,11 @@ func TestRequeueHonorsHardLimit(t *testing.T) {
 
 // TestSalvageDropsPoisonRowAgainstPostgres 在真实 PostgreSQL 上验证脏数据隔离：
 // SQLite 不校验列宽也不返回 SQLSTATE，isUsageLogDataError 这条路只有真库能走通。
-// 需要一个可写的空库，用 CODEX2API_TEST_POSTGRES_DSN 指定，未设置时跳过。
+// 需要一个可写的空库，用 AXISRELAY_TEST_POSTGRES_DSN 指定，未设置时跳过。
 func TestSalvageDropsPoisonRowAgainstPostgres(t *testing.T) {
-	dsn := os.Getenv("CODEX2API_TEST_POSTGRES_DSN")
+	dsn := os.Getenv("AXISRELAY_TEST_POSTGRES_DSN")
 	if dsn == "" {
-		t.Skip("未设置 CODEX2API_TEST_POSTGRES_DSN，跳过 PostgreSQL 集成用例")
+		t.Skip("未设置 AXISRELAY_TEST_POSTGRES_DSN，跳过 PostgreSQL 集成用例")
 	}
 
 	db, err := New("postgres", dsn)

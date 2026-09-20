@@ -42,7 +42,7 @@ func TestIsContextLengthExceededFailedPayload(t *testing.T) {
 }
 
 func TestCompactOverflowResponsesBody_KeepsSystemAndTail(t *testing.T) {
-	t.Setenv("CODEX_OVERFLOW_COMPACT_TAIL_KB", "1")
+	t.Setenv("AXISRELAY_OVERFLOW_COMPACT_TAIL_KB", "1")
 
 	big := strings.Repeat("x", 900)
 	body := `{
@@ -91,7 +91,7 @@ func TestCompactOverflowResponsesBody_TooFewItems(t *testing.T) {
 }
 
 func TestCompactOverflowResponsesBody_RepairsCutToolPairs(t *testing.T) {
-	t.Setenv("CODEX_OVERFLOW_COMPACT_TAIL_KB", "1")
+	t.Setenv("AXISRELAY_OVERFLOW_COMPACT_TAIL_KB", "1")
 
 	big := strings.Repeat("y", 900)
 	body := `{
@@ -204,7 +204,7 @@ func TestShouldDeferPreContentSSEEvent(t *testing.T) {
 // 模型摘要不可用时的退化：此前整段旧对话静默蒸发，现在必须附带一段可读的
 // 原文摘录，让续写模型仍能看到用户目标与关键事实。
 func TestCompactOverflowResponsesBody_FallbackKeepsVerbatimDigest(t *testing.T) {
-	t.Setenv("CODEX_OVERFLOW_COMPACT_TAIL_KB", "1")
+	t.Setenv("AXISRELAY_OVERFLOW_COMPACT_TAIL_KB", "1")
 
 	big := strings.Repeat("x", 900)
 	body := `{

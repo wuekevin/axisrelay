@@ -182,7 +182,7 @@ func BytesWithFit(ctx context.Context, imageBytes []byte, scale, requestedSize, 
 func upscaleToBox(ctx context.Context, imageBytes []byte, targetWidth, targetHeight int, exactTarget bool) ([]byte, string, string, error) {
 	width, height := Dimensions(imageBytes)
 
-	endpoint := strings.TrimSpace(os.Getenv("IMAGE_UPSCALER_ENDPOINT"))
+	endpoint := strings.TrimSpace(os.Getenv("AXISRELAY_IMAGE_UPSCALER_ENDPOINT"))
 	if endpoint == "" {
 		data, contentType, err := imageproc.DoUpscaleTo(imageBytes, targetWidth, targetHeight, exactTarget)
 		return data, contentType, "catmull-rom", err
@@ -207,8 +207,8 @@ func upscaleToBox(ctx context.Context, imageBytes []byte, targetWidth, targetHei
 	// the local backend. When the ratios do match, inside and cover produce the
 	// same result, so an exact requested size is still hit exactly. Operators
 	// who would rather fill the box can opt into cropping with
-	// IMAGE_UPSCALER_FIT=cover.
-	query.Set("fit", normalizeFit(os.Getenv("IMAGE_UPSCALER_FIT")))
+	// AXISRELAY_IMAGE_UPSCALER_FIT=cover.
+	query.Set("fit", normalizeFit(os.Getenv("AXISRELAY_IMAGE_UPSCALER_FIT")))
 	parsed.RawQuery = query.Encode()
 
 	request, err := http.NewRequestWithContext(ctx, http.MethodPost, parsed.String(), bytes.NewReader(imageBytes))
@@ -273,7 +273,7 @@ func upscaleToBoxWithFit(ctx context.Context, imageBytes []byte, targetWidth, ta
 		return nil, "", "", nil
 	}
 
-	endpoint := strings.TrimSpace(os.Getenv("IMAGE_UPSCALER_ENDPOINT"))
+	endpoint := strings.TrimSpace(os.Getenv("AXISRELAY_IMAGE_UPSCALER_ENDPOINT"))
 	if endpoint == "" || (width >= targetWidth && height >= targetHeight) {
 		data, contentType, err := imageproc.DoResizeTo(imageBytes, targetWidth, targetHeight, fit)
 		return data, contentType, "catmull-rom-" + fit, err
@@ -382,7 +382,7 @@ func NormalizeContentType(value string) string {
 // Backend reports which upscaler serves requests: "external" when an endpoint
 // is configured, "local" otherwise.
 func Backend() string {
-	if strings.TrimSpace(os.Getenv("IMAGE_UPSCALER_ENDPOINT")) != "" {
+	if strings.TrimSpace(os.Getenv("AXISRELAY_IMAGE_UPSCALER_ENDPOINT")) != "" {
 		return "external"
 	}
 	return "local"

@@ -21,7 +21,7 @@ const (
 	// AntigravityExperimentalInteractionsEnv gates the API-key Interactions
 	// executor. Its request/response wire adapter is still incomplete, so live
 	// inference is fail-closed unless an operator explicitly opts in.
-	AntigravityExperimentalInteractionsEnv = "ANTIGRAVITY_ENABLE_EXPERIMENTAL_INTERACTIONS"
+	AntigravityExperimentalInteractionsEnv = "AXISRELAY_ANTIGRAVITY_ENABLE_EXPERIMENTAL_INTERACTIONS"
 )
 
 // AntigravityExperimentalInteractionsEnabled reports whether the explicitly

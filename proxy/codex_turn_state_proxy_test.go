@@ -51,7 +51,7 @@ func TestTurnStateProxyScopesEgressToRefresh(t *testing.T) {
 
 func TestTurnStateProxyHTTPAcquisitionAndValidation(t *testing.T) {
 	enableTurnStateTemplateCache(t)
-	t.Setenv("CODEX_TRANSPORT_MODE", "standard")
+	t.Setenv("AXISRELAY_TRANSPORT_MODE", "standard")
 	var ordinary, dedicated, turns atomic.Int32
 	healthy := syntheticTurnState(10, time.Now(), 1)
 	upstream := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

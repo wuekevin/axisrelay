@@ -101,9 +101,9 @@ func TestAPIKeyModelRequestQuotasSQLite(t *testing.T) {
 // Uses a writable test database, like the other PostgreSQL integration tests.
 // Two independent DB handles verify serialization across process-local locks.
 func TestAPIKeyModelRequestQuotasPostgres(t *testing.T) {
-	dsn := os.Getenv("CODEX2API_TEST_POSTGRES_DSN")
+	dsn := os.Getenv("AXISRELAY_TEST_POSTGRES_DSN")
 	if dsn == "" {
-		t.Skip("CODEX2API_TEST_POSTGRES_DSN is not set")
+		t.Skip("AXISRELAY_TEST_POSTGRES_DSN is not set")
 	}
 	runAPIKeyModelRequestQuotaSuite(t, "postgres", dsn)
 }

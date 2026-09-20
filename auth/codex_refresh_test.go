@@ -327,7 +327,7 @@ func TestCodexRefreshConcurrentStoresShareForcedExchange(t *testing.T) {
 		writeCodexRefreshedTokens(w)
 	})
 	secondCache := first.tokenCache
-	if addr := os.Getenv("CODEX2API_TEST_REDIS_ADDR"); addr != "" {
+	if addr := os.Getenv("AXISRELAY_TEST_REDIS_ADDR"); addr != "" {
 		redisA, err := cache.NewRedis(addr, "", 15)
 		if err != nil {
 			t.Fatal(err)

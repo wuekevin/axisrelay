@@ -23,7 +23,7 @@ func TestDownstreamSSEKeepaliveIntervalFromEnv(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			t.Setenv("DOWNSTREAM_HTTP_KEEPALIVE_INTERVAL", test.raw)
+			t.Setenv("AXISRELAY_DOWNSTREAM_HTTP_KEEPALIVE_INTERVAL", test.raw)
 			if got := downstreamSSEKeepaliveIntervalFromEnv(); got != test.want {
 				t.Fatalf("interval = %s, want %s", got, test.want)
 			}

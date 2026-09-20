@@ -98,7 +98,7 @@ func TestTurnStateStatusNoFalseRecovery(t *testing.T) {
 				ApplyRuntimeSettings(cfg)
 			}
 			if mode == "dry-run" {
-				t.Setenv("CODEX_TURN_STATE_DRY_RUN", "true")
+				t.Setenv("AXISRELAY_TURN_STATE_DRY_RUN", "true")
 			}
 			ctx := BeginCodexTurnStateTemplateAttempt(context.Background())
 			headers := http.Header{codexTurnStateHeader: []string{syntheticTurnState(11, time.Now(), 2)}}

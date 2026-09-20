@@ -21,10 +21,10 @@ const CodexReleasesLatestURL = "https://api.github.com/repos/openai/codex/releas
 var codexReleasesLatestURLForTest = ""
 
 // CodexCLIVersionSyncDisabled 报告是否通过环境变量关闭了 CLI 版本自动同步。
-// CODEX_DISABLE_CLI_VERSION_SYNC=1（或 true）时关闭后台定时与启动同步；
+// AXISRELAY_DISABLE_CLI_VERSION_SYNC=1（或 true）时关闭后台定时与启动同步；
 // 管理端「立即同步」按钮不受影响。
 func CodexCLIVersionSyncDisabled() bool {
-	switch strings.ToLower(strings.TrimSpace(os.Getenv("CODEX_DISABLE_CLI_VERSION_SYNC"))) {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("AXISRELAY_DISABLE_CLI_VERSION_SYNC"))) {
 	case "1", "true", "yes", "on":
 		return true
 	default:
@@ -163,7 +163,7 @@ func SyncCodexCLIVersion(ctx context.Context, db *database.DB, proxyURL string) 
 
 // StartCodexCLIVersionSync 在后台按系统设置的间隔周期同步 Codex CLI 版本，并在启动时先同步一次。
 // 开关(CodexCLIVersionSyncEnabled)与间隔(CodexCLIVersionSyncIntervalHours)在每个周期读取；
-// 新间隔从下一轮计时生效，无需重启。环境变量 CODEX_DISABLE_CLI_VERSION_SYNC 为硬开关，优先级最高。
+// 新间隔从下一轮计时生效，无需重启。环境变量 AXISRELAY_DISABLE_CLI_VERSION_SYNC 为硬开关，优先级最高。
 // proxyResolver 允许调用方注入出站代理（可为 nil）。
 func StartCodexCLIVersionSync(ctx context.Context, db *database.DB, proxyResolver func() string) {
 	if db == nil || CodexCLIVersionSyncDisabled() {

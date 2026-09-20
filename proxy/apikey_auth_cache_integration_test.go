@@ -7,17 +7,17 @@ import (
 	"testing"
 	"time"
 
+	"github.com/redis/go-redis/v9"
 	"github.com/wuekevin/axisrelay/cache"
 	"github.com/wuekevin/axisrelay/config"
 	"github.com/wuekevin/axisrelay/database"
-	"github.com/redis/go-redis/v9"
 )
 
 func authIntegrationRedis(t testing.TB) cache.TokenCache {
 	t.Helper()
-	addr := os.Getenv("CODEX2API_TEST_REDIS_ADDR")
+	addr := os.Getenv("AXISRELAY_TEST_REDIS_ADDR")
 	if addr == "" {
-		t.Skip("requires isolated Redis in CODEX2API_TEST_REDIS_ADDR")
+		t.Skip("requires isolated Redis in AXISRELAY_TEST_REDIS_ADDR")
 	}
 	tc, err := cache.NewRedis(addr, "", 0, 4)
 	if err != nil {
@@ -88,7 +88,7 @@ func TestAPIKeyAuthCacheRedisTimeoutFallsBack(t *testing.T) {
 	if _, ok, err := a.resolve(ctx, db.row.Key); err != nil || !ok {
 		t.Fatal(err)
 	}
-	control := redis.NewClient(&redis.Options{Addr: os.Getenv("CODEX2API_TEST_REDIS_ADDR")})
+	control := redis.NewClient(&redis.Options{Addr: os.Getenv("AXISRELAY_TEST_REDIS_ADDR")})
 	defer control.Close()
 	if err := control.Do(ctx, "CLIENT", "PAUSE", "2000", "ALL").Err(); err != nil {
 		t.Fatal(err)

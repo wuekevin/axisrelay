@@ -39,7 +39,7 @@ func TestStudioImageBillingSettlesSavedOutputs(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			db := newTestAdminDB(t)
 			dir := t.TempDir()
-			t.Setenv("IMAGE_ASSET_DIR", dir)
+			t.Setenv("AXISRELAY_IMAGE_ASSET_DIR", dir)
 			if err := imagestore.Configure(imagestore.Config{Backend: imagestore.BackendLocal, LocalDir: dir}); err != nil {
 				t.Fatal(err)
 			}

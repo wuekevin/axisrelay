@@ -53,7 +53,7 @@ func TestTurnStateRenewalWindowAndEligibility(t *testing.T) {
 	if !CodexTurnStateTemplateRenewalDue(a, row, now) {
 		t.Fatal("normal team template not renewed")
 	}
-	t.Setenv("CODEX_TURN_STATE_DRY_RUN", "true")
+	t.Setenv("AXISRELAY_TURN_STATE_DRY_RUN", "true")
 	if CodexTurnStateTemplateRenewalDue(a, row, now) {
 		t.Fatal("dry run renewed")
 	}

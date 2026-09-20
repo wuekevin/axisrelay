@@ -9,10 +9,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/wuekevin/axisrelay/api"
 	"github.com/gorilla/websocket"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
+	"github.com/wuekevin/axisrelay/api"
 )
 
 // responsesWSReplayInput builds a portable snapshot without changing the
@@ -178,7 +178,7 @@ func degradeResponsesWSContinuationWithSource(body []byte, owner string, source 
 		}
 		// 逃生阀：退回旧行为，剥掉 previous_response_id 后按原样转发当轮 input。
 		// 上游看到的是丢失历史的会话，只在明确接受该风险时启用。
-		log.Printf("Responses WebSocket continuation context unavailable (%s); CODEX_WS_CONTINUATION_FAIL_OPEN=true, forwarding without history", responsesWSContextReason(apiErr))
+		log.Printf("Responses WebSocket continuation context unavailable (%s); AXISRELAY_WS_CONTINUATION_FAIL_OPEN=true, forwarding without history", responsesWSContextReason(apiErr))
 		stripped, err := sjson.DeleteBytes(body, "previous_response_id")
 		if err != nil {
 			return nil, false, apiErr
@@ -196,10 +196,10 @@ func degradeResponsesWSContinuationWithSource(body []byte, owner string, source 
 	return expanded, false, nil
 }
 
-// responsesWSContinuationFailOpen 读取逃生阀：CODEX_WS_CONTINUATION_FAIL_OPEN=true
+// responsesWSContinuationFailOpen 读取逃生阀：AXISRELAY_WS_CONTINUATION_FAIL_OPEN=true
 // 时上下文不可恢复不再关连接，而是按旧行为剥 id 硬发。
 func responsesWSContinuationFailOpen() bool {
-	switch strings.ToLower(strings.TrimSpace(os.Getenv("CODEX_WS_CONTINUATION_FAIL_OPEN"))) {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("AXISRELAY_WS_CONTINUATION_FAIL_OPEN"))) {
 	case "1", "true", "yes", "on":
 		return true
 	}

@@ -133,9 +133,9 @@ type corpusReplayJob struct {
 }
 
 func TestProductionCorpusReplay(t *testing.T) {
-	dbPath := strings.TrimSpace(os.Getenv("PROMPT_FILTER_CORPUS_DB"))
+	dbPath := strings.TrimSpace(os.Getenv("AXISRELAY_PROMPT_FILTER_CORPUS_DB"))
 	if dbPath == "" {
-		t.Skip("set PROMPT_FILTER_CORPUS_DB to run the production corpus replay")
+		t.Skip("set AXISRELAY_PROMPT_FILTER_CORPUS_DB to run the production corpus replay")
 	}
 	db, err := sql.Open("sqlite", "file:"+dbPath+"?mode=ro")
 	if err != nil {

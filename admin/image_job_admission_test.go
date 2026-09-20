@@ -9,11 +9,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gin-gonic/gin"
 	"github.com/wuekevin/axisrelay/auth"
 	"github.com/wuekevin/axisrelay/cache"
 	"github.com/wuekevin/axisrelay/database"
 	"github.com/wuekevin/axisrelay/proxy"
-	"github.com/gin-gonic/gin"
 )
 
 // newExternalImageJobRouter wires the external job route the same way the
@@ -210,8 +210,8 @@ func TestUpscaleImageBytesCropsOnlyWhenOperatorOptsIn(t *testing.T) {
 		_, _ = writer.Write(tinyPNG(t))
 	}))
 	defer server.Close()
-	t.Setenv("IMAGE_UPSCALER_ENDPOINT", server.URL)
-	t.Setenv("IMAGE_UPSCALER_FIT", "cover")
+	t.Setenv("AXISRELAY_IMAGE_UPSCALER_ENDPOINT", server.URL)
+	t.Setenv("AXISRELAY_IMAGE_UPSCALER_FIT", "cover")
 
 	if _, _, _, err := upscaleImageBytes(context.Background(), tinyPNG(t), "4k", "3840x2160"); err != nil {
 		t.Fatalf("upscaleImageBytes returned error: %v", err)

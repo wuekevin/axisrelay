@@ -146,7 +146,7 @@ func TestApplyCodexSessionHeadersSkipsEmptySessionID(t *testing.T) {
 }
 
 func TestApplyCodexSessionHeadersLegacyModeRestoresOldShape(t *testing.T) {
-	t.Setenv("CODEX_SESSION_HEADER_MODE", "legacy")
+	t.Setenv("AXISRELAY_SESSION_HEADER_MODE", "legacy")
 
 	httpHeaders := http.Header{}
 	ApplyCodexSessionHeaders(httpHeaders, nil, "cache-key", nil, false)
@@ -193,7 +193,7 @@ func TestApplyCodexSessionHeadersConvergedAlignmentIsOptIn(t *testing.T) {
 	}
 
 	// 显式开启后 session-id 与 metadata.session_id 对齐。
-	t.Setenv("CODEX_SESSION_HEADER_ALIGN_CONVERGED", "1")
+	t.Setenv("AXISRELAY_SESSION_HEADER_ALIGN_CONVERGED", "1")
 	on := http.Header{}
 	ApplyCodexSessionHeaders(on, account, "gateway-cache-key", downstream, false)
 	if got := on.Get("Session-Id"); got != convergedSessionID {

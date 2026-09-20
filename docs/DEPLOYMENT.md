@@ -83,8 +83,8 @@ services:
 cp .env.example .env
 
 # 2. 修改 .env 配置
-# - CODEX_PORT: 服务端口
-# - ADMIN_SECRET: 管理后台密码
+# - AXISRELAY_PORT: 服务端口
+# - AXISRELAY_ADMIN_SECRET: 管理后台密码
 # - DATABASE_*: 数据库配置
 # - REDIS_*: Redis 配置
 
@@ -123,8 +123,8 @@ services:
 cp .env.sqlite.example .env
 
 # 2. 修改 .env 配置
-# - CODEX_PORT: 服务端口
-# - DATABASE_PATH: /data/codex2api.db
+# - AXISRELAY_PORT: 服务端口
+# - AXISRELAY_DATABASE_PATH: /data/codex2api.db
 
 # 3. 启动服务
 docker compose -f docker-compose.sqlite.yml pull
@@ -175,21 +175,21 @@ ghcr.io/james-6-23/codex2api:latest
 免费实例没有持久化磁盘，推荐 Demo 使用 SQLite + 内存缓存，并把可写目录放到 `/tmp`：
 
 ```env
-CODEX_PORT=10000
-CODEX_BIND=0.0.0.0
-DATABASE_DRIVER=sqlite
-DATABASE_PATH=/tmp/codex2api.db
-CACHE_DRIVER=memory
-IMAGE_ASSET_DIR=/tmp/images
-LOG_DIR=/tmp/logs
-LOG_DISABLED=true
-ADMIN_SECRET=replace-with-a-strong-secret
-CODEX_ALLOW_ANONYMOUS=false
+AXISRELAY_PORT=10000
+AXISRELAY_BIND=0.0.0.0
+AXISRELAY_DATABASE_DRIVER=sqlite
+AXISRELAY_DATABASE_PATH=/tmp/codex2api.db
+AXISRELAY_CACHE_DRIVER=memory
+AXISRELAY_IMAGE_ASSET_DIR=/tmp/images
+AXISRELAY_LOG_DIR=/tmp/logs
+AXISRELAY_LOG_DISABLED=true
+AXISRELAY_ADMIN_SECRET=replace-with-a-strong-secret
+AXISRELAY_ALLOW_ANONYMOUS=false
 GIN_MODE=release
 TZ=Asia/Shanghai
 ```
 
-Render Web Service 默认会通过 `PORT=10000` 暴露服务；本项目也会读取 `PORT`，但显式设置 `CODEX_PORT=10000` 更直观。
+Render Web Service 会提供平台端口变量，但 AxisRelay 不读取无前缀兼容变量；请显式设置 `AXISRELAY_PORT=10000`。
 
 ### 3. 配置自动部署最新镜像
 
@@ -297,27 +297,27 @@ server: {
 
 ```bash
 # 服务端口
-CODEX_PORT=8080
+AXISRELAY_PORT=8080
 
 # 管理后台密码（强密码推荐）
-ADMIN_SECRET=your-strong-password-here
+AXISRELAY_ADMIN_SECRET=your-strong-password-here
 
 # 数据库配置（PostgreSQL 模式）
-DATABASE_DRIVER=postgres
-DATABASE_HOST=postgres
-DATABASE_PORT=5432
-DATABASE_USER=codex2api
-DATABASE_PASSWORD=your-db-password
-DATABASE_NAME=codex2api
+AXISRELAY_DATABASE_DRIVER=postgres
+AXISRELAY_DATABASE_HOST=postgres
+AXISRELAY_DATABASE_PORT=5432
+AXISRELAY_DATABASE_USER=codex2api
+AXISRELAY_DATABASE_PASSWORD=your-db-password
+AXISRELAY_DATABASE_NAME=codex2api
 
 # Redis 配置
-CACHE_DRIVER=redis
-REDIS_ADDR=redis:6379
-REDIS_USERNAME=
-REDIS_PASSWORD=your-redis-password
-REDIS_DB=0
-REDIS_TLS=false
-REDIS_INSECURE_SKIP_VERIFY=false
+AXISRELAY_CACHE_DRIVER=redis
+AXISRELAY_REDIS_ADDR=redis:6379
+AXISRELAY_REDIS_USERNAME=
+AXISRELAY_REDIS_PASSWORD=your-redis-password
+AXISRELAY_REDIS_DB=0
+AXISRELAY_REDIS_TLS=false
+AXISRELAY_REDIS_INSECURE_SKIP_VERIFY=false
 
 # 时区
 TZ=Asia/Shanghai
@@ -326,15 +326,15 @@ TZ=Asia/Shanghai
 云 Redis（如 Aiven、Upstash）通常需要 TLS，可直接使用平台提供的 `rediss://` 连接串：
 
 ```env
-CACHE_DRIVER=redis
-REDIS_ADDR=rediss://default:your-redis-password@your-redis-host:6379/0
+AXISRELAY_CACHE_DRIVER=redis
+AXISRELAY_REDIS_ADDR=rediss://default:your-redis-password@your-redis-host:6379/0
 ```
 
 **可选配置:**
 
 ```bash
-# 快速调度器
-FAST_SCHEDULER_ENABLED=true
+# 使用索引调度引擎
+AXISRELAY_SCHEDULER_ENGINE=indexed
 ```
 
 ### 2. 系统设置（通过管理后台）
@@ -427,15 +427,15 @@ services:
     container_name: codex2api-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_USER: ${DATABASE_USER}
-      POSTGRES_PASSWORD: ${DATABASE_PASSWORD}
-      POSTGRES_DB: ${DATABASE_NAME}
+      POSTGRES_USER: ${AXISRELAY_DATABASE_USER}
+      POSTGRES_PASSWORD: ${AXISRELAY_DATABASE_PASSWORD}
+      POSTGRES_DB: ${AXISRELAY_DATABASE_NAME}
     volumes:
       - pgdata:/var/lib/postgresql/data
     networks:
       - codex2api
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DATABASE_USER} -d ${DATABASE_NAME}"]
+      test: ["CMD-SHELL", "pg_isready -U ${AXISRELAY_DATABASE_USER} -d ${AXISRELAY_DATABASE_NAME}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -444,7 +444,7 @@ services:
     image: redis:7-alpine
     container_name: codex2api-redis
     restart: unless-stopped
-    command: redis-server --requirepass ${REDIS_PASSWORD}
+    command: redis-server --requirepass ${AXISRELAY_REDIS_PASSWORD}
     volumes:
       - redisdata:/data
     networks:

@@ -30,10 +30,10 @@ func TestDefaultBootstrapSettingsUseRecommendedPromptFilterPreset(t *testing.T) 
 }
 
 // issue #199: Docker 端口映射后宿主机访问的源 IP 是网桥地址(私网)而非 loopback，
-// 未配置 BOOTSTRAP_ALLOWED_CIDR 时必须默认放行私网来源，否则本地 Docker 部署
+// 未配置 AXISRELAY_BOOTSTRAP_ALLOWED_CIDR 时必须默认放行私网来源，否则本地 Docker 部署
 // 无法完成页面初始化。
 func TestBootstrapAllowClientIPDefaultsAllowPrivate(t *testing.T) {
-	t.Setenv("BOOTSTRAP_ALLOWED_CIDR", "")
+	t.Setenv("AXISRELAY_BOOTSTRAP_ALLOWED_CIDR", "")
 
 	allowed := []string{
 		"127.0.0.1", "::1", // loopback
@@ -57,7 +57,7 @@ func TestBootstrapAllowClientIPDefaultsAllowPrivate(t *testing.T) {
 }
 
 func TestBootstrapAllowClientIPExplicitCIDROverridesDefault(t *testing.T) {
-	t.Setenv("BOOTSTRAP_ALLOWED_CIDR", "203.0.113.0/24")
+	t.Setenv("AXISRELAY_BOOTSTRAP_ALLOWED_CIDR", "203.0.113.0/24")
 
 	if !bootstrapAllowClientIP("203.0.113.7") {
 		t.Error("IP inside configured CIDR should be allowed")
@@ -72,10 +72,10 @@ func TestBootstrapAllowClientIPExplicitCIDROverridesDefault(t *testing.T) {
 }
 
 func TestBootstrapAllowClientIPNoneDisablesDefault(t *testing.T) {
-	t.Setenv("BOOTSTRAP_ALLOWED_CIDR", "none")
+	t.Setenv("AXISRELAY_BOOTSTRAP_ALLOWED_CIDR", "none")
 
 	if bootstrapAllowClientIP("172.17.0.1") {
-		t.Error("BOOTSTRAP_ALLOWED_CIDR=none should deny private IPs")
+		t.Error("AXISRELAY_BOOTSTRAP_ALLOWED_CIDR=none should deny private IPs")
 	}
 	if !bootstrapAllowClientIP("127.0.0.1") {
 		t.Error("loopback must always be allowed even with none")

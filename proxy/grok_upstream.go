@@ -16,10 +16,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/wuekevin/axisrelay/auth"
 	"github.com/google/uuid"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
+	"github.com/wuekevin/axisrelay/auth"
 )
 
 // Grok CLI 请求头契约的默认值（与 Grok CLI 0.2.106 实抓流量对齐），可用环境变量覆盖，
@@ -27,17 +27,17 @@ import (
 // 0.2.106 契约：UA 为 "grok-pager/<v> grok-shell/<v> (<os>; <arch>)"，
 // identifier=grok-pager、mode=interactive，不再携带 client-surface / client-name 头。
 var (
-	grokClientVersion    = grokEnv("GROK_CLIENT_VERSION", "0.2.106")
-	grokClientIdentifier = grokEnv("GROK_CLIENT_IDENTIFIER", "grok-pager")
-	grokClientMode       = grokEnv("GROK_CLIENT_MODE", "interactive")
-	grokTokenAuth        = grokEnv("GROK_TOKEN_AUTH", "xai-grok-cli")
+	grokClientVersion    = grokEnv("AXISRELAY_GROK_CLIENT_VERSION", "0.2.106")
+	grokClientIdentifier = grokEnv("AXISRELAY_GROK_CLIENT_IDENTIFIER", "grok-pager")
+	grokClientMode       = grokEnv("AXISRELAY_GROK_CLIENT_MODE", "interactive")
+	grokTokenAuth        = grokEnv("AXISRELAY_GROK_TOKEN_AUTH", "xai-grok-cli")
 	// x-compaction-at：CLI 声明的客户端侧压缩阈值。默认值对应实抓的
 	// context window 500k × 80%；环境变量非空时作为逃生阀直接覆盖推导结果。
-	grokCompactionAtOverride = strings.TrimSpace(os.Getenv("GROK_COMPACTION_AT"))
+	grokCompactionAtOverride = strings.TrimSpace(os.Getenv("AXISRELAY_GROK_COMPACTION_AT"))
 	grokCompactionAtDefault  = "400000"
 	// 官方 Grok CLI 1.0.4 实抓：doom-loop 窗口 1024、会话内剩余压缩次数 1。
-	grokDoomLoopCheck        = grokEnv("GROK_DOOM_LOOP_CHECK", "1024")
-	grokCompactionsRemaining = grokEnv("GROK_COMPACTIONS_REMAINING", "1")
+	grokDoomLoopCheck        = grokEnv("AXISRELAY_GROK_DOOM_LOOP_CHECK", "1024")
+	grokCompactionsRemaining = grokEnv("AXISRELAY_GROK_COMPACTIONS_REMAINING", "1")
 )
 
 func grokEnv(key, fallback string) string {

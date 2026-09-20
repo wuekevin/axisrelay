@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/wuekevin/axisrelay/auth"
 	"github.com/gorilla/websocket"
+	"github.com/wuekevin/axisrelay/auth"
 )
 
 const readPumpTestTimeout = 2 * time.Second
@@ -742,7 +742,7 @@ func TestActiveReadMaxTurnSilenceEnvOverride(t *testing.T) {
 		{"negative falls back", "-5m", ActiveReadMaxTurnSilence},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Setenv("CODEX_WS_MAX_TURN_SILENCE", tt.value)
+			t.Setenv("AXISRELAY_WS_MAX_TURN_SILENCE", tt.value)
 			if got := activeReadMaxTurnSilence(); got != tt.want {
 				t.Fatalf("activeReadMaxTurnSilence() = %s, want %s", got, tt.want)
 			}

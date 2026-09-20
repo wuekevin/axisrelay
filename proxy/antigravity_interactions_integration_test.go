@@ -20,10 +20,10 @@ import (
 )
 
 const (
-	antigravityInteractionsTestKeyEnv    = "ANTIGRAVITY_INTERACTIONS_TEST_API_KEY"
-	antigravityInteractionsTestModelEnv  = "ANTIGRAVITY_INTERACTIONS_TEST_MODEL"
-	antigravityInteractionsTestInputEnv  = "ANTIGRAVITY_INTERACTIONS_TEST_INPUT"
-	antigravityInteractionsTestStreamEnv = "ANTIGRAVITY_INTERACTIONS_TEST_STREAM"
+	antigravityInteractionsTestKeyEnv    = "AXISRELAY_ANTIGRAVITY_INTERACTIONS_TEST_API_KEY"
+	antigravityInteractionsTestModelEnv  = "AXISRELAY_ANTIGRAVITY_INTERACTIONS_TEST_MODEL"
+	antigravityInteractionsTestInputEnv  = "AXISRELAY_ANTIGRAVITY_INTERACTIONS_TEST_INPUT"
+	antigravityInteractionsTestStreamEnv = "AXISRELAY_ANTIGRAVITY_INTERACTIONS_TEST_STREAM"
 	antigravityInteractionsTestBodyLimit = 256 << 10
 )
 

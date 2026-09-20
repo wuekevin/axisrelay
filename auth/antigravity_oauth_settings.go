@@ -9,7 +9,7 @@ import (
 	"unicode"
 )
 
-// Antigravity OAuth client 的双来源配置：环境变量 ANTIGRAVITY_OAUTH_CLIENTS 与系统
+// Antigravity OAuth client 的双来源配置：环境变量 AXISRELAY_ANTIGRAVITY_OAUTH_CLIENTS 与系统
 // 设置（system_settings.antigravity_oauth_config，管理页可编辑、随保存热更新）。
 // 与 Grok 的 oauth_client_id 一致，环境变量压在系统设置之上：它属于部署级配置，
 // 数据库里的值被误改时仍能从部署侧兜住。同 key 冲突时环境变量条目生效。
@@ -150,7 +150,7 @@ func validateAntigravityOAuthField(value string, maxLen int) error {
 	return nil
 }
 
-// AntigravityOAuthEnvClients 返回环境变量 ANTIGRAVITY_OAUTH_CLIENTS 里配置的
+// AntigravityOAuthEnvClients 返回环境变量 AXISRELAY_ANTIGRAVITY_OAUTH_CLIENTS 里配置的
 // client 列表（不含 secret 的公开视图），供管理端展示「env 覆盖」提示。
 func AntigravityOAuthEnvClients() []AntigravityOAuthClientInfo {
 	clients := antigravityOAuthClientsFromEnv()

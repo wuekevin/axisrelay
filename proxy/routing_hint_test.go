@@ -125,7 +125,7 @@ func TestRoutingHintFollowsSanitizedOutboundTier(t *testing.T) {
 }
 
 func TestApplyCodexRoutingHintDisabledByEnv(t *testing.T) {
-	t.Setenv("CODEX_DISABLE_ROUTING_HINT", "1")
+	t.Setenv("AXISRELAY_DISABLE_ROUTING_HINT", "1")
 	body := []byte(`{"model":"gpt-5.6-codex","service_tier":"fast"}`)
 
 	// 关闭后不合成,但入站伪造仍被剥离。

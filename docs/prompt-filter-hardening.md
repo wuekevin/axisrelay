@@ -82,7 +82,7 @@ All advanced layers are disabled by default and are stored in `prompt_filter_adv
 
 Risk state uses the configured runtime cache. Redis is recommended for multiple Codex2API replicas; the memory cache works for a single process. User identifiers, IP addresses, and session headers are hashed before they become cache keys. The score decays across the configured window.
 
-The optional sidecar receives `POST /v1/guard/check`. Set its bearer token through `PROMPT_FILTER_SIDECAR_API_KEY`; it is deliberately not stored in the admin JSON. A sidecar may escalate `allow` to `warn` or `block`, but cannot downgrade a local block, and terminal strict matches bypass it entirely.
+The optional sidecar receives `POST /v1/guard/check`. Set its bearer token through `AXISRELAY_PROMPT_FILTER_SIDECAR_API_KEY`; it is deliberately not stored in the admin JSON. A sidecar may escalate `allow` to `warn` or `block`, but cannot downgrade a local block, and terminal strict matches bypass it entirely.
 
 SSE output goes through the shared stream writer. Responses WebSocket messages use a message-preserving output buffer so JSON frames are not merged. With `strict_only=true`, output is stopped only on terminal strict rules; setting it to false applies the normal blocking verdict.
 

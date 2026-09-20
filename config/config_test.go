@@ -10,33 +10,32 @@ import (
 
 func TestLoadDefaultsToPostgresAndRedis(t *testing.T) {
 	keys := []string{
-		"CODEX_PORT",
-		"CODEX_MAX_REQUEST_BODY_SIZE_MB",
-		"PORT",
-		"ADMIN_SECRET",
-		"DATABASE_DRIVER",
-		"DATABASE_PATH",
-		"DATABASE_HOST",
-		"DATABASE_PORT",
-		"DATABASE_USER",
-		"DATABASE_PASSWORD",
-		"DATABASE_NAME",
-		"DATABASE_SSLMODE",
-		"CACHE_DRIVER",
-		"REDIS_ADDR",
-		"REDIS_USERNAME",
-		"REDIS_PASSWORD",
-		"REDIS_DB",
-		"REDIS_TLS",
-		"REDIS_INSECURE_SKIP_VERIFY",
+		"AXISRELAY_PORT",
+		"AXISRELAY_MAX_REQUEST_BODY_SIZE_MB",
+		"AXISRELAY_ADMIN_SECRET",
+		"AXISRELAY_DATABASE_DRIVER",
+		"AXISRELAY_DATABASE_PATH",
+		"AXISRELAY_DATABASE_HOST",
+		"AXISRELAY_DATABASE_PORT",
+		"AXISRELAY_DATABASE_USER",
+		"AXISRELAY_DATABASE_PASSWORD",
+		"AXISRELAY_DATABASE_NAME",
+		"AXISRELAY_DATABASE_SSLMODE",
+		"AXISRELAY_CACHE_DRIVER",
+		"AXISRELAY_REDIS_ADDR",
+		"AXISRELAY_REDIS_USERNAME",
+		"AXISRELAY_REDIS_PASSWORD",
+		"AXISRELAY_REDIS_DB",
+		"AXISRELAY_REDIS_TLS",
+		"AXISRELAY_REDIS_INSECURE_SKIP_VERIFY",
 	}
 	for _, key := range keys {
 		t.Setenv(key, "")
 	}
 
-	// 不设置 DATABASE_DRIVER / CACHE_DRIVER，只提供各自默认驱动所需的最小参数。
-	t.Setenv("DATABASE_HOST", "postgres")
-	t.Setenv("REDIS_ADDR", "redis:6379")
+	// 不设置 AXISRELAY_DATABASE_DRIVER / AXISRELAY_CACHE_DRIVER，只提供各自默认驱动所需的最小参数。
+	t.Setenv("AXISRELAY_DATABASE_HOST", "postgres")
+	t.Setenv("AXISRELAY_REDIS_ADDR", "redis:6379")
 
 	cfg, err := Load("__not_exists__.env")
 	if err != nil {
@@ -68,33 +67,32 @@ func TestLoadDefaultsToPostgresAndRedis(t *testing.T) {
 
 func TestLoadAllowsExplicitSQLiteAndMemory(t *testing.T) {
 	keys := []string{
-		"CODEX_PORT",
-		"CODEX_MAX_REQUEST_BODY_SIZE_MB",
-		"PORT",
-		"ADMIN_SECRET",
-		"DATABASE_DRIVER",
-		"DATABASE_PATH",
-		"DATABASE_HOST",
-		"DATABASE_PORT",
-		"DATABASE_USER",
-		"DATABASE_PASSWORD",
-		"DATABASE_NAME",
-		"DATABASE_SSLMODE",
-		"CACHE_DRIVER",
-		"REDIS_ADDR",
-		"REDIS_USERNAME",
-		"REDIS_PASSWORD",
-		"REDIS_DB",
-		"REDIS_TLS",
-		"REDIS_INSECURE_SKIP_VERIFY",
+		"AXISRELAY_PORT",
+		"AXISRELAY_MAX_REQUEST_BODY_SIZE_MB",
+		"AXISRELAY_ADMIN_SECRET",
+		"AXISRELAY_DATABASE_DRIVER",
+		"AXISRELAY_DATABASE_PATH",
+		"AXISRELAY_DATABASE_HOST",
+		"AXISRELAY_DATABASE_PORT",
+		"AXISRELAY_DATABASE_USER",
+		"AXISRELAY_DATABASE_PASSWORD",
+		"AXISRELAY_DATABASE_NAME",
+		"AXISRELAY_DATABASE_SSLMODE",
+		"AXISRELAY_CACHE_DRIVER",
+		"AXISRELAY_REDIS_ADDR",
+		"AXISRELAY_REDIS_USERNAME",
+		"AXISRELAY_REDIS_PASSWORD",
+		"AXISRELAY_REDIS_DB",
+		"AXISRELAY_REDIS_TLS",
+		"AXISRELAY_REDIS_INSECURE_SKIP_VERIFY",
 	}
 	for _, key := range keys {
 		t.Setenv(key, "")
 	}
 
-	t.Setenv("DATABASE_DRIVER", "sqlite")
-	t.Setenv("DATABASE_PATH", "/data/codex2api.db")
-	t.Setenv("CACHE_DRIVER", "memory")
+	t.Setenv("AXISRELAY_DATABASE_DRIVER", "sqlite")
+	t.Setenv("AXISRELAY_DATABASE_PATH", "/data/codex2api.db")
+	t.Setenv("AXISRELAY_CACHE_DRIVER", "memory")
 
 	cfg, err := Load("__not_exists__.env")
 	if err != nil {
@@ -114,33 +112,32 @@ func TestLoadAllowsExplicitSQLiteAndMemory(t *testing.T) {
 
 func TestLoadReadsAdminSecretFromEnv(t *testing.T) {
 	keys := []string{
-		"CODEX_PORT",
-		"CODEX_MAX_REQUEST_BODY_SIZE_MB",
-		"PORT",
-		"ADMIN_SECRET",
-		"DATABASE_DRIVER",
-		"DATABASE_PATH",
-		"DATABASE_HOST",
-		"DATABASE_PORT",
-		"DATABASE_USER",
-		"DATABASE_PASSWORD",
-		"DATABASE_NAME",
-		"DATABASE_SSLMODE",
-		"CACHE_DRIVER",
-		"REDIS_ADDR",
-		"REDIS_USERNAME",
-		"REDIS_PASSWORD",
-		"REDIS_DB",
-		"REDIS_TLS",
-		"REDIS_INSECURE_SKIP_VERIFY",
+		"AXISRELAY_PORT",
+		"AXISRELAY_MAX_REQUEST_BODY_SIZE_MB",
+		"AXISRELAY_ADMIN_SECRET",
+		"AXISRELAY_DATABASE_DRIVER",
+		"AXISRELAY_DATABASE_PATH",
+		"AXISRELAY_DATABASE_HOST",
+		"AXISRELAY_DATABASE_PORT",
+		"AXISRELAY_DATABASE_USER",
+		"AXISRELAY_DATABASE_PASSWORD",
+		"AXISRELAY_DATABASE_NAME",
+		"AXISRELAY_DATABASE_SSLMODE",
+		"AXISRELAY_CACHE_DRIVER",
+		"AXISRELAY_REDIS_ADDR",
+		"AXISRELAY_REDIS_USERNAME",
+		"AXISRELAY_REDIS_PASSWORD",
+		"AXISRELAY_REDIS_DB",
+		"AXISRELAY_REDIS_TLS",
+		"AXISRELAY_REDIS_INSECURE_SKIP_VERIFY",
 	}
 	for _, key := range keys {
 		t.Setenv(key, "")
 	}
 
-	t.Setenv("DATABASE_HOST", "postgres")
-	t.Setenv("REDIS_ADDR", "redis:6379")
-	t.Setenv("ADMIN_SECRET", "from-env-secret")
+	t.Setenv("AXISRELAY_DATABASE_HOST", "postgres")
+	t.Setenv("AXISRELAY_REDIS_ADDR", "redis:6379")
+	t.Setenv("AXISRELAY_ADMIN_SECRET", "from-env-secret")
 
 	cfg, err := Load("__not_exists__.env")
 	if err != nil {
@@ -154,33 +151,32 @@ func TestLoadReadsAdminSecretFromEnv(t *testing.T) {
 
 func TestLoadReadsMaxRequestBodySizeFromEnv(t *testing.T) {
 	keys := []string{
-		"CODEX_PORT",
-		"CODEX_MAX_REQUEST_BODY_SIZE_MB",
-		"PORT",
-		"ADMIN_SECRET",
-		"DATABASE_DRIVER",
-		"DATABASE_PATH",
-		"DATABASE_HOST",
-		"DATABASE_PORT",
-		"DATABASE_USER",
-		"DATABASE_PASSWORD",
-		"DATABASE_NAME",
-		"DATABASE_SSLMODE",
-		"CACHE_DRIVER",
-		"REDIS_ADDR",
-		"REDIS_USERNAME",
-		"REDIS_PASSWORD",
-		"REDIS_DB",
-		"REDIS_TLS",
-		"REDIS_INSECURE_SKIP_VERIFY",
+		"AXISRELAY_PORT",
+		"AXISRELAY_MAX_REQUEST_BODY_SIZE_MB",
+		"AXISRELAY_ADMIN_SECRET",
+		"AXISRELAY_DATABASE_DRIVER",
+		"AXISRELAY_DATABASE_PATH",
+		"AXISRELAY_DATABASE_HOST",
+		"AXISRELAY_DATABASE_PORT",
+		"AXISRELAY_DATABASE_USER",
+		"AXISRELAY_DATABASE_PASSWORD",
+		"AXISRELAY_DATABASE_NAME",
+		"AXISRELAY_DATABASE_SSLMODE",
+		"AXISRELAY_CACHE_DRIVER",
+		"AXISRELAY_REDIS_ADDR",
+		"AXISRELAY_REDIS_USERNAME",
+		"AXISRELAY_REDIS_PASSWORD",
+		"AXISRELAY_REDIS_DB",
+		"AXISRELAY_REDIS_TLS",
+		"AXISRELAY_REDIS_INSECURE_SKIP_VERIFY",
 	}
 	for _, key := range keys {
 		t.Setenv(key, "")
 	}
 
-	t.Setenv("DATABASE_HOST", "postgres")
-	t.Setenv("REDIS_ADDR", "redis:6379")
-	t.Setenv("CODEX_MAX_REQUEST_BODY_SIZE_MB", "64")
+	t.Setenv("AXISRELAY_DATABASE_HOST", "postgres")
+	t.Setenv("AXISRELAY_REDIS_ADDR", "redis:6379")
+	t.Setenv("AXISRELAY_MAX_REQUEST_BODY_SIZE_MB", "64")
 
 	cfg, err := Load("__not_exists__.env")
 	if err != nil {
@@ -193,11 +189,11 @@ func TestLoadReadsMaxRequestBodySizeFromEnv(t *testing.T) {
 }
 
 func TestLoadParsesTrustedProxiesEnv(t *testing.T) {
-	t.Setenv("DATABASE_DRIVER", "")
-	t.Setenv("DATABASE_HOST", "postgres")
-	t.Setenv("CACHE_DRIVER", "")
-	t.Setenv("REDIS_ADDR", "redis:6379")
-	t.Setenv("CODEX_TRUSTED_PROXIES", "10.0.0.0/8, 172.16.0.0/12;192.168.1.10")
+	t.Setenv("AXISRELAY_DATABASE_DRIVER", "")
+	t.Setenv("AXISRELAY_DATABASE_HOST", "postgres")
+	t.Setenv("AXISRELAY_CACHE_DRIVER", "")
+	t.Setenv("AXISRELAY_REDIS_ADDR", "redis:6379")
+	t.Setenv("AXISRELAY_TRUSTED_PROXIES", "10.0.0.0/8, 172.16.0.0/12;192.168.1.10")
 
 	cfg, err := Load("__not_exists__.env")
 	if err != nil {
@@ -209,11 +205,11 @@ func TestLoadParsesTrustedProxiesEnv(t *testing.T) {
 }
 
 func TestLoadCanDisableTrustedProxies(t *testing.T) {
-	t.Setenv("DATABASE_DRIVER", "")
-	t.Setenv("DATABASE_HOST", "postgres")
-	t.Setenv("CACHE_DRIVER", "")
-	t.Setenv("REDIS_ADDR", "redis:6379")
-	t.Setenv("CODEX_TRUSTED_PROXIES", "none")
+	t.Setenv("AXISRELAY_DATABASE_DRIVER", "")
+	t.Setenv("AXISRELAY_DATABASE_HOST", "postgres")
+	t.Setenv("AXISRELAY_CACHE_DRIVER", "")
+	t.Setenv("AXISRELAY_REDIS_ADDR", "redis:6379")
+	t.Setenv("AXISRELAY_TRUSTED_PROXIES", "none")
 
 	cfg, err := Load("__not_exists__.env")
 	if err != nil {
@@ -225,12 +221,11 @@ func TestLoadCanDisableTrustedProxies(t *testing.T) {
 }
 
 func TestLoadDefaultsCodexUpstreamTransportToHTTP(t *testing.T) {
-	t.Setenv("DATABASE_DRIVER", "")
-	t.Setenv("DATABASE_HOST", "postgres")
-	t.Setenv("CACHE_DRIVER", "")
-	t.Setenv("REDIS_ADDR", "redis:6379")
-	t.Setenv("CODEX_UPSTREAM_TRANSPORT", "")
-	t.Setenv("USE_WEBSOCKET", "")
+	t.Setenv("AXISRELAY_DATABASE_DRIVER", "")
+	t.Setenv("AXISRELAY_DATABASE_HOST", "postgres")
+	t.Setenv("AXISRELAY_CACHE_DRIVER", "")
+	t.Setenv("AXISRELAY_REDIS_ADDR", "redis:6379")
+	t.Setenv("AXISRELAY_UPSTREAM_TRANSPORT", "")
 
 	cfg, err := Load("__not_exists__.env")
 	if err != nil {
@@ -245,32 +240,11 @@ func TestLoadDefaultsCodexUpstreamTransportToHTTP(t *testing.T) {
 }
 
 func TestLoadHonorsCodexUpstreamTransportWS(t *testing.T) {
-	t.Setenv("DATABASE_DRIVER", "")
-	t.Setenv("DATABASE_HOST", "postgres")
-	t.Setenv("CACHE_DRIVER", "")
-	t.Setenv("REDIS_ADDR", "redis:6379")
-	t.Setenv("CODEX_UPSTREAM_TRANSPORT", "websocket")
-	t.Setenv("USE_WEBSOCKET", "")
-
-	cfg, err := Load("__not_exists__.env")
-	if err != nil {
-		t.Fatalf("Load() 返回错误: %v", err)
-	}
-	if got := cfg.CodexUpstreamTransport; got != "ws" {
-		t.Fatalf("CodexUpstreamTransport = %q, want ws", got)
-	}
-	if !cfg.UseWebsocket {
-		t.Fatal("UseWebsocket = false, want true")
-	}
-}
-
-func TestLoadKeepsLegacyUseWebsocketCompatibility(t *testing.T) {
-	t.Setenv("DATABASE_DRIVER", "")
-	t.Setenv("DATABASE_HOST", "postgres")
-	t.Setenv("CACHE_DRIVER", "")
-	t.Setenv("REDIS_ADDR", "redis:6379")
-	t.Setenv("CODEX_UPSTREAM_TRANSPORT", "")
-	t.Setenv("USE_WEBSOCKET", "true")
+	t.Setenv("AXISRELAY_DATABASE_DRIVER", "")
+	t.Setenv("AXISRELAY_DATABASE_HOST", "postgres")
+	t.Setenv("AXISRELAY_CACHE_DRIVER", "")
+	t.Setenv("AXISRELAY_REDIS_ADDR", "redis:6379")
+	t.Setenv("AXISRELAY_UPSTREAM_TRANSPORT", "websocket")
 
 	cfg, err := Load("__not_exists__.env")
 	if err != nil {
@@ -286,37 +260,36 @@ func TestLoadKeepsLegacyUseWebsocketCompatibility(t *testing.T) {
 
 func TestLoadReadsRedisTLSSettings(t *testing.T) {
 	keys := []string{
-		"CODEX_PORT",
-		"CODEX_MAX_REQUEST_BODY_SIZE_MB",
-		"PORT",
-		"ADMIN_SECRET",
-		"DATABASE_DRIVER",
-		"DATABASE_PATH",
-		"DATABASE_HOST",
-		"DATABASE_PORT",
-		"DATABASE_USER",
-		"DATABASE_PASSWORD",
-		"DATABASE_NAME",
-		"DATABASE_SSLMODE",
-		"CACHE_DRIVER",
-		"REDIS_ADDR",
-		"REDIS_USERNAME",
-		"REDIS_PASSWORD",
-		"REDIS_DB",
-		"REDIS_TLS",
-		"REDIS_INSECURE_SKIP_VERIFY",
+		"AXISRELAY_PORT",
+		"AXISRELAY_MAX_REQUEST_BODY_SIZE_MB",
+		"AXISRELAY_ADMIN_SECRET",
+		"AXISRELAY_DATABASE_DRIVER",
+		"AXISRELAY_DATABASE_PATH",
+		"AXISRELAY_DATABASE_HOST",
+		"AXISRELAY_DATABASE_PORT",
+		"AXISRELAY_DATABASE_USER",
+		"AXISRELAY_DATABASE_PASSWORD",
+		"AXISRELAY_DATABASE_NAME",
+		"AXISRELAY_DATABASE_SSLMODE",
+		"AXISRELAY_CACHE_DRIVER",
+		"AXISRELAY_REDIS_ADDR",
+		"AXISRELAY_REDIS_USERNAME",
+		"AXISRELAY_REDIS_PASSWORD",
+		"AXISRELAY_REDIS_DB",
+		"AXISRELAY_REDIS_TLS",
+		"AXISRELAY_REDIS_INSECURE_SKIP_VERIFY",
 	}
 	for _, key := range keys {
 		t.Setenv(key, "")
 	}
 
-	t.Setenv("DATABASE_HOST", "postgres")
-	t.Setenv("REDIS_ADDR", "rediss://default:url-pass@example.upstash.io:6379/2")
-	t.Setenv("REDIS_USERNAME", "env-user")
-	t.Setenv("REDIS_PASSWORD", "env-pass")
-	t.Setenv("REDIS_DB", "3")
-	t.Setenv("REDIS_TLS", "true")
-	t.Setenv("REDIS_INSECURE_SKIP_VERIFY", "1")
+	t.Setenv("AXISRELAY_DATABASE_HOST", "postgres")
+	t.Setenv("AXISRELAY_REDIS_ADDR", "rediss://default:url-pass@example.upstash.io:6379/2")
+	t.Setenv("AXISRELAY_REDIS_USERNAME", "env-user")
+	t.Setenv("AXISRELAY_REDIS_PASSWORD", "env-pass")
+	t.Setenv("AXISRELAY_REDIS_DB", "3")
+	t.Setenv("AXISRELAY_REDIS_TLS", "true")
+	t.Setenv("AXISRELAY_REDIS_INSECURE_SKIP_VERIFY", "1")
 
 	cfg, err := Load("__not_exists__.env")
 	if err != nil {
@@ -344,12 +317,12 @@ func TestLoadReadsRedisTLSSettings(t *testing.T) {
 }
 
 func TestLoadAcceptsValidDatabaseSchema(t *testing.T) {
-	t.Setenv("DATABASE_DRIVER", "")
-	t.Setenv("DATABASE_HOST", "postgres")
-	t.Setenv("DATABASE_NAME", "postgres")
-	t.Setenv("DATABASE_SCHEMA", "codex2api")
-	t.Setenv("CACHE_DRIVER", "")
-	t.Setenv("REDIS_ADDR", "redis:6379")
+	t.Setenv("AXISRELAY_DATABASE_DRIVER", "")
+	t.Setenv("AXISRELAY_DATABASE_HOST", "postgres")
+	t.Setenv("AXISRELAY_DATABASE_NAME", "postgres")
+	t.Setenv("AXISRELAY_DATABASE_SCHEMA", "codex2api")
+	t.Setenv("AXISRELAY_CACHE_DRIVER", "")
+	t.Setenv("AXISRELAY_REDIS_ADDR", "redis:6379")
 
 	cfg, err := Load("__not_exists__.env")
 	if err != nil {
@@ -375,11 +348,11 @@ func TestLoadRejectsInvalidDatabaseSchema(t *testing.T) {
 	}
 	for _, name := range cases {
 		t.Run(name, func(t *testing.T) {
-			t.Setenv("DATABASE_DRIVER", "")
-			t.Setenv("DATABASE_HOST", "postgres")
-			t.Setenv("DATABASE_SCHEMA", name)
-			t.Setenv("CACHE_DRIVER", "")
-			t.Setenv("REDIS_ADDR", "redis:6379")
+			t.Setenv("AXISRELAY_DATABASE_DRIVER", "")
+			t.Setenv("AXISRELAY_DATABASE_HOST", "postgres")
+			t.Setenv("AXISRELAY_DATABASE_SCHEMA", name)
+			t.Setenv("AXISRELAY_CACHE_DRIVER", "")
+			t.Setenv("AXISRELAY_REDIS_ADDR", "redis:6379")
 
 			if _, err := Load("__not_exists__.env"); err == nil {
 				t.Fatalf("非法 schema %q 应当被拒绝，但 Load() 通过了", name)
@@ -411,8 +384,8 @@ func TestLoadAppliesTimezoneFromEnvFile(t *testing.T) {
 	if err := os.Unsetenv("TZ"); err != nil {
 		t.Fatalf("Unsetenv(TZ) 失败: %v", err)
 	}
-	t.Setenv("DATABASE_HOST", "postgres")
-	t.Setenv("REDIS_ADDR", "redis:6379")
+	t.Setenv("AXISRELAY_DATABASE_HOST", "postgres")
+	t.Setenv("AXISRELAY_REDIS_ADDR", "redis:6379")
 
 	envPath := filepath.Join(t.TempDir(), ".env")
 	if err := os.WriteFile(envPath, []byte("TZ=America/Chicago\n"), 0o600); err != nil {
@@ -446,5 +419,36 @@ func TestApplyTimezoneKeepsLocalOnInvalidTZ(t *testing.T) {
 	applyTimezone()
 	if time.Local != origLocal {
 		t.Fatalf("非法 TZ 不应改动 time.Local, got %q", time.Local)
+	}
+}
+
+func TestLoadIgnoresLegacyEnvironmentAliases(t *testing.T) {
+	t.Setenv("AXISRELAY_DATABASE_HOST", "postgres")
+	t.Setenv("AXISRELAY_REDIS_ADDR", "redis:6379")
+	t.Setenv("AXISRELAY_PORT", "")
+	t.Setenv("AXISRELAY_ADMIN_SECRET", "")
+	t.Setenv("AXISRELAY_UPSTREAM_TRANSPORT", "")
+
+	legacyCodexPort := "CODE" + "X_PORT"
+	legacyPort := "PO" + "RT"
+	legacyAdminSecret := "ADMIN_" + "SECRET"
+	legacyUseWebsocket := "USE_" + "WEBSOCKET"
+	t.Setenv(legacyCodexPort, "19090")
+	t.Setenv(legacyPort, "19091")
+	t.Setenv(legacyAdminSecret, "legacy-secret")
+	t.Setenv(legacyUseWebsocket, "true")
+
+	cfg, err := Load("__not_exists__.env")
+	if err != nil {
+		t.Fatalf("Load() returned error: %v", err)
+	}
+	if cfg.Port != 8080 {
+		t.Fatalf("Port = %d, want default 8080 when legacy port aliases are set", cfg.Port)
+	}
+	if cfg.AdminSecret != "" {
+		t.Fatalf("AdminSecret = %q, want empty when only legacy ADMIN_SECRET is set", cfg.AdminSecret)
+	}
+	if cfg.CodexUpstreamTransport != "http" || cfg.UseWebsocket {
+		t.Fatalf("transport = %q websocket=%v, want http/false when only legacy USE_WEBSOCKET is set", cfg.CodexUpstreamTransport, cfg.UseWebsocket)
 	}
 }

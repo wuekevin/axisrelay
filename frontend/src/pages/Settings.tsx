@@ -4835,7 +4835,7 @@ export default function Settings() {
                     </SettingField>
                   </div>
                   <div className={SETTINGS_FIELD_GRID_3}>
-                    {/* client_id 同时可由环境变量 GROK_OAUTH_CLIENT_ID 指定，且环境变量优先级更高；
+                    {/* client_id 同时可由环境变量 AXISRELAY_GROK_OAUTH_CLIENT_ID 指定，且环境变量优先级更高；
                         被覆盖时这里禁用输入并说明当前生效值，避免用户以为改了却不起作用。 */}
                     <SettingField
                       className="sm:col-span-2 xl:col-span-3"

@@ -155,7 +155,7 @@ Notes:
 - Standard and SQLite modes both read `.env`.
 - Before switching deployment modes, replace `.env` with the matching example file.
 - The SQLite lightweight mode runs a single `codex2api` container and stores data at `/data/codex2api.db`.
-- **SQLite compose files bind to `127.0.0.1` by default for security.** To expose the SQLite service on all interfaces, set `BIND_HOST=0.0.0.0` in `.env` or override the port binding in the compose file. The standard compose files bind to `0.0.0.0` by default.
+- **SQLite compose files bind to `127.0.0.1` by default for security.** To expose the SQLite service on all interfaces, set `AXISRELAY_BIND_HOST=0.0.0.0` in `.env` or override the port binding in the compose file. The standard compose files bind to `0.0.0.0` by default.
 - The image studio library is stored under `/data/images`; uploaded admin backgrounds are stored under `/data/backgrounds`; Docker configurations persist `/data`.
 - `docker compose down` does not delete named volumes by default. Data is removed only by commands such as `docker compose down -v`, `docker volume rm`, or `docker volume prune`.
 
@@ -163,7 +163,7 @@ Notes:
 
 ## Antigravity channel (experimental API Key path)
 
-Antigravity accounts are managed as a dedicated Google channel with browser/imported OAuth credentials and an optional Google API Key credential shape. Admin tooling includes secret-bearing JSON/ZIP credential export plus sanitized state, explicit control-plane sync, and bounded capability probing. OAuth requests use the Cloud Code `v1internal` adapter. API Key requests target the Generative Language `v1beta/interactions` endpoint, but ordinary API-key dispatch is fail-closed by default and requires `ANTIGRAVITY_ENABLE_EXPERIMENTAL_INTERACTIONS=true`. The opt-in real-upstream integration test has not succeeded in this environment, so this path remains experimental rather than production-certified. See [docs/ANTIGRAVITY.md](docs/ANTIGRAVITY.md) for endpoints, test instructions, models, channel restrictions, plaintext credential-storage risk, and the certification checklist.
+Antigravity accounts are managed as a dedicated Google channel with browser/imported OAuth credentials and an optional Google API Key credential shape. Admin tooling includes secret-bearing JSON/ZIP credential export plus sanitized state, explicit control-plane sync, and bounded capability probing. OAuth requests use the Cloud Code `v1internal` adapter. API Key requests target the Generative Language `v1beta/interactions` endpoint, but ordinary API-key dispatch is fail-closed by default and requires `AXISRELAY_ANTIGRAVITY_ENABLE_EXPERIMENTAL_INTERACTIONS=true`. The opt-in real-upstream integration test has not succeeded in this environment, so this path remains experimental rather than production-certified. See [docs/ANTIGRAVITY.md](docs/ANTIGRAVITY.md) for endpoints, test instructions, models, channel restrictions, plaintext credential-storage risk, and the certification checklist.
 
 ## Documentation
 
@@ -233,29 +233,29 @@ Vite proxies `/api` and `/health` to the backend. During development, open `http
 
 | Variable | Description |
 | --- | --- |
-| `CODEX_PORT` | HTTP port, default `8080` |
-| `CODEX_MAX_REQUEST_BODY_SIZE_MB` | HTTP request body limit in MB, default `48` |
-| `ADMIN_SECRET` | Admin dashboard secret. When set, `/admin` prompts for authentication |
-| `DATABASE_DRIVER` | Database driver: `postgres` or `sqlite` |
-| `DATABASE_PATH` | SQLite database file path, used when `DATABASE_DRIVER=sqlite` |
-| `DATABASE_HOST` | PostgreSQL host |
-| `DATABASE_PORT` | PostgreSQL port, default `5432` |
-| `DATABASE_USER` | PostgreSQL user |
-| `DATABASE_PASSWORD` | PostgreSQL password |
-| `DATABASE_NAME` | PostgreSQL database name |
-| `DATABASE_SSLMODE` | PostgreSQL SSL mode, default `disable` |
-| `CACHE_DRIVER` | Cache driver: `redis` or `memory` |
-| `REDIS_ADDR` | Redis address, for example `redis:6379`, `redis://default:pass@host:6379/0`, or `rediss://default:pass@host:6379/0` |
-| `REDIS_USERNAME` | Optional Redis ACL username |
-| `REDIS_PASSWORD` | Redis password |
-| `REDIS_DB` | Redis database number |
-| `REDIS_TLS` | Enable TLS for `host:port` Redis addresses |
-| `REDIS_INSECURE_SKIP_VERIFY` | Skip Redis TLS certificate verification, default `false` |
+| `AXISRELAY_PORT` | HTTP port, default `8080` |
+| `AXISRELAY_MAX_REQUEST_BODY_SIZE_MB` | HTTP request body limit in MB, default `48` |
+| `AXISRELAY_ADMIN_SECRET` | Admin dashboard secret. When set, `/admin` prompts for authentication |
+| `AXISRELAY_DATABASE_DRIVER` | Database driver: `postgres` or `sqlite` |
+| `AXISRELAY_DATABASE_PATH` | SQLite database file path, used when `AXISRELAY_DATABASE_DRIVER=sqlite` |
+| `AXISRELAY_DATABASE_HOST` | PostgreSQL host |
+| `AXISRELAY_DATABASE_PORT` | PostgreSQL port, default `5432` |
+| `AXISRELAY_DATABASE_USER` | PostgreSQL user |
+| `AXISRELAY_DATABASE_PASSWORD` | PostgreSQL password |
+| `AXISRELAY_DATABASE_NAME` | PostgreSQL database name |
+| `AXISRELAY_DATABASE_SSLMODE` | PostgreSQL SSL mode, default `disable` |
+| `AXISRELAY_CACHE_DRIVER` | Cache driver: `redis` or `memory` |
+| `AXISRELAY_REDIS_ADDR` | Redis address, for example `redis:6379`, `redis://default:pass@host:6379/0`, or `rediss://default:pass@host:6379/0` |
+| `AXISRELAY_REDIS_USERNAME` | Optional Redis ACL username |
+| `AXISRELAY_REDIS_PASSWORD` | Redis password |
+| `AXISRELAY_REDIS_DB` | Redis database number |
+| `AXISRELAY_REDIS_TLS` | Enable TLS for `host:port` Redis addresses |
+| `AXISRELAY_REDIS_INSECURE_SKIP_VERIFY` | Skip Redis TLS certificate verification, default `false` |
 | `TZ` | Timezone, for example `Asia/Shanghai` |
 
 Cloud Redis providers such as Aiven and Upstash often require TLS. Prefer a `rediss://...` URL when your provider gives one.
 
-The standard `.env.example` declares `DATABASE_DRIVER=postgres` and `CACHE_DRIVER=redis`. For the lightweight SQLite mode, use `.env.sqlite.example`.
+The standard `.env.example` declares `AXISRELAY_DATABASE_DRIVER=postgres` and `AXISRELAY_CACHE_DRIVER=redis`. For the lightweight SQLite mode, use `.env.sqlite.example`.
 
 ### Runtime Settings
 
@@ -285,7 +285,7 @@ Each successful budget change receives a read-only generation and is polled by e
 
 - Public API keys come from the database API Keys table. If no key is configured, `/v1/*` skips API key authentication.
 - Admin Secret priority:
-  - If `ADMIN_SECRET` is set in `.env`, the environment variable wins.
+  - If `AXISRELAY_ADMIN_SECRET` is set in `.env`, the environment variable wins.
   - Otherwise, the database `AdminSecret` value is used.
   - After login, the frontend sends `X-Admin-Key` when calling `/api/admin/*`.
 
@@ -479,7 +479,7 @@ Observability:
 - `GET /api/admin/ops/overview` shows scheduler engine, indexed/legacy selections, scan volume, event waiters, sparse routing-cache state, shadow parity, and outbox lag in addition to runtime and connection-pool state.
 - `/admin/ops/scheduler` provides the scheduler board.
 
-**Scheduler engine** (`scheduler_engine`, via Admin Settings, or `CODEX_SCHEDULER_ENGINE`):
+**Scheduler engine** (`scheduler_engine`, via Admin Settings, or `AXISRELAY_SCHEDULER_ENGINE`):
 
 | Engine | Behavior |
 | --- | --- |
@@ -487,7 +487,7 @@ Observability:
 | `shadow` | Legacy remains authoritative while 1 in 64 requests compares indexed candidate availability |
 | `indexed` | Priority/health buckets, sparse API-key sub-pools, and event-driven availability waits are authoritative |
 
-For a production rollout, use `legacy → shadow → indexed`. `CODEX_SCHEDULER_ENGINE` overrides the database setting and can pin an instance for a canary or emergency rollback. The old `FAST_SCHEDULER_ENABLED=true` switch remains a compatibility alias for `indexed` when no engine is configured.
+For a production rollout, use `legacy → shadow → indexed`. `AXISRELAY_SCHEDULER_ENGINE` overrides the database setting and can pin an instance for a canary or emergency rollback. Legacy scheduler environment aliases are no longer read.
 
 **Scheduler mode** (`scheduler_mode`, via Admin Settings):
 

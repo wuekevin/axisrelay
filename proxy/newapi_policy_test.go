@@ -19,14 +19,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gin-gonic/gin"
+	"github.com/gorilla/websocket"
+	"github.com/tidwall/gjson"
 	"github.com/wuekevin/axisrelay/api"
 	"github.com/wuekevin/axisrelay/auth"
 	"github.com/wuekevin/axisrelay/cache"
 	"github.com/wuekevin/axisrelay/database"
 	"github.com/wuekevin/axisrelay/security/promptfilter"
-	"github.com/gin-gonic/gin"
-	"github.com/gorilla/websocket"
-	"github.com/tidwall/gjson"
 )
 
 func TestVerifyNewAPIIdentity(t *testing.T) {
@@ -635,7 +635,7 @@ func TestBoundNewAPIIdentityIsolatedByAPIKeyPlatformAndSecret(t *testing.T) {
 }
 
 func TestNewAPIIdentitySecretsDoNotFallbackForUnboundKeyInBindingMode(t *testing.T) {
-	t.Setenv("PROMPT_FILTER_NEWAPI_SECRET", "legacy-global-secret")
+	t.Setenv("AXISRELAY_PROMPT_FILTER_NEWAPI_SECRET", "legacy-global-secret")
 	handler := newPromptFilterBindingTestHandler(t, promptGuardTestConfig(), []database.PromptFilterNewAPIBinding{{
 		APIKeyID: 101, PlatformCode: "gateway-a", Secret: "gateway-a-secret", Enabled: true,
 		PolicyMode: database.PromptFilterPolicyModeInherit, PolicyProfile: database.PromptFilterPolicyProfileInherit,

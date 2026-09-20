@@ -45,9 +45,9 @@ func TestGPTImage25UsagePersistence(t *testing.T) {
 }
 
 func TestGPTImage25UsagePersistencePostgres(t *testing.T) {
-	dsn := os.Getenv("CODEX2API_TEST_POSTGRES_DSN")
+	dsn := os.Getenv("AXISRELAY_TEST_POSTGRES_DSN")
 	if dsn == "" {
-		t.Skip("requires an isolated CODEX2API_TEST_POSTGRES_DSN database")
+		t.Skip("requires an isolated AXISRELAY_TEST_POSTGRES_DSN database")
 	}
 	testGPTImage25UsagePersistence(t, "postgres", dsn)
 }
