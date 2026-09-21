@@ -79,7 +79,7 @@ func fetchClaudeJSON(ctx context.Context, endpoint string, transport http.RoundT
 		return err
 	}
 	req.Header.Set("Accept", "application/json")
-	req.Header.Set("User-Agent", "codex2api")
+	req.Header.Set("User-Agent", "axisrelay")
 	if github {
 		req.Header.Set("Accept", "application/vnd.github+json")
 		ApplyGithubAuth(req)

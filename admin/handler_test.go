@@ -847,7 +847,7 @@ func TestBatchResetStatusSyncsEachResolvedAccount(t *testing.T) {
 func TestCreateAPIKeyPersistsQuotaAndExpiration(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	dbPath := filepath.Join(t.TempDir(), "codex2api.db")
+	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
 	db, err := database.New("sqlite", dbPath)
 	if err != nil {
 		t.Fatalf("database.New 返回错误: %v", err)
@@ -887,7 +887,7 @@ func TestCreateAPIKeyPersistsQuotaAndExpiration(t *testing.T) {
 func TestUpdateAPIKeyPreservesOmittedFieldsAndUpdatesLimits(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	dbPath := filepath.Join(t.TempDir(), "codex2api.db")
+	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
 	db, err := database.New("sqlite", dbPath)
 	if err != nil {
 		t.Fatalf("database.New 返回错误: %v", err)
@@ -948,7 +948,7 @@ func TestUpdateAPIKeyPreservesOmittedFieldsAndUpdatesLimits(t *testing.T) {
 func TestUpdateAPIKeyRefreshesRuntimeStoreAndCache(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	dbPath := filepath.Join(t.TempDir(), "codex2api.db")
+	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
 	db, err := database.New("sqlite", dbPath)
 	if err != nil {
 		t.Fatalf("database.New 返回错误: %v", err)
@@ -1617,7 +1617,7 @@ func TestUpdateSettingsPersistsAutoResetCreditsAcrossPartialUpdates(t *testing.T
 		t.Fatal("same-value auto-reset settings queued another scan")
 	default:
 	}
-	update(`{"site_name":"Codex2API Test"}`)
+	update(`{"site_name":"AxisRelay Test"}`)
 	for _, boundary := range []int{10, 10080, 90} {
 		update(fmt.Sprintf(`{"auto_reset_credits_before_expiry_min":%d}`, boundary))
 		if got := proxy.CurrentRuntimeSettings().AutoResetCreditsBeforeExpiryMin; got != boundary {
@@ -1693,7 +1693,7 @@ func TestUpdateSettingsPersistsAutoActivate5hWindow(t *testing.T) {
 	if !proxy.CurrentRuntimeSettings().AutoActivate5hWindowEnabled {
 		t.Fatal("runtime AutoActivate5hWindowEnabled = false, want true")
 	}
-	update(`{"site_name":"Codex2API Test"}`)
+	update(`{"site_name":"AxisRelay Test"}`)
 	select {
 	case <-handler.autoActivate5hWake:
 		t.Fatal("unrelated partial update queued another 5h activation scan")

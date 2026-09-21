@@ -30,7 +30,7 @@ type GrokUpstreamRoute struct {
 	Native       bool
 }
 
-const grokNativeRouteHeader = "X-Codex2api-Grok-Native-Route"
+const grokNativeRouteHeader = "X-AxisRelay-Grok-Native-Route"
 
 func markGrokNativeRoute(resp *http.Response, route GrokUpstreamRoute, inbound GrokProtocol) {
 	if resp == nil || !route.Native || route.Protocol != auth.NormalizeGrokProtocol(string(inbound)) {

@@ -1,9 +1,9 @@
-name: codex2api-sqlite-local
+name: axisrelay-sqlite-local
 
 services:
-  codex2api:
+  axisrelay:
     build: .
-    container_name: codex2api-sqlite-local
+    container_name: axisrelay-sqlite-local
     ports:
       # Bind to localhost only by default for security.
       # To expose on all interfaces, set AXISRELAY_BIND_HOST=0.0.0.0 in .env or override here.
@@ -17,4 +17,4 @@ services:
 
 volumes:
   sqlite-data-local:
-    name: codex2api-sqlite-local_sqlite-data-local
+    name: axisrelay-sqlite-local_sqlite-data-local

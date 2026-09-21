@@ -479,7 +479,7 @@ func TestMarshalPromptPolicyEvidenceMetadataSurvivesEscapeInflation(t *testing.T
 func TestLogUpstreamCyberPolicyRecordsStreamingFailure(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	dbPath := filepath.Join(t.TempDir(), "codex2api.db")
+	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
 	db, err := database.New("sqlite", dbPath)
 	if err != nil {
 		t.Fatalf("database.New(sqlite) error: %v", err)

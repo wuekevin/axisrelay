@@ -1958,8 +1958,8 @@ func extractReasoningEffort(body []byte) string {
 
 // responsesPhaseTimingHeader /v1/responses 请求准备阶段分段耗时的响应头。
 // 首个 attempt 开始前写入(SSE 首字节尚未发出),下游网关可据此把
-// "网关侧首字慢 vs codex2api first_token_ms 快"的差值归因到具体阶段(issue #405)。
-const responsesPhaseTimingHeader = "X-Codex2API-Phase-Timing"
+// "网关侧首字慢 vs axisrelay first_token_ms 快"的差值归因到具体阶段(issue #405)。
+const responsesPhaseTimingHeader = "X-AxisRelay-Phase-Timing"
 
 // emitResponsesPhaseTimings 输出 /v1/responses 首个 attempt 之前的分段耗时。
 // 各分段含义:mw=进入 handler 前的中间件链(含 body 缓存/解压/鉴权),

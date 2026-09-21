@@ -84,7 +84,7 @@ func grokUserAgent() string {
 // grokAgentID 为每个账号生成稳定的 agent 标识（32 位 hex，与 Grok CLI 的
 // global agent id 形态一致）。
 func grokAgentID(account *auth.Account) string {
-	sum := sha256.Sum256(fmt.Appendf(nil, "codex2api:grok-agent:%d", account.ID()))
+	sum := sha256.Sum256(fmt.Appendf(nil, "axisrelay:grok-agent:%d", account.ID()))
 	return hex.EncodeToString(sum[:16])
 }
 
@@ -113,7 +113,7 @@ func resolveGrokConversationID(headers http.Header, body []byte) string {
 		return seed
 	}
 	if key := grokDownstreamAPIKey(headers); key != "" {
-		return uuid.NewSHA1(uuid.NameSpaceOID, []byte("codex2api:grok-conv:"+key)).String()
+		return uuid.NewSHA1(uuid.NameSpaceOID, []byte("axisrelay:grok-conv:"+key)).String()
 	}
 	return uuid.New().String()
 }
@@ -143,7 +143,7 @@ func deriveGrokConversationSeed(body []byte) string {
 	if stable == "" {
 		return seed
 	}
-	sum := sha256.Sum256([]byte("codex2api:grok-conv:" + seed + "\x00" + stable))
+	sum := sha256.Sum256([]byte("axisrelay:grok-conv:" + seed + "\x00" + stable))
 	return "grokconv-" + hex.EncodeToString(sum[:16])
 }
 

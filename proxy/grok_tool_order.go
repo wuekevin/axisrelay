@@ -34,7 +34,7 @@ func grokToolOrderKey(body []byte) string {
 	if raw := gjson.GetBytes(body, "system"); raw.Exists() && raw.Raw != "null" {
 		system = stableAnthropicSystemSeed([]byte(raw.Raw))
 	}
-	sum := sha256.Sum256([]byte("codex2api:grok-tools:" + system + "\x00" + firstUser))
+	sum := sha256.Sum256([]byte("axisrelay:grok-tools:" + system + "\x00" + firstUser))
 	return hex.EncodeToString(sum[:16])
 }
 

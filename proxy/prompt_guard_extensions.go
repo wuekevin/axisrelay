@@ -237,7 +237,7 @@ func (h *Handler) commitPromptGuardSession(c *gin.Context, cfg promptfilter.Conf
 }
 
 // enrichPromptGuardAttachments delegates binary/PDF/OCR extraction to a
-// bounded parser service. Codex2API never fetches user-provided URLs directly,
+// bounded parser service. AxisRelay never fetches user-provided URLs directly,
 // which keeps SSRF and decompression-bomb handling outside the request process.
 func (h *Handler) enrichPromptGuardAttachments(ctx context.Context, cfg promptfilter.Config, envelope *promptfilter.RequestEnvelope) error {
 	if h == nil || envelope == nil || !cfg.Advanced.Attachment.Enabled {

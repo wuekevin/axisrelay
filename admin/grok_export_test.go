@@ -288,18 +288,18 @@ func TestGrokExportFileName(t *testing.T) {
 }
 
 // TestGrokExportDownloadName 下载文件名沿用仓库既有约定
-// codex2api-<平台>-<时间戳>-<数量>.<ext>。
+// axisrelay-<平台>-<时间戳>-<数量>.<ext>。
 func TestGrokExportDownloadName(t *testing.T) {
 	single := grokExportDownloadName(1, "json")
-	if !strings.HasPrefix(single, "codex2api-grok-") || !strings.HasSuffix(single, "-1.json") {
+	if !strings.HasPrefix(single, "axisrelay-grok-") || !strings.HasSuffix(single, "-1.json") {
 		t.Errorf("单账号下载名不符约定: %q", single)
 	}
 	archive := grokExportDownloadName(14, "zip")
-	if !strings.HasPrefix(archive, "codex2api-grok-") || !strings.HasSuffix(archive, "-14.zip") {
+	if !strings.HasPrefix(archive, "axisrelay-grok-") || !strings.HasSuffix(archive, "-14.zip") {
 		t.Errorf("多账号下载名不符约定: %q", archive)
 	}
 	// 时间戳部分必须是 20060102-150405 形态（8 位日期 + 6 位时间）。
-	stamp := strings.TrimSuffix(strings.TrimPrefix(archive, "codex2api-grok-"), "-14.zip")
+	stamp := strings.TrimSuffix(strings.TrimPrefix(archive, "axisrelay-grok-"), "-14.zip")
 	if _, err := time.Parse("20060102-150405", stamp); err != nil {
 		t.Errorf("时间戳部分 %q 不可解析: %v", stamp, err)
 	}

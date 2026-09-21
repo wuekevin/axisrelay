@@ -98,7 +98,7 @@ func TestImageGalleryPersisterRecordsAssetAndJob(t *testing.T) {
 		_ = imagestore.Configure(imagestore.Config{Backend: imagestore.BackendLocal, LocalDir: t.TempDir()})
 	})
 
-	db, err := database.New("sqlite", filepath.Join(t.TempDir(), "codex2api.db"))
+	db, err := database.New("sqlite", filepath.Join(t.TempDir(), "axisrelay.db"))
 	if err != nil {
 		t.Fatalf("database.New: %v", err)
 	}

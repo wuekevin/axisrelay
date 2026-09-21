@@ -23,12 +23,12 @@ func TestResolveCodexEgressPrecedence(t *testing.T) {
 	account := &auth.Account{DBID: 7}
 
 	t.Run("resin overrides proxy chain", func(t *testing.T) {
-		withResin(t, &ResinConfig{BaseURL: "http://127.0.0.1:2260/tok", PlatformName: "codex2api"})
+		withResin(t, &ResinConfig{BaseURL: "http://127.0.0.1:2260/tok", PlatformName: "axisrelay"})
 		egress := ResolveCodexEgress(account, target, "http://pool:8080")
 		if egress.Kind != CodexEgressResin || !egress.ViaResin() {
 			t.Fatalf("kind = %q, want resin", egress.Kind)
 		}
-		if egress.URL != "http://127.0.0.1:2260/tok/codex2api/https/chatgpt.com/backend-api/codex/responses" {
+		if egress.URL != "http://127.0.0.1:2260/tok/axisrelay/https/chatgpt.com/backend-api/codex/responses" {
 			t.Fatalf("url = %q", egress.URL)
 		}
 		if egress.ProxyURL != "http://pool:8080" || egress.DialProxyURL != "" {
@@ -69,7 +69,7 @@ func TestResolveCodexEgressPrecedence(t *testing.T) {
 	})
 
 	t.Run("resin never applies without account identity", func(t *testing.T) {
-		withResin(t, &ResinConfig{BaseURL: "http://127.0.0.1:2260/tok", PlatformName: "codex2api"})
+		withResin(t, &ResinConfig{BaseURL: "http://127.0.0.1:2260/tok", PlatformName: "axisrelay"})
 		egress := ResolveCodexEgress(nil, target, "http://pool:8080")
 		if egress.Kind != CodexEgressProxy || egress.URL != target {
 			t.Fatalf("nil account: kind=%q url=%q", egress.Kind, egress.URL)
@@ -80,7 +80,7 @@ func TestResolveCodexEgressPrecedence(t *testing.T) {
 	})
 
 	t.Run("relay-style accounts bypass resin", func(t *testing.T) {
-		withResin(t, &ResinConfig{BaseURL: "http://127.0.0.1:2260/tok", PlatformName: "codex2api"})
+		withResin(t, &ResinConfig{BaseURL: "http://127.0.0.1:2260/tok", PlatformName: "axisrelay"})
 		relay := &auth.Account{DBID: 8, UpstreamType: auth.UpstreamOpenAIResponses, BaseURL: "https://relay.example", APIKey: "sk-test"}
 		if !relay.IsRelayStyle() {
 			t.Fatal("fixture must be relay-style")
@@ -96,12 +96,12 @@ func TestResolveCodexWebsocketEgress(t *testing.T) {
 	const target = "wss://chatgpt.com/backend-api/codex/responses"
 	account := &auth.Account{DBID: 3}
 
-	withResin(t, &ResinConfig{BaseURL: "http://127.0.0.1:2260/tok", PlatformName: "codex2api"})
+	withResin(t, &ResinConfig{BaseURL: "http://127.0.0.1:2260/tok", PlatformName: "axisrelay"})
 	egress := ResolveCodexWebsocketEgress(account, target, "socks5://pool:1080")
 	if egress.Kind != CodexEgressResin || egress.DialProxyURL != "" {
 		t.Fatalf("resin ws: kind=%q dial=%q", egress.Kind, egress.DialProxyURL)
 	}
-	if egress.URL != "ws://127.0.0.1:2260/tok/codex2api/https/chatgpt.com/backend-api/codex/responses" {
+	if egress.URL != "ws://127.0.0.1:2260/tok/axisrelay/https/chatgpt.com/backend-api/codex/responses" {
 		t.Fatalf("resin ws url = %q", egress.URL)
 	}
 
@@ -128,12 +128,12 @@ func TestSetResinConfigSyncsAuthEgressFlagAndSummary(t *testing.T) {
 		t.Fatalf("summary = %+v, want proxy_chain", got)
 	}
 
-	SetResinConfig(&ResinConfig{BaseURL: "http://127.0.0.1:2260/secret-token", PlatformName: "codex2api"})
+	SetResinConfig(&ResinConfig{BaseURL: "http://127.0.0.1:2260/secret-token", PlatformName: "axisrelay"})
 	if !auth.ResinEgressEnabled() {
 		t.Fatal("flag should follow resin enablement")
 	}
 	got := CurrentCodexEgressSummary()
-	if got.Mode != "resin" || !got.ResinEnabled || got.ResinPlatformName != "codex2api" {
+	if got.Mode != "resin" || !got.ResinEnabled || got.ResinPlatformName != "axisrelay" {
 		t.Fatalf("summary = %+v", got)
 	}
 	if got.ResinEndpoint != "http://127.0.0.1:2260/***" {

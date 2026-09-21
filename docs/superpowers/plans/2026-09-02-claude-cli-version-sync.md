@@ -1041,7 +1041,7 @@ func fetchClaudeJSON(ctx context.Context, endpoint string, transport http.RoundT
 		return err
 	}
 	req.Header.Set("Accept", "application/json")
-	req.Header.Set("User-Agent", "codex2api")
+	req.Header.Set("User-Agent", "axisrelay")
 	if github {
 		req.Header.Set("Accept", "application/vnd.github+json")
 		ApplyGithubAuth(req)
@@ -2128,12 +2128,12 @@ Expected: PASS。
 
 ```bash
 ssh fr-netcup-new bash <<'REMOTE'
-DB=/opt/ai-stack/apps/codex2api/data/codex2api.db
+DB=/opt/ai-stack/apps/axisrelay/data/axisrelay.db
 sqlite3 -readonly -header -column "$DB" "
 select id, name, json_extract(credentials,'$.custom_headers.User-Agent') as ua
 from accounts where lower(coalesce(json_extract(credentials,'$.upstream_type'),''))='claude' and status<>'deleted';"
 sqlite3 -readonly "$DB" "select claude_synced_cli_version from system_settings;"
-C=$(docker ps --format '{{.Names}}' | grep -i codex2api-v | head -1)
+C=$(docker ps --format '{{.Names}}' | grep -i axisrelay-v | head -1)
 docker logs --since 10m "$C" 2>&1 | grep claude-cli-version-sync
 REMOTE
 ```
@@ -2141,7 +2141,7 @@ REMOTE
 Expected：账号 250、251 的 UA 为 `claude-cli/2.1.258 (external, cli)`；日志出现"启动时已回写 2 个 Claude 账号指纹版本"。随后请用户用 Claude Code 2.1.258 请求一次 Fable 5.1，再查：
 
 ```bash
-ssh fr-netcup-new sqlite3 -readonly -header -column /opt/ai-stack/apps/codex2api/data/codex2api.db "
+ssh fr-netcup-new sqlite3 -readonly -header -column /opt/ai-stack/apps/axisrelay/data/axisrelay.db "
 select created_at, account_id, model, status_code, upstream_user_agent from usage_logs
 where model like 'claude-fable%' and created_at >= datetime('now','-30 minutes') order by created_at desc limit 5;"
 ```

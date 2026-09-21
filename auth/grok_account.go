@@ -814,7 +814,7 @@ func BuildGrokAuthorizationURL(params GrokAuthURLParams) (string, error) {
 	query.Set("code_challenge", challenge)
 	query.Set("code_challenge_method", "S256")
 	query.Set("plan", "generic")
-	query.Set("referrer", "codex2api")
+	query.Set("referrer", "axisrelay")
 	return authorizeURL + "?" + query.Encode(), nil
 }
 

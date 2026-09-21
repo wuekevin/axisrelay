@@ -294,18 +294,18 @@ func TestSignedPolicyDecisionUsesStructured400WithoutLocalPenalty(t *testing.T) 
 	if got := gjson.GetBytes(recorder.Body.Bytes(), "error.message").String(); got != "Blocked by Example Gateway" {
 		t.Fatalf("message = %q, want configured local block message", got)
 	}
-	if recorder.Header().Get("X-Codex2API-Policy-Strike") != "0" || recorder.Header().Get("X-Codex2API-Policy-Ban") != "false" {
-		t.Fatalf("Codex2API performed local penalty: headers=%v", recorder.Header())
+	if recorder.Header().Get("X-AxisRelay-Policy-Strike") != "0" || recorder.Header().Get("X-AxisRelay-Policy-Ban") != "false" {
+		t.Fatalf("AxisRelay performed local penalty: headers=%v", recorder.Header())
 	}
 	metadata := newAPIPolicyDecisionMetadata{
-		RequestID: recorder.Header().Get("X-Codex2API-Policy-Request-ID"), DecisionID: recorder.Header().Get("X-Codex2API-Policy-Decision-ID"),
-		Action: recorder.Header().Get("X-Codex2API-Policy-Action"), Profile: recorder.Header().Get("X-Codex2API-Policy-Profile"),
-		ReasonCode: recorder.Header().Get("X-Codex2API-Policy-Reason"), Severity: recorder.Header().Get("X-Codex2API-Policy-Severity"),
-		StrikeEligible: recorder.Header().Get("X-Codex2API-Policy-Strike-Eligible") == "true", RuleVersion: recorder.Header().Get("X-Codex2API-Policy-Rule-Version"),
-		EvidenceSHA256: recorder.Header().Get("X-Codex2API-Policy-Evidence-SHA256"),
+		RequestID: recorder.Header().Get("X-AxisRelay-Policy-Request-ID"), DecisionID: recorder.Header().Get("X-AxisRelay-Policy-Decision-ID"),
+		Action: recorder.Header().Get("X-AxisRelay-Policy-Action"), Profile: recorder.Header().Get("X-AxisRelay-Policy-Profile"),
+		ReasonCode: recorder.Header().Get("X-AxisRelay-Policy-Reason"), Severity: recorder.Header().Get("X-AxisRelay-Policy-Severity"),
+		StrikeEligible: recorder.Header().Get("X-AxisRelay-Policy-Strike-Eligible") == "true", RuleVersion: recorder.Header().Get("X-AxisRelay-Policy-Rule-Version"),
+		EvidenceSHA256: recorder.Header().Get("X-AxisRelay-Policy-Evidence-SHA256"),
 	}
 	wantSignature := signNewAPIPolicyDecision("integration-secret", metadata)
-	if got := recorder.Header().Get("X-Codex2API-Policy-Response-Signature"); got == "" || got != wantSignature {
+	if got := recorder.Header().Get("X-AxisRelay-Policy-Response-Signature"); got == "" || got != wantSignature {
 		t.Fatalf("response signature = %q, want %q", got, wantSignature)
 	}
 	waitPromptFilterAuditIdle(t, db)
@@ -382,7 +382,7 @@ func TestUpstreamCYBStrikeAlwaysAndLocalSevereFollowsSwitch(t *testing.T) {
 	if metadata.ReasonCode != newAPIUpstreamCyberPolicyReasonCode || !metadata.StrikeEligible || metadata.Action != promptfilter.ActionBlock {
 		t.Fatalf("upstream CYB decision metadata = %+v", metadata)
 	}
-	if got, want := c.Writer.Header().Get("X-Codex2API-Policy-Response-Signature"), signNewAPIPolicyDecision("gateway-a-secret", metadata); got == "" || got != want {
+	if got, want := c.Writer.Header().Get("X-AxisRelay-Policy-Response-Signature"), signNewAPIPolicyDecision("gateway-a-secret", metadata); got == "" || got != want {
 		t.Fatalf("upstream CYB signature = %q, want %q", got, want)
 	}
 
@@ -411,7 +411,7 @@ func TestUpstreamCYBStrikeAlwaysAndLocalSevereFollowsSwitch(t *testing.T) {
 	}
 }
 
-func TestUpstreamCyberPolicyStrikeRequiresExplicitCodex2APISwitch(t *testing.T) {
+func TestUpstreamCyberPolicyStrikeRequiresExplicitAxisRelaySwitch(t *testing.T) {
 	cfg := promptGuardTestConfig()
 	cfg.Advanced.Enforcement.CYBStrikeEnabled = false
 	binding := database.PromptFilterNewAPIBinding{
@@ -428,7 +428,7 @@ func TestUpstreamCyberPolicyStrikeRequiresExplicitCodex2APISwitch(t *testing.T) 
 	if !delegated || metadata.ReasonCode != newAPIUpstreamCyberPolicyReasonCode || metadata.StrikeEligible {
 		t.Fatalf("disabled CYB strike switch metadata = %+v delegated=%t", metadata, delegated)
 	}
-	if got := c.Writer.Header().Get("X-Codex2API-Policy-Strike-Eligible"); got != "false" {
+	if got := c.Writer.Header().Get("X-AxisRelay-Policy-Strike-Eligible"); got != "false" {
 		t.Fatalf("strike eligibility header = %q, want false", got)
 	}
 	if message := newAPIPolicyDecisionAPIError(metadata).Message; !strings.Contains(message, "再次触发可能会停用账号") {
@@ -456,7 +456,7 @@ func TestResponseFailedCarriesSignedNewAPIPolicyDecisionWithoutDroppingUpstreamD
 	if got := gjson.GetBytes(decorated, "response.error.details.upstream_trace").String(); got != "trace-1" {
 		t.Fatalf("upstream details were dropped: %s", decorated)
 	}
-	policy := gjson.GetBytes(decorated, "response.error.details.codex2api_policy")
+	policy := gjson.GetBytes(decorated, "response.error.details.axisrelay_policy")
 	if policy.Get("decision_id").String() != metadata.DecisionID || !policy.Get("strike_eligible").Bool() {
 		t.Fatalf("signed stream decision missing: %s", decorated)
 	}
@@ -464,7 +464,7 @@ func TestResponseFailedCarriesSignedNewAPIPolicyDecisionWithoutDroppingUpstreamD
 		t.Fatalf("stream decision signature = %q", got)
 	}
 	translated, done := TranslateStreamChunk(decorated, "gpt-5.5", "chatcmpl-test", time.Now().Unix())
-	if !done || gjson.GetBytes(translated, "error.details.codex2api_policy.decision_id").String() != metadata.DecisionID {
+	if !done || gjson.GetBytes(translated, "error.details.axisrelay_policy.decision_id").String() != metadata.DecisionID {
 		t.Fatalf("chat stream translation dropped signed decision: %s", translated)
 	}
 }
@@ -943,10 +943,10 @@ func TestBoundPreviousSecretGraceSignsDecisionWithVerifiedSecret(t *testing.T) {
 		t.Fatal("previous-secret request was not delegated")
 	}
 	metadata := policyDecisionMetadataFromHeaders(c.Writer.Header())
-	if got, want := c.Writer.Header().Get("X-Codex2API-Policy-Response-Signature"), signNewAPIPolicyDecision("previous-secret", metadata); got != want {
+	if got, want := c.Writer.Header().Get("X-AxisRelay-Policy-Response-Signature"), signNewAPIPolicyDecision("previous-secret", metadata); got != want {
 		t.Fatalf("response signature = %q, want previous-secret signature %q", got, want)
 	}
-	if got := signNewAPIPolicyDecision("current-secret", metadata); got == c.Writer.Header().Get("X-Codex2API-Policy-Response-Signature") {
+	if got := signNewAPIPolicyDecision("current-secret", metadata); got == c.Writer.Header().Get("X-AxisRelay-Policy-Response-Signature") {
 		t.Fatal("response was signed with current secret instead of the secret that verified the request")
 	}
 	policyContext, verified := handler.verifyNewAPIPolicyContext(c, cfg.Advanced.NewAPI, body)
@@ -995,7 +995,7 @@ func TestSignedNewAPIPolicyBlockUsesAnthropicErrorEnvelopeForMessages(t *testing
 	if got := gjson.GetBytes(recorder.Body.Bytes(), "error.message").String(); got != "Blocked by Example Gateway" {
 		t.Fatalf("message = %q, want configured local block message", got)
 	}
-	if recorder.Header().Get("X-Codex2API-Policy-Decision-ID") == "" || recorder.Header().Get("X-Codex2API-Policy-Response-Signature") == "" {
+	if recorder.Header().Get("X-AxisRelay-Policy-Decision-ID") == "" || recorder.Header().Get("X-AxisRelay-Policy-Response-Signature") == "" {
 		t.Fatalf("Messages policy response lost signed decision headers: %v", recorder.Header())
 	}
 }
@@ -1035,7 +1035,7 @@ func TestClearNewAPIUpstreamCyberPolicyDecisionBeforeTransparentRetry(t *testing
 		t.Fatal("transparent retry retained the previous attempt's policy decision")
 	}
 	for name := range recorder.Header() {
-		if strings.HasPrefix(http.CanonicalHeaderKey(name), "X-Codex2api-Policy-") {
+		if strings.HasPrefix(http.CanonicalHeaderKey(name), "X-Axisrelay-Policy-") {
 			t.Fatalf("transparent retry retained policy response header %q", name)
 		}
 	}
@@ -1046,7 +1046,7 @@ func TestClearNewAPIUpstreamCyberPolicyDecisionBeforeTransparentRetry(t *testing
 	c.Set(newAPIUpstreamCyberDecisionContextKey, second)
 	writeNewAPIPolicyDecisionHeaders(c, second)
 	got, ok := newAPIUpstreamCyberPolicyDecision(c)
-	if !ok || got.DecisionID != second.DecisionID || recorder.Header().Get("X-Codex2API-Policy-Response-Signature") != second.Signature {
+	if !ok || got.DecisionID != second.DecisionID || recorder.Header().Get("X-AxisRelay-Policy-Response-Signature") != second.Signature {
 		t.Fatalf("final policy decision was not preserved: metadata=%+v headers=%v", got, recorder.Header())
 	}
 }
@@ -1111,7 +1111,7 @@ func TestRequiredBoundIdentityFailsWithoutPolicyPenalty(t *testing.T) {
 
 func TestAuthMiddlewareEnforcesBoundIdentityAndRestoresV1Body(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	db, err := database.New("sqlite", filepath.Join(t.TempDir(), "codex2api.db"))
+	db, err := database.New("sqlite", filepath.Join(t.TempDir(), "axisrelay.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1279,17 +1279,17 @@ func evaluateBoundPromptSession(t *testing.T, handler *Handler, requestID string
 
 func policyDecisionMetadataFromHeaders(header http.Header) newAPIPolicyDecisionMetadata {
 	return newAPIPolicyDecisionMetadata{
-		RequestID: header.Get("X-Codex2API-Policy-Request-ID"), DecisionID: header.Get("X-Codex2API-Policy-Decision-ID"),
-		Action: header.Get("X-Codex2API-Policy-Action"), Profile: header.Get("X-Codex2API-Policy-Profile"),
-		ReasonCode: header.Get("X-Codex2API-Policy-Reason"), Severity: header.Get("X-Codex2API-Policy-Severity"),
-		StrikeEligible: header.Get("X-Codex2API-Policy-Strike-Eligible") == "true", RuleVersion: header.Get("X-Codex2API-Policy-Rule-Version"),
-		EvidenceSHA256: header.Get("X-Codex2API-Policy-Evidence-SHA256"),
+		RequestID: header.Get("X-AxisRelay-Policy-Request-ID"), DecisionID: header.Get("X-AxisRelay-Policy-Decision-ID"),
+		Action: header.Get("X-AxisRelay-Policy-Action"), Profile: header.Get("X-AxisRelay-Policy-Profile"),
+		ReasonCode: header.Get("X-AxisRelay-Policy-Reason"), Severity: header.Get("X-AxisRelay-Policy-Severity"),
+		StrikeEligible: header.Get("X-AxisRelay-Policy-Strike-Eligible") == "true", RuleVersion: header.Get("X-AxisRelay-Policy-Rule-Version"),
+		EvidenceSHA256: header.Get("X-AxisRelay-Policy-Evidence-SHA256"),
 	}
 }
 
 func assertNoPromptPolicyPenaltyHeaders(t *testing.T, header http.Header) {
 	t.Helper()
-	for _, name := range []string{"X-Codex2API-Policy-Violation", "X-Codex2API-Policy-Strike", "X-Codex2API-Policy-Ban", "X-Codex2API-Policy-Response-Signature"} {
+	for _, name := range []string{"X-AxisRelay-Policy-Violation", "X-AxisRelay-Policy-Strike", "X-AxisRelay-Policy-Ban", "X-AxisRelay-Policy-Response-Signature"} {
 		if value := header.Get(name); value != "" {
 			t.Fatalf("authentication failure emitted policy header %s=%q", name, value)
 		}

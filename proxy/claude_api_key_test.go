@@ -84,7 +84,7 @@ func TestClaudeAPIKeyOutboundPreservesNativeBodyAndHeaders(t *testing.T) {
 	}
 	request := httptest.NewRequest(http.MethodPost, "https://example.com", nil)
 	applyClaudeAPIKeyHeaders(request, "key", nil, true, nil, "")
-	if request.UserAgent() != "Codex2API" || request.Header.Get("Accept") != "text/event-stream" || request.Header.Get("anthropic-beta") != "" {
+	if request.UserAgent() != "AxisRelay" || request.Header.Get("Accept") != "text/event-stream" || request.Header.Get("anthropic-beta") != "" {
 		t.Fatalf("invalid neutral headers: %v", request.Header)
 	}
 }

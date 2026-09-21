@@ -310,7 +310,7 @@ func claudeUpstreamSessionID(raw string) string {
 	if _, err := uuid.Parse(raw); err == nil {
 		return raw
 	}
-	return DeriveStableSessionUUIDv7("codex2api:claude-session:" + raw)
+	return DeriveStableSessionUUIDv7("axisrelay:claude-session:" + raw)
 }
 
 // resolveClaudeRequestSessionIdentity 仅在 Claude 原生路径识别 CLI 身份：

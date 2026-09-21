@@ -1,6 +1,6 @@
-# Codex2API 架构设计文档
+# AxisRelay 架构设计文档
 
-本文档描述 Codex2API 的整体架构设计、核心组件及数据流。
+本文档描述 AxisRelay 的整体架构设计、核心组件及数据流。
 
 ## 目录
 
@@ -36,7 +36,7 @@
                                        │
                                        ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                           Codex2API 服务 (Go + Gin)                          │
+│                           AxisRelay 服务 (Go + Gin)                          │
 │  ┌─────────────────────────────────────────────────────────────────────┐   │
 │  │  HTTP 路由层                                                        │   │
 │  │  ├── /admin/*     → React SPA (go:embed)                          │   │
@@ -629,7 +629,7 @@ func SanitizeLog(msg string) string {
           │              │              │
           ▼              ▼              ▼
 ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐
-│  Codex2API #1   │ │  Codex2API #2   │ │  Codex2API #3   │
+│  AxisRelay #1   │ │  AxisRelay #2   │ │  AxisRelay #3   │
 │                 │ │                 │ │                 │
 │  + PostgreSQL   │ │  + PostgreSQL   │ │  + PostgreSQL   │
 │  + Redis        │ │  + Redis        │ │  + Redis        │

@@ -30,7 +30,7 @@
 | schema-migrations-and-crosscutting F1 | 两个请求 ID 索引移出启动迁移事务，后台 CONCURRENTLY 创建；advisory lock 协调多实例，无效索引在线重建。 |
 | schema-migrations-and-crosscutting F2–F3 | API 文档补齐 API Key 三种凭据形态、base_url、summary、追踪字段和查询参数。 |
 | schema-policy | 原报告无代码发现；序列化优化不应解读成新的续链语义。保留现有实现。 |
-| upstream-trace-request-ids F1 | 保留既有 X-Request-ID 契约，CORS 暴露可检索的 X-Codex2API-Request-ID，并说明两者关系；压缩子请求优先用网关追踪 ID 关联父请求。 |
+| upstream-trace-request-ids F1 | 保留既有 X-Request-ID 契约，CORS 暴露可检索的 X-AxisRelay-Request-ID，并说明两者关系；压缩子请求优先用网关追踪 ID 关联父请求。 |
 | upstream-trace-request-ids F2 | live 建连保存追踪快照并在结算时写入；代理标签中嵌入 URL 的口令也会脱敏。 |
 | wham-daily-breakdown F1 | 0.5% 边界不再计算无穷大估值，保持整个响应可序列化。 |
 | wham-daily-breakdown F2 | SQLite 与独立 PostgreSQL 测试从旧表加列，检查幂等、默认值和已有 counts 保留。深拉条件仍为“进程内未深拉且本地覆盖不足”，不改成二者任一。 |

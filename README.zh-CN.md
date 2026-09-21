@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/banner.svg" alt="Codex2API" width="100%">
+  <img src="assets/banner.svg" alt="AxisRelay" width="100%">
 </p>
 
 <p align="center">
@@ -17,7 +17,7 @@
   <img src="https://img.shields.io/badge/Docker-Ready-2496ED?style=for-the-badge&logo=docker&logoColor=white" alt="Docker">
 </p>
 
-**把 Codex 账号池变成可观测、可调度、可运维的 OpenAI / Anthropic 兼容网关。** Codex2API 不是一个薄转发层，而是一套面向长期运行的 Codex 接入中枢：对外提供 `/v1/chat/completions`、`/v1/responses`、`/v1/messages`、Images 和 Models 等接口，对内维护 Refresh Token / Access Token 账号池、健康度评分、动态并发、限流恢复、用量统计和后台运维。
+**把 Codex 账号池变成可观测、可调度、可运维的 OpenAI / Anthropic 兼容网关。** AxisRelay 不是一个薄转发层，而是一套面向长期运行的 Codex 接入中枢：对外提供 `/v1/chat/completions`、`/v1/responses`、`/v1/messages`、Images 和 Models 等接口，对内维护 Refresh Token / Access Token 账号池、健康度评分、动态并发、限流恢复、用量统计和后台运维。
 
 它可以跑在完整的 **PostgreSQL + Redis** 生产形态，也可以用 **SQLite + 内存缓存** 单容器轻量部署。你可以把它接到 Codex CLI、Claude Code、OpenAI SDK 或任何兼容客户端上，用一个统一 Base URL 管理多账号、代理池、API Key、Prompt 检查、生图工作台和运行时配置。
 
@@ -33,8 +33,8 @@
 
 ## 在线 Demo
 
-- Demo 地址：[https://codex2api-latest-vu8j.onrender.com](https://codex2api-latest-vu8j.onrender.com)
-- Demo 密码：`codex2api`
+- Demo 地址：[https://axisrelay-latest-vu8j.onrender.com](https://axisrelay-latest-vu8j.onrender.com)
+- Demo 密码：`axisrelay`
 
 > Demo 环境仅用于体验管理后台界面和基础功能，请勿上传真实 Refresh Token、Access Token、API Key 或其他敏感信息。
 
@@ -109,16 +109,16 @@
 **场景 1：尚未克隆仓库（一行远程拉起）**
 
 ```bash
-bash <(curl -sSL https://raw.githubusercontent.com/james-6-23/codex2api/main/deploy.sh)
+bash <(curl -sSL https://raw.githubusercontent.com/wuekevin/axisrelay/main/deploy.sh)
 ```
 
-脚本会自动检测当前目录是否是 `codex2api` 仓库，若不是则克隆到 `./codex2api`，进入目录后再执行部署。
+脚本会自动检测当前目录是否是 `axisrelay` 仓库，若不是则克隆到 `./axisrelay`，进入目录后再执行部署。
 
 **场景 2：已经 `git clone` 到本地**
 
 ```bash
-git clone https://github.com/james-6-23/codex2api.git
-cd codex2api
+git clone https://github.com/wuekevin/axisrelay.git
+cd axisrelay
 bash deploy.sh
 ```
 
@@ -135,10 +135,10 @@ bash deploy.sh
 
 | 变量 | 默认 | 说明 |
 | --- | --- | --- |
-| `CODEX2API_REPO_URL` | `https://github.com/james-6-23/codex2api.git` | 克隆使用的仓库地址 |
-| `CODEX2API_REPO_BRANCH` | `main` | 克隆使用的分支 |
-| `CODEX2API_DIR_NAME` | `codex2api` | 克隆到本地的目录名 |
-| `CODEX2API_SKIP_GIT_PULL` | 空 | 设为 `1` 或 `true` 时跳过部署前自动拉取最新代码 |
+| `AXISRELAY_REPO_URL` | `https://github.com/wuekevin/axisrelay.git` | 克隆使用的仓库地址 |
+| `AXISRELAY_REPO_BRANCH` | `main` | 克隆使用的分支 |
+| `AXISRELAY_DIR_NAME` | `axisrelay` | 克隆到本地的目录名 |
+| `AXISRELAY_SKIP_GIT_PULL` | 空 | 设为 `1` 或 `true` 时跳过部署前自动拉取最新代码 |
 
 ### 部署模式总览
 
@@ -155,12 +155,12 @@ bash deploy.sh
 标准镜像版：
 
 ```bash
-git clone https://github.com/james-6-23/codex2api.git
-cd codex2api
+git clone https://github.com/wuekevin/axisrelay.git
+cd axisrelay
 cp .env.example .env
 docker compose pull
 docker compose up -d
-docker compose logs -f codex2api
+docker compose logs -f axisrelay
 ```
 
 标准本地构建版：
@@ -168,7 +168,7 @@ docker compose logs -f codex2api
 ```bash
 cp .env.example .env
 docker compose -f docker-compose.local.yml up -d --build
-docker compose -f docker-compose.local.yml logs -f codex2api
+docker compose -f docker-compose.local.yml logs -f axisrelay
 ```
 
 SQLite 镜像版：
@@ -177,7 +177,7 @@ SQLite 镜像版：
 cp .env.sqlite.example .env
 docker compose -f docker-compose.sqlite.yml pull
 docker compose -f docker-compose.sqlite.yml up -d
-docker compose -f docker-compose.sqlite.yml logs -f codex2api
+docker compose -f docker-compose.sqlite.yml logs -f axisrelay
 ```
 
 SQLite 本地构建版：
@@ -185,21 +185,21 @@ SQLite 本地构建版：
 ```bash
 cp .env.sqlite.example .env
 docker compose -f docker-compose.sqlite.local.yml up -d --build
-docker compose -f docker-compose.sqlite.local.yml logs -f codex2api
+docker compose -f docker-compose.sqlite.local.yml logs -f axisrelay
 ```
 
 补充说明：
 
 - 标准版和 SQLite 版都读取 `.env`
 - 切换部署模式前，需要先用对应的示例文件覆盖当前 `.env`
-- 标准镜像版项目名固定为 `codex2api`，数据卷固定为 `codex2api_pgdata`、`codex2api_redisdata`
-- 标准本地构建版项目名固定为 `codex2api-local`，数据卷固定为 `codex2api-local_pgdata`、`codex2api-local_redisdata`
-- SQLite 镜像版项目名固定为 `codex2api-sqlite`，数据卷固定为 `codex2api-sqlite_sqlite-data`
-- SQLite 本地构建版项目名固定为 `codex2api-sqlite-local`，数据卷固定为 `codex2api-sqlite-local_sqlite-data-local`
-- 标准版容器名：`codex2api`
-- SQLite 镜像版容器名：`codex2api-sqlite`
-- SQLite 本地构建版容器名：`codex2api-sqlite-local`
-- SQLite 轻量版只启动 `codex2api` 单容器，数据保存在 `/data/codex2api.db`
+- 标准镜像版项目名固定为 `axisrelay`，数据卷固定为 `axisrelay_pgdata`、`axisrelay_redisdata`
+- 标准本地构建版项目名固定为 `axisrelay-local`，数据卷固定为 `axisrelay-local_pgdata`、`axisrelay-local_redisdata`
+- SQLite 镜像版项目名固定为 `axisrelay-sqlite`，数据卷固定为 `axisrelay-sqlite_sqlite-data`
+- SQLite 本地构建版项目名固定为 `axisrelay-sqlite-local`，数据卷固定为 `axisrelay-sqlite-local_sqlite-data-local`
+- 标准版容器名：`axisrelay`
+- SQLite 镜像版容器名：`axisrelay-sqlite`
+- SQLite 本地构建版容器名：`axisrelay-sqlite-local`
+- SQLite 轻量版只启动 `axisrelay` 单容器，数据保存在 `/data/axisrelay.db`
 - **SQLite compose 文件默认绑定 `127.0.0.1`，仅本机可访问。** 如需暴露给外部，请在 `.env` 中设置 `AXISRELAY_BIND_HOST=0.0.0.0` 或修改 compose 文件中的端口绑定。标准版 compose 文件默认绑定 `0.0.0.0`（所有网络接口）。
 - 生图工作台图库默认保存在 `/data/images`，上传的后台背景默认保存在 `/data/backgrounds`，标准版和 SQLite 版 Docker 配置都会持久化 `/data`
 - `docker compose down` 默认不会删除命名卷；只有 `docker compose down -v`、`docker volume rm` 或 `docker volume prune` 才会删除持久化数据
@@ -237,19 +237,19 @@ Antigravity 作为独立 Google 渠道管理，支持浏览器/导入 OAuth 凭�
 ## 升级与本地开发
 
 ```bash
-git pull && docker compose pull && docker compose up -d && docker compose logs -f codex2api
+git pull && docker compose pull && docker compose up -d && docker compose logs -f axisrelay
 ```
 
 > **⚠️ 重要：升级前请先备份数据库！**
 >
 > ```bash
-> docker exec codex2api-postgres pg_dump -U codex2api codex2api > backup_$(date +%Y%m%d_%H%M%S).sql
+> docker exec axisrelay-postgres pg_dump -U axisrelay axisrelay > backup_$(date +%Y%m%d_%H%M%S).sql
 > ```
 >
 > 如果升级后数据异常，可通过以下命令恢复：
 >
 > ```bash
-> docker exec -i codex2api-postgres psql -U codex2api codex2api < backup_xxx.sql
+> docker exec -i axisrelay-postgres psql -U axisrelay axisrelay < backup_xxx.sql
 > ```
 
 如非必要，不建议在升级时执行 `docker compose down`；标准升级直接 `pull + up -d` 即可复用现有容器和命名卷。
@@ -413,7 +413,7 @@ curl -X POST http://localhost:8080/api/admin/accounts/import \
 
 #### OAuth PKCE 授权
 
-Codex2API 支持通过 OAuth PKCE 流程获取 Refresh Token，适用于无法手动提取 Token 的场景：
+AxisRelay 支持通过 OAuth PKCE 流程获取 Refresh Token，适用于无法手动提取 Token 的场景：
 
 ```bash
 # 步骤 1：生成授权 URL
@@ -493,7 +493,7 @@ curl -X POST http://localhost:8080/api/admin/oauth/exchange-code \
 4. 先按 `SchedulerPriority` 从高到低分层，再按 `healthy > warm > risky > banned` 排序；同优先级、同层级内按调度分和并发数择优
 5. 15% 概率随机打散，降低热点与饥饿
 
-多个最终用户共享同一个下游 API Key 时，可传 `X-Codex2API-Affinity-Key` 作为稳定的用户或对话标识。Codex2API 只将其哈希后用于本地账号亲和，不会转发给上游。
+多个最终用户共享同一个下游 API Key 时，可传 `X-AxisRelay-Affinity-Key` 作为稳定的用户或对话标识。AxisRelay 只将其哈希后用于本地账号亲和，不会转发给上游。
 
 **动态并发规则：**
 
@@ -557,7 +557,7 @@ curl -X POST http://localhost:8080/api/admin/oauth/exchange-code \
 ## 目录结构
 
 ```text
-codex2api/
+axisrelay/
 ├─ main.go                      # 程序入口
 ├─ Dockerfile                   # 多阶段镜像构建
 ├─ docker-compose.yml           # 镜像部署模板
@@ -591,7 +591,7 @@ codex2api/
 
 ## 交流群
 
-- QQ 交流群：[点击链接加入群聊【codex2api】](https://qun.qq.com/universal-share/share?ac=1&authKey=6vwawW4MeqdACT7PajnHlf2lLkjfuNXEMSos67l9FBiAJ8t%2BKeaXJXB0dgsnhFa1&busi_data=eyJncm91cENvZGUiOiI4MTY3Mzk4NDIiLCJ0b2tlbiI6ImU1YW1KR3dNaXZoUXZDUWpYTWVncmdmMXhQV1RwQ21tbEhkdjB5VW45aWVPSjhFM2grMkRHNGdhWnhEU29oS08iLCJ1aW4iOiIxMTYzNDc2OTQ5In0%3D&data=adSomD6r40Al25rBr8PocFCKumQR5oxi1kq5jXjXxeJ49Z5cj4QLzbNf6vfIQKWMORrJntrZtcoyQuHg2ksUeA&svctype=4&tempid=h5_group_info)（群号：816739842）
+- QQ 交流群：[点击链接加入群聊【axisrelay】](https://qun.qq.com/universal-share/share?ac=1&authKey=6vwawW4MeqdACT7PajnHlf2lLkjfuNXEMSos67l9FBiAJ8t%2BKeaXJXB0dgsnhFa1&busi_data=eyJncm91cENvZGUiOiI4MTY3Mzk4NDIiLCJ0b2tlbiI6ImU1YW1KR3dNaXZoUXZDUWpYTWVncmdmMXhQV1RwQ21tbEhkdjB5VW45aWVPSjhFM2grMkRHNGdhWnhEU29oS08iLCJ1aW4iOiIxMTYzNDc2OTQ5In0%3D&data=adSomD6r40Al25rBr8PocFCKumQR5oxi1kq5jXjXxeJ49Z5cj4QLzbNf6vfIQKWMORrJntrZtcoyQuHg2ksUeA&svctype=4&tempid=h5_group_info)（群号：816739842）
 - Telegram 群组：[加入 Telegram 群组](https://t.me/+9hJAA3ZWQxxmMzE5)
 
 欢迎加群交流部署、使用与二次开发相关问题。
@@ -608,11 +608,11 @@ codex2api/
 
 ## Star History
 
-<a href="https://star-history.dera.page/#james-6-23/codex2api&Date">
+<a href="https://star-history.dera.page/#wuekevin/axisrelay&Date">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://star-history.dera.page/svg?repos=james-6-23/codex2api&type=Date&theme=dark" />
-    <source media="(prefers-color-scheme: light)" srcset="https://star-history.dera.page/svg?repos=james-6-23/codex2api&type=Date" />
-    <img alt="Star History Chart" src="https://star-history.dera.page/svg?repos=james-6-23/codex2api&type=Date" />
+    <source media="(prefers-color-scheme: dark)" srcset="https://star-history.dera.page/svg?repos=wuekevin/axisrelay&type=Date&theme=dark" />
+    <source media="(prefers-color-scheme: light)" srcset="https://star-history.dera.page/svg?repos=wuekevin/axisrelay&type=Date" />
+    <img alt="Star History Chart" src="https://star-history.dera.page/svg?repos=wuekevin/axisrelay&type=Date" />
   </picture>
 </a>
 

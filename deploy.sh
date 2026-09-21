@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ============================================================
-#  codex2api 交互式部署脚本
+#  axisrelay 交互式部署脚本
 #  用法: bash deploy.sh
 # ============================================================
 
@@ -78,16 +78,16 @@ gen_secret() {
   fi
 }
 
-# ---------- 自举：确保位于 codex2api 仓库目录 ----------
+# ---------- 自举：确保位于 axisrelay 仓库目录 ----------
 # 触发条件:
 #   1) 通过 `bash <(curl ...)` 远程拉起 (BASH_SOURCE 不是真实文件)
 #   2) 或当前目录缺少必要的 compose / deploy.sh 文件
 # 行为:
 #   - 若已在仓库目录: 直接返回
-#   - 否则: clone 仓库到 ./codex2api，切入并 exec ./deploy.sh
-REPO_URL="${CODEX2API_REPO_URL:-https://github.com/james-6-23/codex2api.git}"
-REPO_BRANCH="${CODEX2API_REPO_BRANCH:-main}"
-REPO_DIR_NAME="${CODEX2API_DIR_NAME:-codex2api}"
+#   - 否则: clone 仓库到 ./axisrelay，切入并 exec ./deploy.sh
+REPO_URL="${AXISRELAY_REPO_URL:-https://github.com/wuekevin/axisrelay.git}"
+REPO_BRANCH="${AXISRELAY_REPO_BRANCH:-main}"
+REPO_DIR_NAME="${AXISRELAY_DIR_NAME:-axisrelay}"
 EXISTING_ENV_FILE=".env"
 
 env_default() {
@@ -130,7 +130,7 @@ known_compose_service_exists() {
   local compose_file
   for compose_file in docker-compose.yml docker-compose.sqlite.yml docker-compose.local.yml docker-compose.sqlite.local.yml; do
     [[ -f "$compose_file" ]] || continue
-    if [[ -n "$($COMPOSE_CMD -f "$compose_file" ps -q codex2api 2>/dev/null || true)" ]]; then
+    if [[ -n "$($COMPOSE_CMD -f "$compose_file" ps -q axisrelay 2>/dev/null || true)" ]]; then
       EXISTING_COMPOSE_FILE="$compose_file"
       return 0
     fi
@@ -179,19 +179,19 @@ step_deployment_route() {
   success "部署线路: 完整部署向导"
 }
 
-is_codex2api_repo() {
+is_axisrelay_repo() {
   [[ -f "docker-compose.yml" ]] && [[ -f "deploy.sh" ]] \
-    && grep -q '^name: codex2api' docker-compose.yml 2>/dev/null
+    && grep -q '^name: axisrelay' docker-compose.yml 2>/dev/null
 }
 
 bootstrap_repo() {
   # 已经在仓库目录里：什么都不做
-  if is_codex2api_repo; then
-    success "检测到当前目录为 codex2api 仓库"
+  if is_axisrelay_repo; then
+    success "检测到当前目录为 axisrelay 仓库"
     return 0
   fi
 
-  warn "当前目录不是 codex2api 仓库，进入自动拉取流程"
+  warn "当前目录不是 axisrelay 仓库，进入自动拉取流程"
 
   if ! command -v git >/dev/null 2>&1; then
     error "未找到 git，请先安装 git 后重试"
@@ -212,8 +212,8 @@ bootstrap_repo() {
 
   cd "$REPO_DIR_NAME" || error "无法进入 $REPO_DIR_NAME 目录"
 
-  if ! is_codex2api_repo; then
-    error "克隆后仍未识别为 codex2api 仓库，请手动检查"
+  if ! is_axisrelay_repo; then
+    error "克隆后仍未识别为 axisrelay 仓库，请手动检查"
   fi
 
   success "已切换到 $(pwd)"
@@ -224,8 +224,8 @@ bootstrap_repo() {
 }
 
 update_repo_code() {
-  if [[ "${CODEX2API_SKIP_GIT_PULL:-}" == "1" || "${CODEX2API_SKIP_GIT_PULL:-}" == "true" ]]; then
-    warn "已跳过自动拉取最新代码 (CODEX2API_SKIP_GIT_PULL=${CODEX2API_SKIP_GIT_PULL})"
+  if [[ "${AXISRELAY_SKIP_GIT_PULL:-}" == "1" || "${AXISRELAY_SKIP_GIT_PULL:-}" == "true" ]]; then
+    warn "已跳过自动拉取最新代码 (AXISRELAY_SKIP_GIT_PULL=${AXISRELAY_SKIP_GIT_PULL})"
     return 0
   fi
 
@@ -337,7 +337,7 @@ step_database() {
 
 step_sqlite_config() {
   echo ""
-  ask "SQLite 数据文件路径 (容器内)" "$(env_default AXISRELAY_DATABASE_PATH "/data/codex2api.db")" SQLITE_PATH
+  ask "SQLite 数据文件路径 (容器内)" "$(env_default AXISRELAY_DATABASE_PATH "/data/axisrelay.db")" SQLITE_PATH
 }
 
 # ---------- 第四步：密钥 ----------
@@ -416,7 +416,7 @@ generate_env() {
 
   cat > .env << EOF
 # ============================
-#  codex2api 配置 (SQLite 模式)
+#  axisrelay 配置 (SQLite 模式)
 #  由 deploy.sh 自动生成于 $(date '+%Y-%m-%d %H:%M:%S')
 # ============================
 

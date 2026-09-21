@@ -7,7 +7,7 @@ import (
 )
 
 // GetPromptFilterNewAPIBinding returns an immutable value copy of the binding
-// for a Codex2API API key. It is safe on the request hot path.
+// for a AxisRelay API key. It is safe on the request hot path.
 func (s *Store) GetPromptFilterNewAPIBinding(apiKeyID int64) (database.PromptFilterNewAPIBinding, bool) {
 	if s == nil || apiKeyID <= 0 {
 		return database.PromptFilterNewAPIBinding{}, false

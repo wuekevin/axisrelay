@@ -1,6 +1,6 @@
-# Codex2API 配置说明
+# AxisRelay 配置说明
 
-本文档详细说明 Codex2API 的所有配置项及其作用。
+本文档详细说明 AxisRelay 的所有配置项及其作用。
 
 ## 目录
 
@@ -15,7 +15,7 @@
 
 ## 配置层级
 
-Codex2API 采用三层配置架构：
+AxisRelay 采用三层配置架构：
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -108,7 +108,7 @@ Codex2API 采用三层配置架构：
 |------|------|--------|------|
 | `AXISRELAY_IMAGES_MAIN_MODEL` | 否 | `gpt-5.6-luna` | 生图文本驱动的部署默认值；后台「Codex → 生图设置」选择具体模型后优先使用后台配置 |
 | `AXISRELAY_IMAGE_ASSET_DIR` | 否 | `/data/images` | 管理台生图工作台保存图片文件的服务器目录；Docker 部署建议持久化 `/data` |
-| `AXISRELAY_IMAGE_ASSET_PUBLIC_BASE_URL` | 否 | 空 | 图片代理 URL 的公开基址，例如 `https://cdn.example.com`；仅改变返回地址，需由反向代理将 `/p/img/` 转发到 Codex2Api |
+| `AXISRELAY_IMAGE_ASSET_PUBLIC_BASE_URL` | 否 | 空 | 图片代理 URL 的公开基址，例如 `https://cdn.example.com`；仅改变返回地址，需由反向代理将 `/p/img/` 转发到 AxisRelay |
 | `AXISRELAY_IMAGE_ASSET_SIGNING_SECRET` | 否 | 随机值 | 图片代理 URL 的持久化签名密钥；生产环境应配置固定随机值，避免服务重启后历史图片链接失效 |
 | `AXISRELAY_IMAGE_UPSCALER_ENDPOINT` | 否 | 空 | RealESRGAN 服务地址，例如 `http://image-upscaler:8090`；配置后 `upscale=2k/4k` 必须由该服务成功处理，否则异步任务失败 |
 | `AXISRELAY_IMAGE_UPSCALER_FIT` | 否 | `inside` | RealESRGAN 目标尺寸适配方式，可选 `inside` 或 `cover` |
@@ -127,7 +127,7 @@ Codex2API 采用三层配置架构：
 | 变量 | 必填 | 默认值 | 说明 |
 |------|------|--------|------|
 | `AXISRELAY_DATABASE_DRIVER` | 是 | sqlite | 固定值: sqlite |
-| `AXISRELAY_DATABASE_PATH` | 是 | - | SQLite 数据库文件路径，如 `/data/codex2api.db` |
+| `AXISRELAY_DATABASE_PATH` | 是 | - | SQLite 数据库文件路径，如 `/data/axisrelay.db` |
 
 ### 缓存配置
 
@@ -217,7 +217,7 @@ API Key 启用多个 RPM/RPD/费用/Token 窗口时，Redis 会通过一次 `MGE
 
 ### Responses 上下文缓存
 
-Responses 连续请求会按 `previous_response_id` 重建上下文。每个 Codex2API 进程都有一层有界 L1 缓存，三个字节预算保存在数据库中；管理台用整数 MiB 展示和修改，管理 API 使用原始字节数。
+Responses 连续请求会按 `previous_response_id` 重建上下文。每个 AxisRelay 进程都有一层有界 L1 缓存，三个字节预算保存在数据库中；管理台用整数 MiB 展示和修改，管理 API 使用原始字节数。
 
 | 管理 API 字段 | 默认值 | 设置页范围 | 说明 |
 |------|------|------|------|
@@ -261,7 +261,7 @@ Redis 模式会把 response context 保存到共享后端。后端值在重建�
 | `SchedulerMode` | string | `round_robin` | - | 调度模式：`round_robin`（轮询，按调度分权重排序）、`remaining_quota`（优先使用用量少的账号）或 `fill_first`（顺序耗尽：集中使用剩余额度最少的账号，耗尽/限流后切下一个）。索引引擎在同一优先级和健康档位内按最多 8 个可用候选的窗口比较实时占用；配额模式仍优先比较用量。窗口被过滤或并发占满时继续补选，不保证全池绝对最小占用。 |
 | `AffinityMode` | string | `bounded` | - | 会话亲和：`bounded`（账号不健康或绑定空闲超过 10 分钟时重新挑号，活跃会话不轮换以保住上游 prompt cache）、`off`（每次重选）、`strict`（长期粘连） |
 
-调度优先级先决定账号层级，同一优先级内再比较健康档位、调度分和当前负载；会话亲和只负责复用已绑定账号。多个最终用户共享同一个 API Key 时，下游可传 `X-Codex2API-Affinity-Key`，值会先哈希且仅用于本地账号绑定，不会转发给上游。
+调度优先级先决定账号层级，同一优先级内再比较健康档位、调度分和当前负载；会话亲和只负责复用已绑定账号。多个最终用户共享同一个 API Key 时，下游可传 `X-AxisRelay-Affinity-Key`，值会先哈希且仅用于本地账号绑定，不会转发给上游。
 
 调度引擎的推荐上线顺序是 `legacy → shadow → indexed`：
 
@@ -446,7 +446,7 @@ Claude / Grok / Antigravity 等中继型账号不经 Resin，始终按第 2、3 
 
 ```bash
 # ============================================================
-# Codex2API 生产环境配置
+# AxisRelay 生产环境配置
 # ============================================================
 
 # 服务配置
@@ -475,7 +475,7 @@ AXISRELAY_REDIS_INSECURE_SKIP_VERIFY=false
 
 ```bash
 # ============================================================
-# Codex2API SQLite 轻量版配置
+# AxisRelay SQLite 轻量版配置
 # ============================================================
 
 # 服务配置
@@ -485,7 +485,7 @@ TZ=Asia/Shanghai
 
 # 数据库配置 (SQLite)
 AXISRELAY_DATABASE_DRIVER=sqlite
-AXISRELAY_DATABASE_PATH=/data/codex2api.db
+AXISRELAY_DATABASE_PATH=/data/axisrelay.db
 AXISRELAY_IMAGE_ASSET_DIR=/data/images
 AXISRELAY_LOG_DIR=logs
 AXISRELAY_LOG_DISABLED=false
@@ -498,7 +498,7 @@ AXISRELAY_CACHE_DRIVER=memory
 
 ```bash
 # ============================================================
-# Codex2API 开发环境配置
+# AxisRelay 开发环境配置
 # ============================================================
 
 AXISRELAY_PORT=8080

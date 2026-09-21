@@ -59,7 +59,7 @@ func FetchLatestCodexCLIVersion(ctx context.Context, proxyURL string) (string, e
 		return "", fmt.Errorf("build codex releases request: %w", err)
 	}
 	req.Header.Set("Accept", "application/vnd.github+json")
-	req.Header.Set("User-Agent", "codex2api")
+	req.Header.Set("User-Agent", "axisrelay")
 	// GitHub 访问设置（issue #522）：token 提升 API 限流配额，专用代理与全局代理解耦。
 	ApplyGithubAuth(req)
 

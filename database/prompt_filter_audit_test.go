@@ -30,7 +30,7 @@ func TestPromptFilterAuditQueueReservesHighPriorityCapacity(t *testing.T) {
 }
 
 func TestEnqueuePromptFilterLogPersistsAsynchronously(t *testing.T) {
-	db, err := New("sqlite", filepath.Join(t.TempDir(), "codex2api.db"))
+	db, err := New("sqlite", filepath.Join(t.TempDir(), "axisrelay.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -124,7 +124,7 @@ func TestPromptPolicyIncidentQueueOwnsStringsAndRejectsOversizedJobs(t *testing.
 }
 
 func TestEnqueuePromptPolicyIncidentPersistsCompositeAndDrains(t *testing.T) {
-	db, err := New("sqlite", filepath.Join(t.TempDir(), "codex2api.db"))
+	db, err := New("sqlite", filepath.Join(t.TempDir(), "axisrelay.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -197,7 +197,7 @@ func TestPromptRuleCandidateQueueSaturationIsNonBlockingAndOwnsStrings(t *testin
 }
 
 func TestPromptFilterAuditQueueCloseRejectsConcurrentEnqueue(t *testing.T) {
-	db, err := New("sqlite", filepath.Join(t.TempDir(), "codex2api.db"))
+	db, err := New("sqlite", filepath.Join(t.TempDir(), "axisrelay.db"))
 	if err != nil {
 		t.Fatal(err)
 	}

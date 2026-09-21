@@ -1,9 +1,9 @@
-name: codex2api
+name: axisrelay
 
 services:
-  codex2api:
-    image: ghcr.io/james-6-23/codex2api:latest
-    container_name: codex2api
+  axisrelay:
+    image: ghcr.io/wuekevin/axisrelay:latest
+    container_name: axisrelay
     ports:
       - "${AXISRELAY_BIND_HOST:-0.0.0.0}:${AXISRELAY_PORT:-8080}:${AXISRELAY_PORT:-8080}"
     env_file:
@@ -23,11 +23,11 @@ services:
     stop_grace_period: 60s
     restart: unless-stopped
     networks:
-      - codex2api-net
+      - axisrelay-net
 
   redis:
     image: redis:7-alpine
-    container_name: codex2api-redis
+    container_name: axisrelay-redis
     command: redis-server --appendonly yes
     environment:
       TZ: ${TZ:-Asia/Shanghai}
@@ -42,14 +42,14 @@ services:
       retries: 5
     restart: unless-stopped
     networks:
-      - codex2api-net
+      - axisrelay-net
 
 networks:
-  codex2api-net:
+  axisrelay-net:
     driver: bridge
 
 volumes:
   redisdata:
-    name: codex2api_redisdata
+    name: axisrelay_redisdata
   image-assets:
-    name: codex2api_image-assets
+    name: axisrelay_image-assets

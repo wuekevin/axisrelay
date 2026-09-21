@@ -42,7 +42,7 @@ func promptGuardTestConfig() promptfilter.Config {
 
 func TestDefensiveSecurityRequestIsAllowedAndRecordedInRiskProfile(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	db, err := database.New("sqlite", filepath.Join(t.TempDir(), "codex2api.db"))
+	db, err := database.New("sqlite", filepath.Join(t.TempDir(), "axisrelay.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -263,7 +263,7 @@ func TestPromptGuardLogsRealCurrentPromptInsteadOfAgentReplay(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	for _, transport := range []promptfilter.Transport{promptfilter.TransportHTTP, promptfilter.TransportWebSocket} {
 		t.Run(string(transport), func(t *testing.T) {
-			db, err := database.New("sqlite", filepath.Join(t.TempDir(), "codex2api.db"))
+			db, err := database.New("sqlite", filepath.Join(t.TempDir(), "axisrelay.db"))
 			if err != nil {
 				t.Fatalf("database.New(sqlite): %v", err)
 			}
@@ -320,7 +320,7 @@ func TestPromptGuardLogsRealCurrentPromptInsteadOfAgentReplay(t *testing.T) {
 
 func TestPromptGuardLogsAuxiliaryMatchContextWithoutInventingUserPrompt(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	db, err := database.New("sqlite", filepath.Join(t.TempDir(), "codex2api.db"))
+	db, err := database.New("sqlite", filepath.Join(t.TempDir(), "axisrelay.db"))
 	if err != nil {
 		t.Fatalf("database.New(sqlite): %v", err)
 	}
@@ -385,7 +385,7 @@ func TestPromptGuardLogsAuxiliaryMatchContextWithoutInventingUserPrompt(t *testi
 
 func TestPromptGuardAsyncShadowAuditPersistsFirstSample(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	db, err := database.New("sqlite", filepath.Join(t.TempDir(), "codex2api.db"))
+	db, err := database.New("sqlite", filepath.Join(t.TempDir(), "axisrelay.db"))
 	if err != nil {
 		t.Fatalf("database.New(sqlite): %v", err)
 	}
@@ -526,7 +526,7 @@ func TestPromptGuardAsyncShadowQueueSaturationDropsWithoutSynchronousAudit(t *te
 	defaultPromptGuardShadowDispatcher = saturated
 	t.Cleanup(func() { defaultPromptGuardShadowDispatcher = originalDispatcher })
 
-	db, err := database.New("sqlite", filepath.Join(t.TempDir(), "codex2api.db"))
+	db, err := database.New("sqlite", filepath.Join(t.TempDir(), "axisrelay.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -587,7 +587,7 @@ func TestPromptGuardAsyncShadowLegacySyncOverflowStillDropsWithoutBlocking(t *te
 	defaultPromptGuardShadowDispatcher = saturated
 	t.Cleanup(func() { defaultPromptGuardShadowDispatcher = originalDispatcher })
 
-	db, err := database.New("sqlite", filepath.Join(t.TempDir(), "codex2api.db"))
+	db, err := database.New("sqlite", filepath.Join(t.TempDir(), "axisrelay.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -644,7 +644,7 @@ func TestPromptGuardAsyncShadowClosedAuditQueueDropsWithoutBlocking(t *testing.T
 	defaultPromptGuardShadowDispatcher = dispatcher
 	t.Cleanup(func() { defaultPromptGuardShadowDispatcher = originalDispatcher })
 
-	db, err := database.New("sqlite", filepath.Join(t.TempDir(), "codex2api.db"))
+	db, err := database.New("sqlite", filepath.Join(t.TempDir(), "axisrelay.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -699,7 +699,7 @@ func TestPromptGuardAsyncShadowJobRetainsOnlyBoundedRedactedCurrentPreview(t *te
 	defaultPromptGuardShadowDispatcher = dispatcher
 	t.Cleanup(func() { defaultPromptGuardShadowDispatcher = originalDispatcher })
 
-	db, err := database.New("sqlite", filepath.Join(t.TempDir(), "codex2api.db"))
+	db, err := database.New("sqlite", filepath.Join(t.TempDir(), "axisrelay.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -754,7 +754,7 @@ func TestPromptGuardAsyncShadowSkipsQueuedLogAfterLoggingDisabled(t *testing.T) 
 	defaultPromptGuardShadowDispatcher = dispatcher
 	t.Cleanup(func() { defaultPromptGuardShadowDispatcher = originalDispatcher })
 
-	db, err := database.New("sqlite", filepath.Join(t.TempDir(), "codex2api.db"))
+	db, err := database.New("sqlite", filepath.Join(t.TempDir(), "axisrelay.db"))
 	if err != nil {
 		t.Fatal(err)
 	}

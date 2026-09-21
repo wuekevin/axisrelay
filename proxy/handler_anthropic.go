@@ -309,7 +309,7 @@ func (h *Handler) hasNativeClaudeAccountMatching(c *gin.Context, model string, a
 }
 
 // claudeNativeRouteContextKey 是本次请求的原生 Claude 路由判定缓存键。
-const claudeNativeRouteContextKey = "codex2api_native_claude_route"
+const claudeNativeRouteContextKey = "axisrelay_native_claude_route"
 
 type claudeNativeRouteDecision struct {
 	model  string
@@ -1343,7 +1343,7 @@ func (h *Handler) Messages(c *gin.Context) {
 						upstreamCyberPolicyLogged = true
 						failedOutcome.failureMessage = upstreamCyberPolicyResponseMessage(c)
 						if metadata, delegated := newAPIUpstreamCyberPolicyDecision(c); delegated {
-							policyDetails = gin.H{"codex2api_policy": newAPIPolicyDecisionDetails(metadata)}
+							policyDetails = gin.H{"axisrelay_policy": newAPIPolicyDecisionDetails(metadata)}
 						}
 					}
 					if err := writeAnthropicStreamErrorEvent(streamWriter, mapHTTPStatusToAnthropicError(failedOutcome.logStatusCode), failedOutcome.failureMessage, policyDetails); err != nil {

@@ -60,7 +60,7 @@ func TestUsageLogCapturesClientAndActualUpstreamUserAgent(t *testing.T) {
 	}))
 	defer upstream.Close()
 
-	db, err := database.New("sqlite", filepath.Join(t.TempDir(), "codex2api.db"))
+	db, err := database.New("sqlite", filepath.Join(t.TempDir(), "axisrelay.db"))
 	if err != nil {
 		t.Fatalf("database.New(sqlite) error = %v", err)
 	}

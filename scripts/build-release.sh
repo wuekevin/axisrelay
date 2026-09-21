@@ -26,7 +26,7 @@ EOF
 
 repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 readonly release_branch='codex/production-main'
-version=${CODEX2API_RELEASE_VERSION:-}
+version=${AXISRELAY_RELEASE_VERSION:-}
 output_dir=$repo_root/dist/releases
 
 while [[ $# -gt 0 ]]; do
@@ -76,12 +76,12 @@ status=$(git -C "$repo_root" status --porcelain --untracked-files=all)
 [[ -z "$status" ]] || die "release build requires a clean worktree"
 
 revision=$(git -C "$repo_root" rev-parse --short=7 HEAD)
-build_dir=$(mktemp -d "${TMPDIR:-/tmp}/codex2api-release-build.XXXXXX")
+build_dir=$(mktemp -d "${TMPDIR:-/tmp}/axisrelay-release-build.XXXXXX")
 trap 'rm -rf "$build_dir"' EXIT
 
 mkdir -p "$output_dir"
 artifact_dir=$(cd "$output_dir" && pwd)
-artifact="$artifact_dir/codex2api-${version}-${revision}-linux-amd64"
+artifact="$artifact_dir/axisrelay-${version}-${revision}-linux-amd64"
 
 echo "release_version=$version"
 echo "revision=$revision"
@@ -103,13 +103,13 @@ echo "build_step=backend"
   CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
     go build -trimpath \
       -ldflags "-s -w -X github.com/wuekevin/axisrelay/internal/version.Version=$version" \
-      -o "$build_dir/codex2api" .
+      -o "$build_dir/axisrelay" .
 )
 
-grep -a -F -q "$version" "$build_dir/codex2api" ||
+grep -a -F -q "$version" "$build_dir/axisrelay" ||
   die "backend binary does not contain release version $version"
 
-cp "$build_dir/codex2api" "$artifact"
+cp "$build_dir/axisrelay" "$artifact"
 chmod 755 "$artifact"
 artifact_name=${artifact##*/}
 (cd "$artifact_dir" && sha256sum "$artifact_name") | tee "$artifact.sha256"

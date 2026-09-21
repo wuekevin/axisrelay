@@ -1588,7 +1588,7 @@ func antigravitySessionSeed(in map[string]any, contents []any) string {
 }
 
 func antigravitySessionIDFromSeed(seed string) string {
-	sum := sha256.Sum256([]byte("codex2api:antigravity:session\x00" + seed))
+	sum := sha256.Sum256([]byte("axisrelay:antigravity:session\x00" + seed))
 	return antigravitySessionIDFromDigest(sum[:8])
 }
 

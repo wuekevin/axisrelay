@@ -61,7 +61,7 @@ const postgresPromptFilterNewAPIBindingsDDL = `CREATE TABLE IF NOT EXISTS prompt
 	updated_at TIMESTAMPTZ DEFAULT NOW()
 )`
 
-// PromptFilterNewAPIBinding binds one Codex2API API key to exactly one calling
+// PromptFilterNewAPIBinding binds one AxisRelay API key to exactly one calling
 // platform. Secrets are deliberately excluded from admin JSON responses by the
 // admin layer, but remain available in the in-memory auth snapshot.
 type PromptFilterNewAPIBinding struct {

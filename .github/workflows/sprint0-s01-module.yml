@@ -28,7 +28,7 @@ jobs:
           from pathlib import Path
 
           root = Path(".")
-          old = "github.com/codex2api"
+          old = "github.com/axisrelay"
           new = "github.com/wuekevin/axisrelay"
           skip_dirs = {".git", "node_modules", "dist", "vendor"}
           skip_files = {"CHANGELOG.md"}
@@ -68,7 +68,7 @@ jobs:
       - name: Verify old module namespace is gone
         shell: bash
         run: |
-          if grep -R --line-number --exclude=CHANGELOG.md --exclude-dir=.git --exclude-dir=node_modules --exclude-dir=dist 'github.com/codex2api' .; then
+          if grep -R --line-number --exclude=CHANGELOG.md --exclude-dir=.git --exclude-dir=node_modules --exclude-dir=dist 'github.com/axisrelay' .; then
             echo "Old module namespace still exists"
             exit 1
           fi

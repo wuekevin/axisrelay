@@ -1,9 +1,9 @@
-name: codex2api-sqlite
+name: axisrelay-sqlite
 
 services:
-  codex2api:
-    image: ghcr.io/james-6-23/codex2api:latest
-    container_name: codex2api-sqlite
+  axisrelay:
+    image: ghcr.io/wuekevin/axisrelay:latest
+    container_name: axisrelay-sqlite
     ports:
       # Bind to localhost only by default for security.
       # To expose on all interfaces, set AXISRELAY_BIND_HOST=0.0.0.0 in .env or override here.
@@ -17,4 +17,4 @@ services:
 
 volumes:
   sqlite-data:
-    name: codex2api-sqlite_sqlite-data
+    name: axisrelay-sqlite_sqlite-data

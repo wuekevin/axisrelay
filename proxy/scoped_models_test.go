@@ -131,14 +131,14 @@ func TestScopedModelsAliasesOwnersFirstSeenAndDeterministicOrder(t *testing.T) {
 	if !slices.IsSorted(ids) {
 		t.Fatalf("models are not deterministic sorted: %v", ids)
 	}
-	if owner, _, ok := scopedModelByID(models, "gpt-5.5"); !ok || owner != "codex2api" {
-		t.Fatalf("shared owner = %q ok=%v, want codex2api", owner, ok)
+	if owner, _, ok := scopedModelByID(models, "gpt-5.5"); !ok || owner != "axisrelay" {
+		t.Fatalf("shared owner = %q ok=%v, want axisrelay", owner, ok)
 	}
 	if owner, created, ok := scopedModelByID(models, "grok-only"); !ok || owner != "xai" || created != firstSeen.Unix() {
 		t.Fatalf("grok-only owner=%q created=%d ok=%v", owner, created, ok)
 	}
 	for _, alias := range []string{"grok-alias", "global-alias"} {
-		if owner, _, ok := scopedModelByID(models, alias); !ok || owner != "codex2api" {
+		if owner, _, ok := scopedModelByID(models, alias); !ok || owner != "axisrelay" {
 			t.Fatalf("alias %s owner=%q ok=%v", alias, owner, ok)
 		}
 	}
@@ -198,7 +198,7 @@ func TestScopedModelsModelAllowAppliesToAliasName(t *testing.T) {
 	store.AddAccount(&auth.Account{DBID: 1, UpstreamType: auth.UpstreamOpenAIResponses, BaseURL: "https://relay.example", APIKey: "sk", Models: []string{"target"}, ModelMapping: `{"public-alias":"target"}`})
 	handler := NewHandler(store, nil, nil, nil)
 	models := listScopedModelsForTest(t, handler, &database.APIKeyRow{ID: 1, Limits: database.APIKeyLimits{ModelAllow: []string{"public-alias"}}})
-	if len(models) != 1 || models[0].ID != "public-alias" || models[0].Owner != "codex2api" {
+	if len(models) != 1 || models[0].ID != "public-alias" || models[0].Owner != "axisrelay" {
 		t.Fatalf("models = %+v, want alias only", models)
 	}
 }

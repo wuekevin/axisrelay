@@ -83,7 +83,7 @@ func TestLoadAllowsExplicitSQLiteAndMemory(t *testing.T) {
 	}
 
 	t.Setenv("AXISRELAY_DATABASE_DRIVER", "sqlite")
-	t.Setenv("AXISRELAY_DATABASE_PATH", "/data/codex2api.db")
+	t.Setenv("AXISRELAY_DATABASE_PATH", "/data/axisrelay.db")
 	t.Setenv("AXISRELAY_CACHE_DRIVER", "memory")
 
 	cfg, err := Load("__not_exists__.env")
@@ -94,8 +94,8 @@ func TestLoadAllowsExplicitSQLiteAndMemory(t *testing.T) {
 	if got := cfg.Database.Driver; got != "sqlite" {
 		t.Fatalf("Database.Driver = %q, want %q", got, "sqlite")
 	}
-	if got := cfg.Database.Path; got != "/data/codex2api.db" {
-		t.Fatalf("Database.Path = %q, want %q", got, "/data/codex2api.db")
+	if got := cfg.Database.Path; got != "/data/axisrelay.db" {
+		t.Fatalf("Database.Path = %q, want %q", got, "/data/axisrelay.db")
 	}
 	if got := cfg.Cache.Driver; got != "memory" {
 		t.Fatalf("Cache.Driver = %q, want %q", got, "memory")

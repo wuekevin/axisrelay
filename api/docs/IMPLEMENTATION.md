@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document describes the API enhancements implemented for the Codex2API project.
+This document describes the API enhancements implemented for the AxisRelay project.
 
 ## Enhancements
 

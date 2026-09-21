@@ -28,7 +28,7 @@ func insertUsageLogs(t *testing.T, db *DB, count int) {
 // TestFlushUsageLogsDrainsBeyondOneBatch 覆盖 flush 的分批语义：flushLogs 每次只取
 // usage_log_batch_size 条，FlushUsageLogs 必须循环刷完整个缓冲。
 func TestFlushUsageLogsDrainsBeyondOneBatch(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "codex2api.db")
+	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
 	db, err := New("sqlite", dbPath)
 	if err != nil {
 		t.Fatalf("New(sqlite) 返回错误: %v", err)
@@ -66,7 +66,7 @@ func TestFlushUsageLogsDrainsBeyondOneBatch(t *testing.T) {
 }
 
 func TestSQLiteUsageLogFlushWaitsForUnifiedWriteLock(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "codex2api.db")
+	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
 	db, err := New("sqlite", dbPath)
 	if err != nil {
 		t.Fatalf("New(sqlite) 返回错误: %v", err)
@@ -107,7 +107,7 @@ func TestSQLiteUsageLogFlushWaitsForUnifiedWriteLock(t *testing.T) {
 // 此时再走「只刷一个批次 + notifyLogFlush」的路径没人消费信号，超出一个批次的日志
 // 会被静默丢弃，所以收尾必须刷完整个缓冲。
 func TestCloseFlushesEntireUsageLogBuffer(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "codex2api.db")
+	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
 	db, err := New("sqlite", dbPath)
 	if err != nil {
 		t.Fatalf("New(sqlite) 返回错误: %v", err)
@@ -141,7 +141,7 @@ func TestCloseFlushesEntireUsageLogBuffer(t *testing.T) {
 // 等直接来自下游请求体，超过列宽会让整条批量 INSERT 回滚，失败批次又被放回缓冲区头部，
 // 一条脏数据就能永久堵死日志写入。
 func TestUsageLogTextClampedToColumnWidth(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "codex2api.db")
+	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
 	db, err := New("sqlite", dbPath)
 	if err != nil {
 		t.Fatalf("New(sqlite) 返回错误: %v", err)
@@ -352,7 +352,7 @@ func TestSalvageKeepsTransientFailuresForRetry(t *testing.T) {
 // TestUsageLogBufferHonorsHardLimit 覆盖缓冲硬上限：数据库长时间写不进去时缓冲不能无限涨，
 // 超限丢最旧的并计数，运维能从运行状态里看见丢了多少。
 func TestUsageLogBufferHonorsHardLimit(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "codex2api.db")
+	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
 	db, err := New("sqlite", dbPath)
 	if err != nil {
 		t.Fatalf("New(sqlite) 返回错误: %v", err)
@@ -379,7 +379,7 @@ func TestUsageLogBufferHonorsHardLimit(t *testing.T) {
 
 // TestRequeueHonorsHardLimit 失败批次放回缓冲区同样要守住上限。
 func TestRequeueHonorsHardLimit(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "codex2api.db")
+	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
 	db, err := New("sqlite", dbPath)
 	if err != nil {
 		t.Fatalf("New(sqlite) 返回错误: %v", err)

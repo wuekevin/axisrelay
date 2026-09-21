@@ -1,6 +1,6 @@
-# Codex2API 部署文档
+# AxisRelay 部署文档
 
-本文档详细说明 Codex2API 的各种部署方式。
+本文档详细说明 AxisRelay 的各种部署方式。
 
 ## 目录
 
@@ -31,8 +31,8 @@
 
 ```bash
 # 克隆仓库
-git clone https://github.com/james-6-23/codex2api.git
-cd codex2api
+git clone https://github.com/wuekevin/axisrelay.git
+cd axisrelay
 
 # 配置环境
 cp .env.example .env
@@ -43,7 +43,7 @@ docker compose pull
 docker compose up -d
 
 # 查看日志
-docker compose logs -f codex2api
+docker compose logs -f axisrelay
 ```
 
 ### 2. SQLite 轻量模式
@@ -64,7 +64,7 @@ docker compose -f docker-compose.sqlite.yml up -d
 
 ```yaml
 services:
-  codex2api:    # 主应用服务
+  axisrelay:    # 主应用服务
   postgres:     # PostgreSQL 数据库
   redis:        # Redis 缓存
 ```
@@ -73,8 +73,8 @@ services:
 
 | 卷名 | 用途 |
 |------|------|
-| codex2api_pgdata | PostgreSQL 数据 |
-| codex2api_redisdata | Redis 数据 |
+| axisrelay_pgdata | PostgreSQL 数据 |
+| axisrelay_redisdata | Redis 数据 |
 
 **完整部署流程:**
 
@@ -94,7 +94,7 @@ docker compose up -d
 
 # 4. 验证状态
 docker compose ps
-docker compose logs -f codex2api
+docker compose logs -f axisrelay
 
 # 5. 访问服务
 # 管理后台: http://localhost:8080/admin/
@@ -107,14 +107,14 @@ docker compose logs -f codex2api
 
 ```yaml
 services:
-  codex2api:    # 主应用服务（单容器）
+  axisrelay:    # 主应用服务（单容器）
 ```
 
 **数据持久化:**
 
 | 卷名 | 用途 |
 |------|------|
-| codex2api-sqlite_sqlite-data | SQLite 数据库文件 |
+| axisrelay-sqlite_sqlite-data | SQLite 数据库文件 |
 
 **部署流程:**
 
@@ -124,7 +124,7 @@ cp .env.sqlite.example .env
 
 # 2. 修改 .env 配置
 # - AXISRELAY_PORT: 服务端口
-# - AXISRELAY_DATABASE_PATH: /data/codex2api.db
+# - AXISRELAY_DATABASE_PATH: /data/axisrelay.db
 
 # 3. 启动服务
 docker compose -f docker-compose.sqlite.yml pull
@@ -155,8 +155,8 @@ Render 可以直接运行 GHCR 中已经构建好的镜像，适合放一个公�
 
 | 项目 | 地址 |
 |------|------|
-| Demo 首页 | [https://codex2api-latest-vu8j.onrender.com](https://codex2api-latest-vu8j.onrender.com) |
-| Demo 密码 | `codex2api` |
+| Demo 首页 | [https://axisrelay-latest-vu8j.onrender.com](https://axisrelay-latest-vu8j.onrender.com) |
+| Demo 密码 | `axisrelay` |
 
 > Demo 环境仅用于体验管理后台界面和基础功能，请勿上传真实 Refresh Token、Access Token、API Key 或其他敏感信息。
 
@@ -165,7 +165,7 @@ Render 可以直接运行 GHCR 中已经构建好的镜像，适合放一个公�
 在 Render Dashboard 中创建 `Web Service`，选择 `Existing Image`，镜像地址填写：
 
 ```text
-ghcr.io/james-6-23/codex2api:latest
+ghcr.io/wuekevin/axisrelay:latest
 ```
 
 如果 GHCR Package 不是公开访问，需要先在 Render 的 Registry Credentials 中配置 GitHub Container Registry 凭据。
@@ -178,7 +178,7 @@ ghcr.io/james-6-23/codex2api:latest
 AXISRELAY_PORT=10000
 AXISRELAY_BIND=0.0.0.0
 AXISRELAY_DATABASE_DRIVER=sqlite
-AXISRELAY_DATABASE_PATH=/tmp/codex2api.db
+AXISRELAY_DATABASE_PATH=/tmp/axisrelay.db
 AXISRELAY_CACHE_DRIVER=memory
 AXISRELAY_IMAGE_ASSET_DIR=/tmp/images
 AXISRELAY_LOG_DIR=/tmp/logs
@@ -204,7 +204,7 @@ Render 的 image-backed 服务不会在 `latest` 标签更新后自动重新部�
 RENDER_DEPLOY_HOOK_URL=<Render Deploy Hook URL>
 ```
 
-之后 `.github/workflows/render-deploy.yml` 会在 `Build Docker Image` 工作流成功后自动请求该 Hook，让 Render 重新拉取 `ghcr.io/james-6-23/codex2api:latest` 并部署。
+之后 `.github/workflows/render-deploy.yml` 会在 `Build Docker Image` 工作流成功后自动请求该 Hook，让 Render 重新拉取 `ghcr.io/wuekevin/axisrelay:latest` 并部署。
 
 也可以手动触发镜像构建工作流，镜像推送成功后会自动进入 Render 部署工作流：
 
@@ -397,9 +397,9 @@ server {
 version: '3.8'
 
 services:
-  codex2api:
-    image: ghcr.io/james-6-23/codex2api:latest
-    container_name: codex2api
+  axisrelay:
+    image: ghcr.io/wuekevin/axisrelay:latest
+    container_name: axisrelay
     restart: unless-stopped
     env_file:
       - .env
@@ -411,7 +411,7 @@ services:
       redis:
         condition: service_healthy
     networks:
-      - codex2api
+      - axisrelay
     logging:
       driver: "json-file"
       options:
@@ -420,7 +420,7 @@ services:
 
   postgres:
     image: postgres:15-alpine
-    container_name: codex2api-postgres
+    container_name: axisrelay-postgres
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${AXISRELAY_DATABASE_USER}
@@ -429,7 +429,7 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
     networks:
-      - codex2api
+      - axisrelay
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${AXISRELAY_DATABASE_USER} -d ${AXISRELAY_DATABASE_NAME}"]
       interval: 5s
@@ -438,13 +438,13 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: codex2api-redis
+    container_name: axisrelay-redis
     restart: unless-stopped
     command: redis-server --requirepass ${AXISRELAY_REDIS_PASSWORD}
     volumes:
       - redisdata:/data
     networks:
-      - codex2api
+      - axisrelay
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -456,7 +456,7 @@ volumes:
   redisdata:
 
 networks:
-  codex2api:
+  axisrelay:
     driver: bridge
 ```
 
@@ -468,7 +468,7 @@ networks:
 
 ```bash
 # 1. 备份数据库（重要！）
-docker exec codex2api-postgres pg_dump -U codex2api codex2api > backup_$(date +%Y%m%d_%H%M%S).sql
+docker exec axisrelay-postgres pg_dump -U axisrelay axisrelay > backup_$(date +%Y%m%d_%H%M%S).sql
 
 # 2. 拉取新版本
 git pull
@@ -479,7 +479,7 @@ docker compose up -d
 
 # 4. 验证状态
 docker compose ps
-docker compose logs -f codex2api
+docker compose logs -f axisrelay
 
 # 5. 健康检查
 curl http://localhost:8080/health
@@ -492,7 +492,7 @@ curl http://localhost:8080/health
 docker compose down
 
 # 2. 恢复数据库
-docker exec -i codex2api-postgres psql -U codex2api codex2api < backup_xxx.sql
+docker exec -i axisrelay-postgres psql -U axisrelay axisrelay < backup_xxx.sql
 
 # 3. 指定旧版本启动
 # 编辑 docker-compose.yml，指定 image:tag
@@ -503,7 +503,7 @@ docker compose up -d
 
 ```bash
 # 备份 SQLite 数据库
-cp /path/to/codex2api.db /path/to/codex2api.db.backup_$(date +%Y%m%d_%H%M%S)
+cp /path/to/axisrelay.db /path/to/axisrelay.db.backup_$(date +%Y%m%d_%H%M%S)
 
 # 升级
 docker compose -f docker-compose.sqlite.yml pull
@@ -522,52 +522,52 @@ docker compose -f docker-compose.sqlite.yml up -d
 #!/bin/bash
 # backup.sh
 
-BACKUP_DIR="/backup/codex2api"
+BACKUP_DIR="/backup/axisrelay"
 DATE=$(date +%Y%m%d_%H%M%S)
-CONTAINER="codex2api-postgres"
-DB_NAME="codex2api"
-DB_USER="codex2api"
+CONTAINER="axisrelay-postgres"
+DB_NAME="axisrelay"
+DB_USER="axisrelay"
 
 # 创建备份目录
 mkdir -p $BACKUP_DIR
 
 # 执行备份
-docker exec $CONTAINER pg_dump -U $DB_USER $DB_NAME > $BACKUP_DIR/codex2api_$DATE.sql
+docker exec $CONTAINER pg_dump -U $DB_USER $DB_NAME > $BACKUP_DIR/axisrelay_$DATE.sql
 
 # 保留最近 30 天备份
 find $BACKUP_DIR -name "*.sql" -mtime +30 -delete
 
-echo "Backup completed: $BACKUP_DIR/codex2api_$DATE.sql"
+echo "Backup completed: $BACKUP_DIR/axisrelay_$DATE.sql"
 ```
 
 **添加到定时任务:**
 
 ```bash
 # 每天凌晨 2 点执行备份
-0 2 * * * /path/to/backup.sh >> /var/log/codex2api-backup.log 2>&1
+0 2 * * * /path/to/backup.sh >> /var/log/axisrelay-backup.log 2>&1
 ```
 
 ### PostgreSQL 恢复
 
 ```bash
 # 1. 停止应用
-docker compose stop codex2api
+docker compose stop axisrelay
 
 # 2. 恢复数据库
-docker exec -i codex2api-postgres psql -U codex2api -d codex2api < backup_xxx.sql
+docker exec -i axisrelay-postgres psql -U axisrelay -d axisrelay < backup_xxx.sql
 
 # 3. 重启服务
-docker compose start codex2api
+docker compose start axisrelay
 ```
 
 ### SQLite 备份
 
 ```bash
 # 备份
-sqlite3 /data/codex2api.db ".backup '/backup/codex2api_$(date +%Y%m%d_%H%M%S).db'"
+sqlite3 /data/axisrelay.db ".backup '/backup/axisrelay_$(date +%Y%m%d_%H%M%S).db'"
 
 # 或简单复制
-cp /data/codex2api.db /backup/codex2api_$(date +%Y%m%d_%H%M%S).db
+cp /data/axisrelay.db /backup/axisrelay_$(date +%Y%m%d_%H%M%S).db
 ```
 
 ### SQLite 恢复
@@ -577,7 +577,7 @@ cp /data/codex2api.db /backup/codex2api_$(date +%Y%m%d_%H%M%S).db
 docker compose -f docker-compose.sqlite.yml stop
 
 # 恢复数据
-cp /backup/codex2api_xxx.db /data/codex2api.db
+cp /backup/axisrelay_xxx.db /data/axisrelay.db
 
 # 启动服务
 docker compose -f docker-compose.sqlite.yml start
@@ -589,10 +589,10 @@ docker compose -f docker-compose.sqlite.yml start
 
 | 部署模式 | 容器名 | 数据卷 |
 |----------|--------|--------|
-| 标准镜像 | codex2api | codex2api_pgdata, codex2api_redisdata |
-| 标准本地 | codex2api-local | codex2api-local_pgdata, codex2api-local_redisdata |
-| SQLite 镜像 | codex2api-sqlite | codex2api-sqlite_sqlite-data |
-| SQLite 本地 | codex2api-sqlite-local | codex2api-sqlite-local_sqlite-data-local |
+| 标准镜像 | axisrelay | axisrelay_pgdata, axisrelay_redisdata |
+| 标准本地 | axisrelay-local | axisrelay-local_pgdata, axisrelay-local_redisdata |
+| SQLite 镜像 | axisrelay-sqlite | axisrelay-sqlite_sqlite-data |
+| SQLite 本地 | axisrelay-sqlite-local | axisrelay-sqlite-local_sqlite-data-local |
 
 **注意:** 不同模式的数据卷相互隔离，切换 compose 文件后看到空数据是正常现象。
 

@@ -365,9 +365,9 @@ const CLAUDE_TOGGLE_COLUMNS = [
 ] as const;
 type ClaudeCol = (typeof CLAUDE_TOGGLE_COLUMNS)[number];
 type ClaudeColVisibility = Record<ClaudeCol, boolean>;
-const CLAUDE_COLS_KEY = "codex2api:claude-accounts:visible-columns";
+const CLAUDE_COLS_KEY = "axisrelay:claude-accounts:visible-columns";
 // 分析面板显隐同样持久化,避免切到 Codex 页再切回来时又展开;默认收起。
-const CLAUDE_ANALYSIS_VISIBILITY_KEY = "codex2api:claude-accounts:analysis-visible";
+const CLAUDE_ANALYSIS_VISIBILITY_KEY = "axisrelay:claude-accounts:analysis-visible";
 
 function loadClaudeAnalysisVisibility(): boolean {
   try {
@@ -1275,7 +1275,7 @@ export default function ClaudeAccounts({ headerSlot }: { headerSlot?: ReactNode 
     setExporting(true);
     try {
       const result = await api.exportClaudeAccounts(ids, scope === "healthy" ? "healthy" : "all");
-      downloadNamedBlob(result, "codex2api-claude-credentials.json");
+      downloadNamedBlob(result, "axisrelay-claude-credentials.json");
       showToast(t("claude.exportSuccess", { count: result.count ?? (ids?.length || 1) }), "success");
     } catch (error) {
       showToast(t("claude.exportFailed") + ": " + getErrorMessage(error), "error");

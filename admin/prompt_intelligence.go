@@ -665,7 +665,7 @@ func searchGitHubPromptIntelligence(ctx context.Context, query string, limit int
 	u := githubPromptSearchBaseURL + "?q=" + url.QueryEscape(query) + "&sort=updated&order=desc&per_page=" + fmt.Sprint(limit)
 	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
 	req.Header.Set("Accept", "application/vnd.github+json")
-	req.Header.Set("User-Agent", "Codex2API-Prompt-Intelligence")
+	req.Header.Set("User-Agent", "AxisRelay-Prompt-Intelligence")
 	client := &http.Client{Timeout: 30 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {

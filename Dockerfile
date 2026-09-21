@@ -37,7 +37,7 @@ COPY --from=frontend-builder /frontend/dist ./frontend/dist
 
 RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
-    CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} go build -ldflags="-s -w -X github.com/wuekevin/axisrelay/internal/version.Version=${BUILD_VERSION}" -o /codex2api .
+    CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} go build -ldflags="-s -w -X github.com/wuekevin/axisrelay/internal/version.Version=${BUILD_VERSION}" -o /axisrelay .
 
 # ============================================================
 # Stage 3: 最终运行镜像
@@ -46,8 +46,8 @@ FROM alpine:3.19
 
 RUN apk --no-cache add ca-certificates tzdata
 
-COPY --from=go-builder /codex2api /usr/local/bin/codex2api
+COPY --from=go-builder /axisrelay /usr/local/bin/axisrelay
 
 EXPOSE 8080
 
-ENTRYPOINT ["/usr/local/bin/codex2api"]
+ENTRYPOINT ["/usr/local/bin/axisrelay"]

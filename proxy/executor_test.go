@@ -630,7 +630,7 @@ func TestNormalizeCodexResponsesLiteBodyEnforcesUpstreamConstraints(t *testing.T
 		"parallel_tool_calls":true,
 		"reasoning":{"effort":"low"},
 		"tools":[{"type":"function","name":"run"},{"type":"image_generation","model":"gpt-image-2"}],
-		"instructions":"Base prompt.\n\n` + "<codex2api-codex-image-generation>\\nbridge text\\n</codex2api-codex-image-generation>" + `"
+		"instructions":"Base prompt.\n\n` + "<axisrelay-codex-image-generation>\\nbridge text\\n</axisrelay-codex-image-generation>" + `"
 	}`)
 
 	wsBody := normalizeCodexResponsesLiteBody(body, false)
@@ -664,7 +664,7 @@ func TestNormalizeCodexResponsesLiteBodyStripsImageOnlyToolSet(t *testing.T) {
 		"model":"gpt-5.6-sol",
 		"tools":[{"type":"image_generation","model":"gpt-image-2"}],
 		"tool_choice":{"type":"image_generation"},
-		"instructions":"` + "<codex2api-codex-image-generation>\\nbridge text\\n</codex2api-codex-image-generation>" + `"
+		"instructions":"` + "<axisrelay-codex-image-generation>\\nbridge text\\n</axisrelay-codex-image-generation>" + `"
 	}`)
 
 	httpBody := normalizeCodexResponsesLiteBody(body, true)
@@ -1737,9 +1737,9 @@ func TestResolveSessionIDUsesLocalAffinityHeader(t *testing.T) {
 	body := []byte(`{"model":"gpt-5.4","input":[{"role":"user","content":"same prompt"}]}`)
 	baseHeaders := http.Header{"Authorization": []string{"Bearer shared-key"}}
 	headersA := baseHeaders.Clone()
-	headersA.Set("X-Codex2API-Affinity-Key", "user-a")
+	headersA.Set("X-AxisRelay-Affinity-Key", "user-a")
 	headersB := headersA.Clone()
-	headersB.Set("X-Codex2API-Affinity-Key", "user-b")
+	headersB.Set("X-AxisRelay-Affinity-Key", "user-b")
 
 	identityWithoutAffinity := resolveRequestSessionIdentity(baseHeaders, body)
 	identityA := resolveRequestSessionIdentity(headersA, body)
@@ -1781,7 +1781,7 @@ func TestResolveSessionIDUsesLocalAffinityHeader(t *testing.T) {
 
 func TestResolveSessionIdentityTreatsBlankAffinityHeaderAsMissing(t *testing.T) {
 	headers := http.Header{"Authorization": []string{"Bearer shared-key"}}
-	headers.Set("X-Codex2API-Affinity-Key", "   ")
+	headers.Set("X-AxisRelay-Affinity-Key", "   ")
 	identity := resolveRequestSessionIdentity(headers, []byte(`{"model":"gpt-5.4","input":"hello"}`))
 	if identity.hasDownstreamAffinity {
 		t.Fatal("blank affinity header must be treated as missing")
@@ -1812,7 +1812,7 @@ func TestLocalAffinityDoesNotAffectPerAPIKeyHTTPUpstreamSessionID(t *testing.T) 
 	body := []byte(`{"model":"gpt-5.4","input":[{"role":"user","content":"same prompt"}]}`)
 	baseHeaders := http.Header{"Authorization": []string{"Bearer shared-key"}}
 	affinityHeaders := baseHeaders.Clone()
-	affinityHeaders.Set("X-Codex2API-Affinity-Key", "user-a")
+	affinityHeaders.Set("X-AxisRelay-Affinity-Key", "user-a")
 
 	withoutAffinity := resolveRequestSessionIdentity(baseHeaders, body)
 	withAffinity := resolveRequestSessionIdentity(affinityHeaders, body)
@@ -1832,7 +1832,7 @@ func TestLocalAffinityPreservesExplicitAndAPIKeyUpstreamSeeds(t *testing.T) {
 			"Authorization": []string{"Bearer shared-key"},
 			"Session_id":    []string{"explicit-session"},
 		}
-		headers.Set("X-Codex2API-Affinity-Key", "user-a")
+		headers.Set("X-AxisRelay-Affinity-Key", "user-a")
 		identity := resolveRequestSessionIdentity(headers, []byte(`{"model":"gpt-5.4"}`))
 		if identity.upstreamSeed != "explicit-session" || identity.explicitUpstreamID != "explicit-session" {
 			t.Fatalf("explicit upstream identity changed: seed=%q explicit=%q", identity.upstreamSeed, identity.explicitUpstreamID)
@@ -1844,11 +1844,11 @@ func TestLocalAffinityPreservesExplicitAndAPIKeyUpstreamSeeds(t *testing.T) {
 
 	t.Run("api key fallback", func(t *testing.T) {
 		headers := http.Header{"Authorization": []string{"Bearer shared-key"}}
-		headers.Set("X-Codex2API-Affinity-Key", "user-a")
+		headers.Set("X-AxisRelay-Affinity-Key", "user-a")
 		identity := resolveRequestSessionIdentity(headers, []byte(`{}`))
 		// 与 deterministicPromptCacheKey 共享种子与派生：两处算出不同值，会让同一个
 		// API Key 在 HTTP 与 WS 路径上得到两个互不相干的上游身份。
-		wantSeed := DeriveStableSessionUUIDv7("codex2api:prompt-cache:shared-key")
+		wantSeed := DeriveStableSessionUUIDv7("axisrelay:prompt-cache:shared-key")
 		if identity.upstreamSeed != wantSeed || identity.explicitUpstreamID != "" {
 			t.Fatalf("API-key upstream fallback changed: seed=%q explicit=%q want=%q", identity.upstreamSeed, identity.explicitUpstreamID, wantSeed)
 		}

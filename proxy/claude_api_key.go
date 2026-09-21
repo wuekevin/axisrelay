@@ -25,7 +25,7 @@ func applyClaudeAPIKeyHeaders(req *http.Request, key string, incoming http.Heade
 	req.Header.Del("Authorization")
 	req.Header.Set("Content-Type", "application/json")
 	setIfAbsentFromIncoming(req.Header, incoming, "anthropic-version", claudeAnthropicVersion)
-	setIfAbsentFromIncoming(req.Header, incoming, "User-Agent", "Codex2API")
+	setIfAbsentFromIncoming(req.Header, incoming, "User-Agent", "AxisRelay")
 	var betas []string
 	for _, value := range incoming.Values("anthropic-beta") {
 		for _, beta := range strings.Split(value, ",") {

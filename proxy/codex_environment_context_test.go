@@ -14,7 +14,7 @@ func codexTimezoneTestAccount(timezone string) *auth.Account {
 	return &auth.Account{DBID: 42, RefreshToken: "rt", Timezone: timezone}
 }
 
-const envContextText = "<environment_context>\n  <cwd>/Users/kyx/code_project/codex2api</cwd>\n  <shell>zsh</shell>\n  <current_date>2026-09-09</current_date>\n  <timezone>Asia/Shanghai</timezone>\n  <filesystem></filesystem>\n</environment_context>"
+const envContextText = "<environment_context>\n  <cwd>/Users/kyx/code_project/axisrelay</cwd>\n  <shell>zsh</shell>\n  <current_date>2026-09-09</current_date>\n  <timezone>Asia/Shanghai</timezone>\n  <filesystem></filesystem>\n</environment_context>"
 
 func envContextBody(text string) []byte {
 	return []byte(`{"type":"response.create","model":"gpt-5.6-luna","input":[{"type":"message","role":"developer","content":[{"type":"input_text","text":"hello"}]},{"type":"message","role":"user","content":[{"type":"input_text","text":` + quoteJSON(text) + `},{"type":"input_text","text":"do it"}]}],"client_metadata":{"session_id":"s"}}`)
@@ -56,7 +56,7 @@ func TestApplyCodexTimezoneToBody_RewritesTimezoneAndShiftsDate(t *testing.T) {
 	if gjson.GetBytes(got, "input.1.content.1.text").String() != "do it" {
 		t.Fatalf("sibling content changed: %s", got)
 	}
-	if !strings.Contains(text, "<cwd>/Users/kyx/code_project/codex2api</cwd>") {
+	if !strings.Contains(text, "<cwd>/Users/kyx/code_project/axisrelay</cwd>") {
 		t.Fatalf("unrelated tags changed: %s", text)
 	}
 	// 幂等：改写后的载荷再过一遍不再变化。

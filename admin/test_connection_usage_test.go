@@ -103,7 +103,7 @@ func TestClaudeConnectionTestWritesInternalUsageLog(t *testing.T) {
 			w := httptest.NewRecorder()
 			c, _ := gin.CreateTestContext(w)
 			c.Request = httptest.NewRequest(http.MethodGet, "/api/admin/accounts/1/test", nil)
-			c.Request.Header.Set("User-Agent", "codex2api-admin-test")
+			c.Request.Header.Set("User-Agent", "axisrelay-admin-test")
 			h := &Handler{store: auth.NewStore(nil, nil, nil), db: db}
 			account := &auth.Account{DBID: id, UpstreamType: auth.UpstreamClaude, AccessToken: "oauth-probe-usage"}
 			resp := &http.Response{StatusCode: tc.status, Header: make(http.Header), Body: io.NopCloser(strings.NewReader(tc.body))}
@@ -131,7 +131,7 @@ func TestClaudeConnectionTestWritesInternalUsageLog(t *testing.T) {
 			if got.Channel != database.UpstreamChannelClaude || got.Endpoint != "/v1/messages" || got.Model != "claude-haiku-4-5" || got.ReasoningEffort != "high" {
 				t.Fatalf("log identity = channel %q endpoint %q model %q effort %q", got.Channel, got.Endpoint, got.Model, got.ReasoningEffort)
 			}
-			if got.ClientUserAgent != "codex2api-admin-test" || !got.Stream {
+			if got.ClientUserAgent != "axisrelay-admin-test" || !got.Stream {
 				t.Fatalf("log metadata = ua %q stream %v", got.ClientUserAgent, got.Stream)
 			}
 			if tc.wantTokens && (got.InputTokens != 2 || got.OutputTokens != 1) {

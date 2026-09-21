@@ -11,7 +11,7 @@ func TestBuildReverseProxyURL(t *testing.T) {
 
 	SetResinConfig(&ResinConfig{
 		BaseURL:      "http://127.0.0.1:2260/my-token",
-		PlatformName: "codex2api",
+		PlatformName: "axisrelay",
 	})
 
 	tests := []struct {
@@ -22,22 +22,22 @@ func TestBuildReverseProxyURL(t *testing.T) {
 		{
 			name:      "HTTPS codex responses",
 			targetURL: "https://chatgpt.com/backend-api/codex/responses",
-			want:      "http://127.0.0.1:2260/my-token/codex2api/https/chatgpt.com/backend-api/codex/responses",
+			want:      "http://127.0.0.1:2260/my-token/axisrelay/https/chatgpt.com/backend-api/codex/responses",
 		},
 		{
 			name:      "HTTPS codex responses compact",
 			targetURL: "https://chatgpt.com/backend-api/codex/responses/compact",
-			want:      "http://127.0.0.1:2260/my-token/codex2api/https/chatgpt.com/backend-api/codex/responses/compact",
+			want:      "http://127.0.0.1:2260/my-token/axisrelay/https/chatgpt.com/backend-api/codex/responses/compact",
 		},
 		{
 			name:      "HTTPS auth token URL",
 			targetURL: "https://auth.openai.com/oauth/token",
-			want:      "http://127.0.0.1:2260/my-token/codex2api/https/auth.openai.com/oauth/token",
+			want:      "http://127.0.0.1:2260/my-token/axisrelay/https/auth.openai.com/oauth/token",
 		},
 		{
 			name:      "URL with query params",
 			targetURL: "https://api.example.com/healthz?foo=bar",
-			want:      "http://127.0.0.1:2260/my-token/codex2api/https/api.example.com/healthz?foo=bar",
+			want:      "http://127.0.0.1:2260/my-token/axisrelay/https/api.example.com/healthz?foo=bar",
 		},
 	}
 
@@ -57,7 +57,7 @@ func TestBuildWebSocketURL(t *testing.T) {
 
 	SetResinConfig(&ResinConfig{
 		BaseURL:      "http://127.0.0.1:2260/my-token",
-		PlatformName: "codex2api",
+		PlatformName: "axisrelay",
 	})
 
 	tests := []struct {
@@ -68,12 +68,12 @@ func TestBuildWebSocketURL(t *testing.T) {
 		{
 			name:      "WSS codex responses",
 			targetURL: "wss://chatgpt.com/backend-api/codex/responses",
-			want:      "ws://127.0.0.1:2260/my-token/codex2api/https/chatgpt.com/backend-api/codex/responses",
+			want:      "ws://127.0.0.1:2260/my-token/axisrelay/https/chatgpt.com/backend-api/codex/responses",
 		},
 		{
 			name:      "WS target",
 			targetURL: "ws://local.dev/ws",
-			want:      "ws://127.0.0.1:2260/my-token/codex2api/http/local.dev/ws",
+			want:      "ws://127.0.0.1:2260/my-token/axisrelay/http/local.dev/ws",
 		},
 	}
 

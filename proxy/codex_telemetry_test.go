@@ -435,7 +435,7 @@ func TestCodexTelemetryJobRoutesThroughResin(t *testing.T) {
 	// test's request (matched by body) and must never block on the channel:
 	// a blocked handler would stall the client until timeout and then hang
 	// the deferred server.Close forever.
-	const marker = `{"codex2api_test":"resin-route"}`
+	const marker = `{"axisrelay_test":"resin-route"}`
 	requests := make(chan *http.Request, 1)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
 		body, _ := io.ReadAll(request.Body)

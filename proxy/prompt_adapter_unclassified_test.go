@@ -47,7 +47,7 @@ func TestPromptAdapterUnclassifiedPersistsNonPunitiveAuditWithoutExtensionsOrBod
 	}))
 	defer sidecar.Close()
 
-	db, err := database.New("sqlite", filepath.Join(t.TempDir(), "codex2api.db"))
+	db, err := database.New("sqlite", filepath.Join(t.TempDir(), "axisrelay.db"))
 	if err != nil {
 		t.Fatalf("database.New(sqlite): %v", err)
 	}

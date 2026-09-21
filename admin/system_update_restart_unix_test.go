@@ -20,8 +20,8 @@ func TestDefaultRestartProcessExecsProvidedPathAndKeepsEnvironment(t *testing.T)
 	}
 
 	tempDir := t.TempDir()
-	targetPath := filepath.Join(tempDir, "codex2api-new")
-	targetScript := "#!/bin/sh\nprintf 'target=new env=%s\\n' \"$CODEX2API_RESTART_EXEC_VALUE\"\n"
+	targetPath := filepath.Join(tempDir, "axisrelay-new")
+	targetScript := "#!/bin/sh\nprintf 'target=new env=%s\\n' \"$AXISRELAY_RESTART_EXEC_VALUE\"\n"
 	if err := os.WriteFile(targetPath, []byte(targetScript), 0755); err != nil {
 		t.Fatalf("write target script: %v", err)
 	}
@@ -30,7 +30,7 @@ func TestDefaultRestartProcessExecsProvidedPathAndKeepsEnvironment(t *testing.T)
 	cmd.Env = append(os.Environ(),
 		"AXISRELAY_RESTART_EXEC_HELPER=1",
 		"AXISRELAY_RESTART_EXEC_TARGET="+targetPath,
-		"CODEX2API_RESTART_EXEC_VALUE=kept",
+		"AXISRELAY_RESTART_EXEC_VALUE=kept",
 	)
 
 	output, err := cmd.CombinedOutput()

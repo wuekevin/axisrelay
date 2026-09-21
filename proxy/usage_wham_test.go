@@ -134,7 +134,7 @@ func TestApplyWhamUsage_SkipsIdentityWriteBackWhenAccountIDOverridden(t *testing
 
 func TestApplyWhamUsage_PersistsPlanAnd5h7d(t *testing.T) {
 	ctx := context.Background()
-	dbPath := filepath.Join(t.TempDir(), "codex2api.db")
+	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
 	db, err := database.New("sqlite", dbPath)
 	if err != nil {
 		t.Fatalf("database.New: %v", err)
@@ -191,7 +191,7 @@ func TestApplyWhamUsage_PersistsPlanAnd5h7d(t *testing.T) {
 
 func TestApplyWhamUsage_PersistsIdentity(t *testing.T) {
 	ctx := context.Background()
-	dbPath := filepath.Join(t.TempDir(), "codex2api.db")
+	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
 	db, err := database.New("sqlite", dbPath)
 	if err != nil {
 		t.Fatalf("database.New: %v", err)
@@ -235,7 +235,7 @@ func TestApplyWhamUsage_PersistsIdentity(t *testing.T) {
 
 func TestApplyWhamUsage_PersistsSubscriptionExpiresAtWhenMemoryAlreadyMatches(t *testing.T) {
 	ctx := context.Background()
-	dbPath := filepath.Join(t.TempDir(), "codex2api.db")
+	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
 	db, err := database.New("sqlite", dbPath)
 	if err != nil {
 		t.Fatalf("database.New: %v", err)
@@ -269,7 +269,7 @@ func TestApplyWhamUsage_PersistsSubscriptionExpiresAtWhenMemoryAlreadyMatches(t 
 // 不再显示「已过期」。(issue #360)
 func TestApplyWhamUsage_ClearsStaleSubscriptionExpiry(t *testing.T) {
 	ctx := context.Background()
-	dbPath := filepath.Join(t.TempDir(), "codex2api.db")
+	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
 	db, err := database.New("sqlite", dbPath)
 	if err != nil {
 		t.Fatalf("database.New: %v", err)
@@ -308,7 +308,7 @@ func TestApplyWhamUsage_ClearsStaleSubscriptionExpiry(t *testing.T) {
 // free）时，已过去的订阅到期时间是准确信息，保留不清理。
 func TestApplyWhamUsage_KeepsExpiredSubscriptionForFreePlan(t *testing.T) {
 	ctx := context.Background()
-	dbPath := filepath.Join(t.TempDir(), "codex2api.db")
+	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
 	db, err := database.New("sqlite", dbPath)
 	if err != nil {
 		t.Fatalf("database.New: %v", err)
@@ -419,7 +419,7 @@ func TestApplyWhamUsage5hOnlyDoesNotRefreshStale7dProbeFreshness(t *testing.T) {
 // limit_window_seconds 而不是字段位置来分类，否则 7d 数据会被错误写入 5h 槽位。
 func TestApplyWhamUsage_FreeAccountPrimaryIs7d(t *testing.T) {
 	ctx := context.Background()
-	dbPath := filepath.Join(t.TempDir(), "codex2api.db")
+	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
 	db, err := database.New("sqlite", dbPath)
 	if err != nil {
 		t.Fatalf("database.New: %v", err)
@@ -473,7 +473,7 @@ func TestApplyWhamUsage_FreeAccountPrimaryIs7d(t *testing.T) {
 // issue #382：上游 WHAM 不再返回 5h 时，必须清除本地陈旧 5h 快照与 premium 5h 限流。
 func TestApplyWhamUsage_ClearsStale5hWhenUpstreamOmitsWindow(t *testing.T) {
 	ctx := context.Background()
-	dbPath := filepath.Join(t.TempDir(), "codex2api.db")
+	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
 	db, err := database.New("sqlite", dbPath)
 	if err != nil {
 		t.Fatalf("database.New: %v", err)
@@ -1291,7 +1291,7 @@ func TestQueryWhamResetCreditsRoutesThroughResin(t *testing.T) {
 
 func TestApplyWhamUsage_PersistsIndependentSparkSnapshot(t *testing.T) {
 	ctx := context.Background()
-	db, err := database.New("sqlite", filepath.Join(t.TempDir(), "codex2api.db"))
+	db, err := database.New("sqlite", filepath.Join(t.TempDir(), "axisrelay.db"))
 	if err != nil {
 		t.Fatalf("database.New: %v", err)
 	}
@@ -1350,7 +1350,7 @@ func TestApplyWhamUsage_PersistsIndependentSparkSnapshot(t *testing.T) {
 
 func TestApplyWhamUsage_ClearsStaleSparkWhenUpstreamOmitsWindow(t *testing.T) {
 	ctx := context.Background()
-	db, err := database.New("sqlite", filepath.Join(t.TempDir(), "codex2api.db"))
+	db, err := database.New("sqlite", filepath.Join(t.TempDir(), "axisrelay.db"))
 	if err != nil {
 		t.Fatalf("database.New: %v", err)
 	}
@@ -1449,7 +1449,7 @@ func TestQueryWhamUsage_ParsesTeamMemberNullBalanceCredits(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	dbPath := filepath.Join(t.TempDir(), "codex2api.db")
+	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
 	db, err := database.New("sqlite", dbPath)
 	if err != nil {
 		t.Fatalf("database.New: %v", err)
@@ -1490,7 +1490,7 @@ func TestQueryWhamUsage_ParsesTeamMemberNullBalanceCredits(t *testing.T) {
 
 func TestApplyWhamUsage_WorkspaceHardStopPreventsCreditBypass(t *testing.T) {
 	ctx := context.Background()
-	dbPath := filepath.Join(t.TempDir(), "codex2api.db")
+	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
 	db, err := database.New("sqlite", dbPath)
 	if err != nil {
 		t.Fatalf("database.New: %v", err)

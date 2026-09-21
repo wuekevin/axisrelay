@@ -24,7 +24,7 @@ const (
 	ultraModeMarkerTag  = "<multi_agent_mode>"
 	ultraModeActiveText = "Proactive multi-agent delegation is active"
 
-	requestUltraModeContextKey = "codex2api.request.ultra_mode"
+	requestUltraModeContextKey = "axisrelay.request.ultra_mode"
 
 	ultraModeTurnTTL        = 6 * time.Hour
 	ultraModeTurnMaxEntries = 20000

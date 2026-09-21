@@ -28,7 +28,7 @@ func TestPromptGuardAsyncShadowAuxiliaryLoadNeverFallsBackToRequestPath(t *testi
 		defaultPromptGuardShadowDispatcher = originalDispatcher
 	})
 
-	db, err := database.New("sqlite", filepath.Join(t.TempDir(), "codex2api.db"))
+	db, err := database.New("sqlite", filepath.Join(t.TempDir(), "axisrelay.db"))
 	if err != nil {
 		t.Fatal(err)
 	}

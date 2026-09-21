@@ -1,6 +1,6 @@
-# Codex2API API 文档
+# AxisRelay API 文档
 
-本文档详细描述 Codex2API 的所有 API 端点、请求/响应格式以及错误码说明。
+本文档详细描述 AxisRelay 的所有 API 端点、请求/响应格式以及错误码说明。
 
 ## 目录
 
@@ -33,7 +33,7 @@
 
 ## 概述
 
-Codex2API 提供兼容 OpenAI 风格的 API 接口，同时包含完整的管理后台 API。
+AxisRelay 提供兼容 OpenAI 风格的 API 接口，同时包含完整的管理后台 API。
 
 Anthropic `/v1/messages` 在没有可用 Claude OAuth 账号时，才将官方 `speed:"fast"` 映射为上游 Codex `service_tier:"priority"`；Claude OAuth 账号优先走原生 Anthropic Messages 透传，不经过该转换。Anthropic 请求侧 `service_tier`（Priority Tier）不在此映射范围内。用量日志的 `service_tier` / `fast` 过滤反映该解析结果。
 
@@ -74,10 +74,10 @@ Authorization: Bearer sk-xxxxxxxxxxxxxxxxxxxxxxxx
 多个最终用户共享同一个 API Key 时，可选传入稳定的本地亲和标识：
 
 ```http
-X-Codex2API-Affinity-Key: tenant-user-or-conversation-id
+X-AxisRelay-Affinity-Key: tenant-user-or-conversation-id
 ```
 
-该请求头优先于其他会话亲和信号。Codex2API 会先对原始值做 SHA-256 派生，只保留本地路由标识；原始值不会保存，也不会转发给上游。
+该请求头优先于其他会话亲和信号。AxisRelay 会先对原始值做 SHA-256 派生，只保留本地路由标识；原始值不会保存，也不会转发给上游。
 
 **配置方式:**
 
@@ -549,7 +549,7 @@ Codex 的流式 remote compact v2（`POST /v1/responses`，`stream:true`，`inpu
 
 网关记录成功返回的压缩状态来源。已知 Grok 压缩状态只回到创建它的账号，并按项原样保留密文；来源账号不可用时返回 `503 compaction_upstream_unavailable`，不会改用其他账号。未知来源或来源缓存不可用时仍沿用既有调度和外来密文降级规则，不保证保留这些压缩项中的上下文。上游拒绝已知来源的 Grok 压缩状态时，网关保留错误，不通过删除该状态重试来掩盖上下文丢失。
 
-上述来源绑定适用于上游原生不透明状态。网关生成的兼容摘要使用 `codex2api-emulated-compaction-v1:` 前缀和 Base64 封装，是可解码的文本摘要，不是上游加密密文。续聊时会还原成摘要消息并恢复正常调度，无需依赖原账号或来源缓存；摘要请求的 token 用量沿用上游返回值计入本次请求。
+上述来源绑定适用于上游原生不透明状态。网关生成的兼容摘要使用 `axisrelay-emulated-compaction-v1:` 前缀和 Base64 封装，是可解码的文本摘要，不是上游加密密文。续聊时会还原成摘要消息并恢复正常调度，无需依赖原账号或来源缓存；摘要请求的 token 用量沿用上游返回值计入本次请求。
 
 ### 6. Health Check
 
@@ -993,7 +993,7 @@ API Key 账号还可选配置两项客户端请求特征（默认都不启用，
   `PATCH /api/admin/accounts/:id/scheduler` 的 `custom_headers` 对 API Key 账号执行同样校验，
   传 `null` 清空。
 - `claude_fingerprint_mode`：Claude Code 客户端身份仿真。空（默认）= 透传，只保留下游
-  `User-Agent`（缺失时为 `Codex2API`）；`force` = 始终携带 Claude Code CLI 的基础身份头
+  `User-Agent`（缺失时为 `AxisRelay`）；`force` = 始终携带 Claude Code CLI 的基础身份头
   （`User-Agent: claude-cli/<版本> (external, cli)`、`X-App`、`X-Stainless-*`、
   `X-Stainless-Retry-Count/Timeout`、`anthropic-dangerous-direct-browser-access`）；
   `preserve` = 下游是真实 Claude Code CLI 时保留其身份头、缺失才补齐，非 CLI 客户端按 `force` 处理。
@@ -1621,7 +1621,7 @@ data: {"type":"complete","current":3,"total":3,"success":2,"failed":1}
 
 #### POST /api/admin/accounts/migrate
 
-从远程 codex2api 实例迁移账号。
+从远程 axisrelay 实例迁移账号。
 
 **请求:**
 
@@ -1676,8 +1676,8 @@ data: {"type":"complete","current":3,"total":3,"success":2,"failed":1}
 
 获取使用日志。
 
-HTTP `/v1/*` 响应的 `X-Codex2API-Request-ID` 对应下方可检索的 `request_id`，浏览器可通过 CORS 读取。
-既有 `X-Request-ID` 是请求上下文/访问日志 ID，可能回显客户端传入值，与该网关追踪 ID 独立；排查用量请使用 `X-Codex2API-Request-ID`。
+HTTP `/v1/*` 响应的 `X-AxisRelay-Request-ID` 对应下方可检索的 `request_id`，浏览器可通过 CORS 读取。
+既有 `X-Request-ID` 是请求上下文/访问日志 ID，可能回显客户端传入值，与该网关追踪 ID 独立；排查用量请使用 `X-AxisRelay-Request-ID`。
 自动压缩用量的 `parent_request_id` 优先引用父请求的网关追踪 ID；`/v1/live` 结算沿用建连请求的追踪信息。
 
 **查询参数:**

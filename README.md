@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/banner.svg" alt="Codex2API" width="100%">
+  <img src="assets/banner.svg" alt="AxisRelay" width="100%">
 </p>
 
 <p align="center">
@@ -17,7 +17,7 @@
   <img src="https://img.shields.io/badge/Docker-Ready-2496ED?style=for-the-badge&logo=docker&logoColor=white" alt="Docker">
 </p>
 
-**Turn a Codex account pool into an observable, schedulable, operations-ready OpenAI / Anthropic compatible gateway.** Codex2API is not a thin forwarding proxy. It is a long-running Codex access hub: it exposes `/v1/chat/completions`, `/v1/responses`, `/v1/messages`, Images, Videos (Grok Imagine), and Models endpoints while managing Refresh Token / Access Token accounts, health scoring, dynamic concurrency, rate-limit recovery, usage tracking, and admin operations behind the scenes.
+**Turn a Codex account pool into an observable, schedulable, operations-ready OpenAI / Anthropic compatible gateway.** AxisRelay is not a thin forwarding proxy. It is a long-running Codex access hub: it exposes `/v1/chat/completions`, `/v1/responses`, `/v1/messages`, Images, Videos (Grok Imagine), and Models endpoints while managing Refresh Token / Access Token accounts, health scoring, dynamic concurrency, rate-limit recovery, usage tracking, and admin operations behind the scenes.
 
 Run it as a full **PostgreSQL + Redis** production stack or as a single-container **SQLite + in-memory cache** deployment. Point Codex CLI, Claude Code, the OpenAI SDK, or any compatible client at one Base URL, then manage accounts, proxies, API keys, prompt filtering, image workflows, and runtime settings from the built-in dashboard.
 
@@ -34,8 +34,8 @@ Run it as a full **PostgreSQL + Redis** production stack or as a single-containe
 
 ## Live Demo
 
-- Demo URL: [https://codex2api-latest-vu8j.onrender.com](https://codex2api-latest-vu8j.onrender.com)
-- Demo password: `codex2api`
+- Demo URL: [https://axisrelay-latest-vu8j.onrender.com](https://axisrelay-latest-vu8j.onrender.com)
+- Demo password: `axisrelay`
 
 > The demo is only for trying the admin dashboard and basic UI flows. Do not upload real Refresh Tokens, Access Tokens, API keys, or any other sensitive data.
 
@@ -112,12 +112,12 @@ Run it as a full **PostgreSQL + Redis** production stack or as a single-containe
 Standard image mode:
 
 ```bash
-git clone https://github.com/james-6-23/codex2api.git
-cd codex2api
+git clone https://github.com/wuekevin/axisrelay.git
+cd axisrelay
 cp .env.example .env
 docker compose pull
 docker compose up -d
-docker compose logs -f codex2api
+docker compose logs -f axisrelay
 ```
 
 Standard local build mode:
@@ -125,7 +125,7 @@ Standard local build mode:
 ```bash
 cp .env.example .env
 docker compose -f docker-compose.local.yml up -d --build
-docker compose -f docker-compose.local.yml logs -f codex2api
+docker compose -f docker-compose.local.yml logs -f axisrelay
 ```
 
 SQLite image mode:
@@ -134,7 +134,7 @@ SQLite image mode:
 cp .env.sqlite.example .env
 docker compose -f docker-compose.sqlite.yml pull
 docker compose -f docker-compose.sqlite.yml up -d
-docker compose -f docker-compose.sqlite.yml logs -f codex2api
+docker compose -f docker-compose.sqlite.yml logs -f axisrelay
 ```
 
 SQLite local build mode:
@@ -142,7 +142,7 @@ SQLite local build mode:
 ```bash
 cp .env.sqlite.example .env
 docker compose -f docker-compose.sqlite.local.yml up -d --build
-docker compose -f docker-compose.sqlite.local.yml logs -f codex2api
+docker compose -f docker-compose.sqlite.local.yml logs -f axisrelay
 ```
 
 After startup:
@@ -154,7 +154,7 @@ Notes:
 
 - Standard and SQLite modes both read `.env`.
 - Before switching deployment modes, replace `.env` with the matching example file.
-- The SQLite lightweight mode runs a single `codex2api` container and stores data at `/data/codex2api.db`.
+- The SQLite lightweight mode runs a single `axisrelay` container and stores data at `/data/axisrelay.db`.
 - **SQLite compose files bind to `127.0.0.1` by default for security.** To expose the SQLite service on all interfaces, set `AXISRELAY_BIND_HOST=0.0.0.0` in `.env` or override the port binding in the compose file. The standard compose files bind to `0.0.0.0` by default.
 - The image studio library is stored under `/data/images`; uploaded admin backgrounds are stored under `/data/backgrounds`; Docker configurations persist `/data`.
 - `docker compose down` does not delete named volumes by default. Data is removed only by commands such as `docker compose down -v`, `docker volume rm`, or `docker volume prune`.
@@ -186,19 +186,19 @@ Antigravity accounts are managed as a dedicated Google channel with browser/impo
 Upgrade the standard image deployment:
 
 ```bash
-git pull && docker compose pull && docker compose up -d && docker compose logs -f codex2api
+git pull && docker compose pull && docker compose up -d && docker compose logs -f axisrelay
 ```
 
 Back up the database before upgrading:
 
 ```bash
-docker exec codex2api-postgres pg_dump -U codex2api codex2api > backup_$(date +%Y%m%d_%H%M%S).sql
+docker exec axisrelay-postgres pg_dump -U axisrelay axisrelay > backup_$(date +%Y%m%d_%H%M%S).sql
 ```
 
 Restore from a backup if needed:
 
 ```bash
-docker exec -i codex2api-postgres psql -U codex2api codex2api < backup_xxx.sql
+docker exec -i axisrelay-postgres psql -U axisrelay axisrelay < backup_xxx.sql
 ```
 
 Unless you explicitly need to recreate resources, avoid `docker compose down` during upgrades. `pull + up -d` keeps existing containers and named volumes.
@@ -366,7 +366,7 @@ Import endpoints deduplicate tokens automatically. Existing tokens are not inser
 
 #### OAuth PKCE Authorization
 
-Codex2API supports acquiring Refresh Tokens through the OAuth PKCE flow, useful when manual token extraction is impractical:
+AxisRelay supports acquiring Refresh Tokens through the OAuth PKCE flow, useful when manual token extraction is impractical:
 
 ```bash
 # Step 1: Generate an authorization URL
@@ -413,7 +413,7 @@ Open `/admin/` in a browser.
 
 ### Positioning
 
-Codex2API is not just a forwarding proxy. It is a long-running Codex gateway with a full admin dashboard:
+AxisRelay is not just a forwarding proxy. It is a long-running Codex gateway with a full admin dashboard:
 
 - Exposes a unified OpenAI-style API surface.
 - Maintains a Refresh Token account pool and Access Token lifecycle.
@@ -454,7 +454,7 @@ Selection strategy:
 4. Prefer higher `SchedulerPriority`, then `healthy > warm > risky > banned`; within the same priority and tier, prefer higher score and lower concurrency.
 5. In indexed mode, use a per-tier cursor or deterministic affinity offset inside the highest valid priority/health segment.
 
-When multiple end users share one downstream API key, send `X-Codex2API-Affinity-Key` with a stable user or conversation identifier. Codex2API hashes it for local account affinity only and never forwards it upstream.
+When multiple end users share one downstream API key, send `X-AxisRelay-Affinity-Key` with a stable user or conversation identifier. AxisRelay hashes it for local account affinity only and never forwards it upstream.
 
 Concurrency rules:
 
@@ -507,7 +507,7 @@ When an account has a credit-based billing model instead of a usage-based Free/P
 ## Project Structure
 
 ```text
-codex2api/
+axisrelay/
 |- main.go                      # Application entrypoint
 |- Dockerfile                   # Multi-stage image build
 |- docker-compose.yml           # Image deployment template
@@ -540,7 +540,7 @@ codex2api/
 
 ## Community
 
-- QQ group: [Join the "codex2api" group chat](https://qun.qq.com/universal-share/share?ac=1&authKey=6vwawW4MeqdACT7PajnHlf2lLkjfuNXEMSos67l9FBiAJ8t%2BKeaXJXB0dgsnhFa1&busi_data=eyJncm91cENvZGUiOiI4MTY3Mzk4NDIiLCJ0b2tlbiI6ImU1YW1KR3dNaXZoUXZDUWpYTWVncmdmMXhQV1RwQ21tbEhkdjB5VW45aWVPSjhFM2grMkRHNGdhWnhEU29oS08iLCJ1aW4iOiIxMTYzNDc2OTQ5In0%3D&data=adSomD6r40Al25rBr8PocFCKumQR5oxi1kq5jXjXxeJ49Z5cj4QLzbNf6vfIQKWMORrJntrZtcoyQuHg2ksUeA&svctype=4&tempid=h5_group_info) (group ID: 816739842)
+- QQ group: [Join the "axisrelay" group chat](https://qun.qq.com/universal-share/share?ac=1&authKey=6vwawW4MeqdACT7PajnHlf2lLkjfuNXEMSos67l9FBiAJ8t%2BKeaXJXB0dgsnhFa1&busi_data=eyJncm91cENvZGUiOiI4MTY3Mzk4NDIiLCJ0b2tlbiI6ImU1YW1KR3dNaXZoUXZDUWpYTWVncmdmMXhQV1RwQ21tbEhkdjB5VW45aWVPSjhFM2grMkRHNGdhWnhEU29oS08iLCJ1aW4iOiIxMTYzNDc2OTQ5In0%3D&data=adSomD6r40Al25rBr8PocFCKumQR5oxi1kq5jXjXxeJ49Z5cj4QLzbNf6vfIQKWMORrJntrZtcoyQuHg2ksUeA&svctype=4&tempid=h5_group_info) (group ID: 816739842)
 - Telegram group: [Join the Telegram group](https://t.me/+9hJAA3ZWQxxmMzE5)
 
 Join the group to discuss deployment, usage, and development questions.
@@ -557,11 +557,11 @@ Join the group to discuss deployment, usage, and development questions.
 
 ## Star History
 
-<a href="https://star-history.dera.page/#james-6-23/codex2api&Date">
+<a href="https://star-history.dera.page/#wuekevin/axisrelay&Date">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://star-history.dera.page/svg?repos=james-6-23/codex2api&type=Date&theme=dark" />
-    <source media="(prefers-color-scheme: light)" srcset="https://star-history.dera.page/svg?repos=james-6-23/codex2api&type=Date" />
-    <img alt="Star History Chart" src="https://star-history.dera.page/svg?repos=james-6-23/codex2api&type=Date" />
+    <source media="(prefers-color-scheme: dark)" srcset="https://star-history.dera.page/svg?repos=wuekevin/axisrelay&type=Date&theme=dark" />
+    <source media="(prefers-color-scheme: light)" srcset="https://star-history.dera.page/svg?repos=wuekevin/axisrelay&type=Date" />
+    <img alt="Star History Chart" src="https://star-history.dera.page/svg?repos=wuekevin/axisrelay&type=Date" />
   </picture>
 </a>
 

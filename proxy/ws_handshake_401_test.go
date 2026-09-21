@@ -44,7 +44,7 @@ func TestResponsesWebsocketHandshake401CoolsAccountAndLogs401(t *testing.T) {
 		}, nil
 	}
 
-	dbPath := filepath.Join(t.TempDir(), "codex2api.db")
+	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
 	db, err := database.New("sqlite", dbPath)
 	if err != nil {
 		t.Fatalf("database.New: %v", err)

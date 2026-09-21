@@ -483,7 +483,7 @@ func liveInboundEndpoint(c *gin.Context) string {
 }
 
 func liveAttestationKey(secret string) [32]byte {
-	return sha256.Sum256([]byte("codex2api/live-attestation/v1\x00" + secret))
+	return sha256.Sum256([]byte("axisrelay/live-attestation/v1\x00" + secret))
 }
 
 func encryptLiveAttestation(plaintext, secret string) (string, error) {

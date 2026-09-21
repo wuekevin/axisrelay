@@ -135,7 +135,7 @@ func TestMaybeSyncSubscriptionExpiry_SyncsAndThrottles(t *testing.T) {
 	defer server.Close()
 	defer SetSubscriptionsURLForTest(server.URL)()
 
-	dbPath := filepath.Join(t.TempDir(), "codex2api.db")
+	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
 	db, err := database.New("sqlite", dbPath)
 	if err != nil {
 		t.Fatalf("database.New: %v", err)
@@ -228,7 +228,7 @@ func TestQueryChatGPTSubscriptionRoutesThroughResin(t *testing.T) {
 func newSubscriptionSyncTestStore(t *testing.T, plan string) (*auth.Store, *database.DB, int64) {
 	t.Helper()
 	ctx := context.Background()
-	dbPath := filepath.Join(t.TempDir(), "codex2api.db")
+	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
 	db, err := database.New("sqlite", dbPath)
 	if err != nil {
 		t.Fatalf("database.New: %v", err)

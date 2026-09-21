@@ -30,7 +30,7 @@ const (
 	responsesWSOverloadWriteTimeout       = time.Second
 	responsesWSFriendlyUpstreamErr        = "上游服务临时繁忙，请稍后重试"
 	newAPIPolicyWebSocketEventField       = "__newapi_policy_event_id"
-	newAPIPolicyWebSocketCapabilityHeader = "X-Codex2API-Policy-Event-ID"
+	newAPIPolicyWebSocketCapabilityHeader = "X-AxisRelay-Policy-Event-ID"
 	newAPIPolicyWebSocketCapabilityV1     = "v1"
 	responsesWSInboundQueueCapacity       = 16
 )

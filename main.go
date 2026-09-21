@@ -40,10 +40,10 @@ func migrateOnlyEnabled() bool {
 	return value == "1" || strings.EqualFold(value, "true")
 }
 
-// main 加载配置、初始化存储与路由，并启动 Codex2API HTTP 服务。
+// main 加载配置、初始化存储与路由，并启动 AxisRelay HTTP 服务。
 func main() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
-	log.Println("Codex2API v2 启动中...")
+	log.Println("AxisRelay v2 启动中...")
 
 	// 1. 加载配置 (.env)
 	cfg, err := config.Load(".env")
@@ -597,7 +597,7 @@ func main() {
 		displayHost = "localhost"
 	}
 	log.Println("==========================================")
-	log.Printf("  Codex2API v2 已启动")
+	log.Printf("  AxisRelay v2 已启动")
 	log.Printf("  Listen: %s", addr)
 	log.Printf("  HTTP:   http://%s:%d", displayHost, cfg.Port)
 	log.Printf("  管理台: http://%s:%d/admin/", displayHost, cfg.Port)
@@ -747,7 +747,7 @@ func printSecurityBanner(db *database.DB, cfg *config.Config, settings *database
 	publicBind := bind == "" || bind == "0.0.0.0" || bind == "::"
 	const sep = "=========================================================="
 	log.Println(sep)
-	log.Println("[SECURITY] Codex2API 安全状态自检")
+	log.Println("[SECURITY] AxisRelay 安全状态自检")
 	log.Println(sep)
 
 	switch {

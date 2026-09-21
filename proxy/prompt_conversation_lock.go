@@ -267,12 +267,12 @@ func writePromptCyberRestrictionHeaders(c *gin.Context, restriction promptCyberR
 	if c == nil {
 		return
 	}
-	c.Header("X-Codex2API-Policy-Restriction-Scope", restriction.Scope)
+	c.Header("X-AxisRelay-Policy-Restriction-Scope", restriction.Scope)
 	if restriction.RetryAfterSeconds > 0 {
 		c.Header("Retry-After", strconv.FormatInt(restriction.RetryAfterSeconds, 10))
 	}
 	if !restriction.ExpiresAt.IsZero() {
-		c.Header("X-Codex2API-Policy-Restriction-Expires-At", restriction.ExpiresAt.Format(time.RFC3339))
+		c.Header("X-AxisRelay-Policy-Restriction-Expires-At", restriction.ExpiresAt.Format(time.RFC3339))
 	}
 }
 

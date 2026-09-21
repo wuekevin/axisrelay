@@ -1571,7 +1571,7 @@ func TestResponsesHTTPIngressFallsBackToHTTPWhenForcedWebsocketMessageTooBig(t *
 	body := []byte(`{"model":"gpt-5.6-sol","input":"hello","stream":true}`)
 	req := httptest.NewRequest(http.MethodPost, "/v1/responses", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-Codex2API-Affinity-Key", "tenant-user-42")
+	req.Header.Set("X-AxisRelay-Affinity-Key", "tenant-user-42")
 	req.Header.Set("X-OpenAI-Internal-Codex-Responses-Lite", "true")
 	sessionIdentity := resolveRequestSessionIdentity(req.Header, body)
 	recorder := httptest.NewRecorder()
@@ -4508,7 +4508,7 @@ func TestApply429CooldownTransport429KeepsHeadersForOrdinaryAndSpark(t *testing.
 
 func TestApply429CooldownUsageLimitUpdatesFreePlanMetadata(t *testing.T) {
 	ctx := context.Background()
-	dbPath := filepath.Join(t.TempDir(), "codex2api.db")
+	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
 	db, err := database.New("sqlite", dbPath)
 	if err != nil {
 		t.Fatalf("database.New 返回错误: %v", err)
@@ -4668,7 +4668,7 @@ func TestResponseFailedRetryableClassification(t *testing.T) {
 
 func TestSyncCodexUsageStateUpdatesPlanTypeFromHeader(t *testing.T) {
 	ctx := context.Background()
-	dbPath := filepath.Join(t.TempDir(), "codex2api.db")
+	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
 	db, err := database.New("sqlite", dbPath)
 	if err != nil {
 		t.Fatalf("database.New returned error: %v", err)
@@ -4823,7 +4823,7 @@ func TestSyncCodexUsageState5hOnlyDoesNotRefreshStale7dProbeFreshness(t *testing
 
 func TestSyncCodexUsageStateMarks7dUsageLimited(t *testing.T) {
 	ctx := context.Background()
-	dbPath := filepath.Join(t.TempDir(), "codex2api.db")
+	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
 	db, err := database.New("sqlite", dbPath)
 	if err != nil {
 		t.Fatalf("database.New returned error: %v", err)
@@ -4866,7 +4866,7 @@ func TestSyncCodexUsageStateMarks7dUsageLimited(t *testing.T) {
 
 func TestSyncCodexUsageStateCreditAccountSkips7dUsageLimit(t *testing.T) {
 	ctx := context.Background()
-	dbPath := filepath.Join(t.TempDir(), "codex2api.db")
+	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
 	db, err := database.New("sqlite", dbPath)
 	if err != nil {
 		t.Fatalf("database.New returned error: %v", err)
@@ -4934,7 +4934,7 @@ func TestSyncCodexUsageStateCreditAccountSkips7dUsageLimit(t *testing.T) {
 
 func TestSyncCodexUsageStateTeamMemberNullBalanceCreditsSkips7dUsageLimit(t *testing.T) {
 	ctx := context.Background()
-	dbPath := filepath.Join(t.TempDir(), "codex2api.db")
+	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
 	db, err := database.New("sqlite", dbPath)
 	if err != nil {
 		t.Fatalf("database.New returned error: %v", err)
@@ -4989,7 +4989,7 @@ func TestSyncCodexUsageStateTeamMemberNullBalanceCreditsSkips7dUsageLimit(t *tes
 
 func TestSyncCodexUsageStateSparseCreditsHeadersObservation(t *testing.T) {
 	ctx := context.Background()
-	dbPath := filepath.Join(t.TempDir(), "codex2api.db")
+	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
 	db, err := database.New("sqlite", dbPath)
 	if err != nil {
 		t.Fatalf("database.New returned error: %v", err)
@@ -5055,7 +5055,7 @@ func TestSyncCodexUsageStateSparseCreditsHeadersObservation(t *testing.T) {
 // issue #382：响应头仅有 7d 时清除陈旧 5h；完全无用量头时保留 5h。
 func TestSyncCodexUsageState_Clears5hWhenOnly7dHeaders(t *testing.T) {
 	ctx := context.Background()
-	dbPath := filepath.Join(t.TempDir(), "codex2api.db")
+	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
 	db, err := database.New("sqlite", dbPath)
 	if err != nil {
 		t.Fatalf("database.New: %v", err)
@@ -5189,7 +5189,7 @@ func TestSyncCodexUsageState_NilStorePreservesPremiumCooldown(t *testing.T) {
 
 func TestSyncCodexUsageState_7dOnlyPreservesNewerUnauthorizedCooldown(t *testing.T) {
 	ctx := context.Background()
-	db, err := database.New("sqlite", filepath.Join(t.TempDir(), "codex2api.db"))
+	db, err := database.New("sqlite", filepath.Join(t.TempDir(), "axisrelay.db"))
 	if err != nil {
 		t.Fatalf("database.New: %v", err)
 	}
@@ -5235,7 +5235,7 @@ func TestSyncCodexUsageState_7dOnlyPreservesNewerUnauthorizedCooldown(t *testing
 func TestAuthMiddlewareSetsAPIKeyContext(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	dbPath := filepath.Join(t.TempDir(), "codex2api.db")
+	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
 	db, err := database.New("sqlite", dbPath)
 	if err != nil {
 		t.Fatalf("database.New 返回错误: %v", err)
@@ -5299,7 +5299,7 @@ func TestAuthMiddlewareSetsAPIKeyContext(t *testing.T) {
 func TestAuthMiddlewareAcceptsGoogleAPIKeyHeader(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	dbPath := filepath.Join(t.TempDir(), "codex2api.db")
+	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
 	db, err := database.New("sqlite", dbPath)
 	if err != nil {
 		t.Fatalf("database.New 返回错误: %v", err)
@@ -5366,7 +5366,7 @@ func TestDownstreamAuthorizationHeaderPrecedence(t *testing.T) {
 func TestAuthMiddlewareAcceptsOpenAIWebSocketSubprotocolAPIKey(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	dbPath := filepath.Join(t.TempDir(), "codex2api.db")
+	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
 	db, err := database.New("sqlite", dbPath)
 	if err != nil {
 		t.Fatalf("database.New returned error: %v", err)
@@ -5407,7 +5407,7 @@ func TestAuthMiddlewareAcceptsOpenAIWebSocketSubprotocolAPIKey(t *testing.T) {
 func TestAuthMiddlewareDoesNotAcceptWebSocketSubprotocolOnOrdinaryHTTP(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	dbPath := filepath.Join(t.TempDir(), "codex2api.db")
+	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
 	db, err := database.New("sqlite", dbPath)
 	if err != nil {
 		t.Fatalf("database.New returned error: %v", err)
@@ -5436,7 +5436,7 @@ func TestAuthMiddlewareDoesNotAcceptWebSocketSubprotocolOnOrdinaryHTTP(t *testin
 func TestAuthMiddlewareRejectsExpiredAPIKey(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	dbPath := filepath.Join(t.TempDir(), "codex2api.db")
+	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
 	db, err := database.New("sqlite", dbPath)
 	if err != nil {
 		t.Fatalf("database.New 返回错误: %v", err)
@@ -5473,7 +5473,7 @@ func TestAuthMiddlewareRejectsExpiredAPIKey(t *testing.T) {
 func TestAuthMiddlewareRejectsQuotaExhaustedAPIKey(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	dbPath := filepath.Join(t.TempDir(), "codex2api.db")
+	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
 	db, err := database.New("sqlite", dbPath)
 	if err != nil {
 		t.Fatalf("database.New 返回错误: %v", err)
@@ -5713,7 +5713,7 @@ func TestResponsesWebSocketStripsInjectedImageTool(t *testing.T) {
 // 非 nil error，让中间件回 503 而非误报 401 invalid_api_key (issue #323)。
 func TestResolveAPIKeyDistinguishesDBFailureFrom404(t *testing.T) {
 	ctx := context.Background()
-	dbPath := filepath.Join(t.TempDir(), "codex2api.db")
+	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
 	db, err := database.New("sqlite", dbPath)
 	if err != nil {
 		t.Fatalf("database.New: %v", err)
