@@ -157,6 +157,7 @@ import type {
 
 const BASE = '/api/admin'
 export const ADMIN_AUTH_REQUIRED_EVENT = 'codex2api:admin-auth-required'
+export const ADMIN_AUTH_CHANGED_EVENT = 'codex2api:admin-auth-changed'
 const ADMIN_AUTH_RESET_KEY = 'admin_auth_reset_at'
 
 export function getAdminKey(): string {
@@ -173,6 +174,7 @@ export function setAdminKey(key: string) {
   } else {
     clearAdminKey()
   }
+  window.dispatchEvent(new Event(ADMIN_AUTH_CHANGED_EVENT))
 }
 
 export function resetAdminAuthState() {
