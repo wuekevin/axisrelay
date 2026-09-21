@@ -13,6 +13,7 @@
     "audit:ci": "node scripts/audit-gate.mjs"
   },
   "dependencies": {
+    "@arco-design/web-react": "^2.66.16",
     "@lobehub/icons-static-svg": "^1.91.0",
     "@tailwindcss/vite": "^4.2.2",
     "class-variance-authority": "^0.7.1",
