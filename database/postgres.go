@@ -2,6 +2,7 @@ package database
 
 import (
 	"context"
+	"crypto/sha256"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -741,10 +742,17 @@ func (db *DB) rebuildUsageStatsRollup(ctx context.Context) error {
 		AND TRIM(COALESCE(channel, '')) <> '' GROUP BY TRIM(COALESCE(channel, ''))`); err != nil {
 		return err
 	}
-	if _, err := tx.ExecContext(ctx, `INSERT INTO usage_stats_rollup_state (id, initialized, last_log_id, aggregation_version, updated_at)
+	stateUpsert := `INSERT INTO usage_stats_rollup_state (id, initialized, last_log_id, aggregation_version, updated_at)
 		VALUES (1, 1, COALESCE((SELECT MAX(id) FROM usage_logs), 0), 2, CURRENT_TIMESTAMP)
 		ON CONFLICT(id) DO UPDATE SET initialized=1, last_log_id=excluded.last_log_id,
-			aggregation_version=excluded.aggregation_version, updated_at=CURRENT_TIMESTAMP`); err != nil {
+			aggregation_version=excluded.aggregation_version, updated_at=CURRENT_TIMESTAMP`
+	if db.isMySQL() {
+		stateUpsert = `INSERT INTO usage_stats_rollup_state (id, initialized, last_log_id, aggregation_version, updated_at)
+			VALUES (1, 1, COALESCE((SELECT MAX(id) FROM usage_logs), 0), 2, CURRENT_TIMESTAMP)
+			ON DUPLICATE KEY UPDATE initialized=1, last_log_id=VALUES(last_log_id),
+				aggregation_version=VALUES(aggregation_version), updated_at=CURRENT_TIMESTAMP`
+	}
+	if _, err := tx.ExecContext(ctx, stateUpsert); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -1917,10 +1925,18 @@ type APIKeyUpdate struct {
 }
 
 const apiKeySelectColumns = `id, name, key, created_at, COALESCE(quota_limit, 0), COALESCE(quota_used, 0), COALESCE(total_used, 0), COALESCE(reset_count, 0), last_reset_at, expires_at, COALESCE(allowed_group_ids, '[]'), COALESCE(limits, '{}'), COALESCE(enabled, TRUE)`
+const apiKeySelectColumnsMySQL = "id, name, `key`, created_at, COALESCE(quota_limit, 0), COALESCE(quota_used, 0), COALESCE(total_used, 0), COALESCE(reset_count, 0), last_reset_at, expires_at, COALESCE(allowed_group_ids, '[]'), COALESCE(limits, '{}'), COALESCE(enabled, TRUE)"
+
+func (db *DB) apiKeySelectColumns() string {
+	if db.isMySQL() {
+		return apiKeySelectColumnsMySQL
+	}
+	return apiKeySelectColumns
+}
 
 // ListAPIKeys 获取所有 API 密钥
 func (db *DB) ListAPIKeys(ctx context.Context) ([]*APIKeyRow, error) {
-	rows, err := db.conn.QueryContext(ctx, `SELECT `+apiKeySelectColumns+` FROM api_keys ORDER BY id`)
+	rows, err := db.conn.QueryContext(ctx, `SELECT `+db.apiKeySelectColumns()+` FROM api_keys ORDER BY id`)
 	if err != nil {
 		return nil, err
 	}
@@ -1948,7 +1964,11 @@ func (db *DB) CountAPIKeys(ctx context.Context) (int, error) {
 
 // GetAPIKeyByValue 通过完整 API Key 查找元数据，用于鉴权热路径的按 key 缓存。
 func (db *DB) GetAPIKeyByValue(ctx context.Context, key string) (*APIKeyRow, error) {
-	rows, err := db.conn.QueryContext(ctx, `SELECT `+apiKeySelectColumns+` FROM api_keys WHERE key = $1`, key)
+	where := "key = $1"
+	if db.isMySQL() {
+		where = "`key` = $1"
+	}
+	rows, err := db.conn.QueryContext(ctx, `SELECT `+db.apiKeySelectColumns()+` FROM api_keys WHERE `+where, key)
 	if err != nil {
 		return nil, err
 	}
@@ -1975,6 +1995,12 @@ func (db *DB) InsertAPIKeyWithOptions(ctx context.Context, input APIKeyInput) (i
 	}
 	if input.QuotaUsed < 0 {
 		input.QuotaUsed = 0
+	}
+	if db.isMySQL() {
+		return db.insertRowID(ctx, "",
+			"INSERT INTO api_keys (name, `key`, quota_limit, quota_used, expires_at, allowed_group_ids, limits) VALUES ($1, $2, $3, $4, $5, $6, $7)",
+			input.Name, input.Key, input.QuotaLimit, input.QuotaUsed, nullableTimeArg(input.ExpiresAt), encodeInt64SliceJSON(input.AllowedGroupIDs), encodeAPIKeyLimits(input.Limits),
+		)
 	}
 	return db.insertRowID(ctx,
 		`INSERT INTO api_keys (name, key, quota_limit, quota_used, expires_at, allowed_group_ids, limits) VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7::jsonb) RETURNING id`,
@@ -2556,7 +2582,7 @@ func (db *DB) GetSystemSettings(ctx context.Context) (*SystemSettings, error) {
 	s := &SystemSettings{}
 	err := db.conn.QueryRowContext(ctx, `
 		SELECT COALESCE(site_name, 'CodexProxy'), COALESCE(site_logo, ''),
-		       max_concurrency, global_rpm, test_model, COALESCE(test_content, 'hi'), test_concurrency, proxy_url, pg_max_conns, redis_pool_size,
+		       max_concurrency, global_rpm, test_model, COALESCE(test_content, 'hi'), test_concurrency, COALESCE(proxy_url, ''), pg_max_conns, redis_pool_size,
 		       auto_clean_unauthorized, auto_clean_rate_limited, COALESCE(admin_secret, ''), COALESCE(auto_clean_full_usage, false),
 		       COALESCE(proxy_pool_enabled, false),
 		       COALESCE(fast_scheduler_enabled, false),
@@ -3197,6 +3223,14 @@ func (db *DB) UpdateSystemSettings(ctx context.Context, s *SystemSettings) error
 // UpdateCodexSyncedCLIVersion 只更新后台同步得到的 Codex CLI 版本，避免用
 // 读取到的旧 SystemSettings 快照覆盖管理员刚保存的其他设置。
 func (db *DB) UpdateCodexSyncedCLIVersion(ctx context.Context, version string) error {
+	if db.isMySQL() {
+		_, err := db.conn.ExecContext(ctx, `
+			INSERT INTO system_settings (id, codex_synced_cli_version)
+			VALUES (1, $1)
+			ON DUPLICATE KEY UPDATE codex_synced_cli_version = VALUES(codex_synced_cli_version)
+		`, strings.TrimSpace(version))
+		return err
+	}
 	_, err := db.conn.ExecContext(ctx, `
 		INSERT INTO system_settings (id, codex_synced_cli_version)
 		VALUES (1, $1)
@@ -3222,6 +3256,16 @@ func (db *DB) UpdateModelsListReadMaxBytes(ctx context.Context, value int64) err
 
 // UpdateModelPricingSettings 原子更新模型定价覆盖及其同步来源，不回写整行设置。
 func (db *DB) UpdateModelPricingSettings(ctx context.Context, overridesJSON, syncURL string) error {
+	if db.isMySQL() {
+		_, err := db.conn.ExecContext(ctx, `
+			INSERT INTO system_settings (id, model_pricing_overrides, model_pricing_sync_url)
+			VALUES (1, $1, $2)
+			ON DUPLICATE KEY UPDATE
+				model_pricing_overrides = VALUES(model_pricing_overrides),
+				model_pricing_sync_url = VALUES(model_pricing_sync_url)
+		`, normalizeModelPricingOverridesJSON(overridesJSON), strings.TrimSpace(syncURL))
+		return err
+	}
 	_, err := db.conn.ExecContext(ctx, `
 		INSERT INTO system_settings (id, model_pricing_overrides, model_pricing_sync_url)
 		VALUES (1, $1, $2)
@@ -3714,6 +3758,23 @@ func (db *DB) ListEnabledProxies(ctx context.Context) ([]*ProxyRow, error) {
 
 // InsertProxy 插入单个代理
 func (db *DB) InsertProxy(ctx context.Context, url, label string) (int64, error) {
+	if db.isMySQL() {
+		hash := sha256.Sum256([]byte(strings.TrimSpace(url)))
+		res, err := db.conn.ExecContext(ctx,
+			`INSERT IGNORE INTO proxies (url, url_hash, label) VALUES ($1, $2, $3)`,
+			strings.TrimSpace(url), fmt.Sprintf("%x", hash[:]), label)
+		if err != nil {
+			return 0, err
+		}
+		affected, err := res.RowsAffected()
+		if err != nil {
+			return 0, err
+		}
+		if affected == 0 {
+			return 0, sql.ErrNoRows
+		}
+		return res.LastInsertId()
+	}
 	return db.insertRowID(ctx,
 		`INSERT INTO proxies (url, label) VALUES ($1, $2) ON CONFLICT (url) DO NOTHING RETURNING id`,
 		`INSERT INTO proxies (url, label) VALUES ($1, $2) ON CONFLICT(url) DO NOTHING`,

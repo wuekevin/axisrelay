@@ -383,6 +383,10 @@ func (db *DB) isSQLite() bool {
 	return db != nil && db.driver == "sqlite"
 }
 
+func (db *DB) isMySQL() bool {
+	return db != nil && db.driver == "mysql"
+}
+
 func (db *DB) Driver() string {
 	if db == nil {
 		return "postgres"
@@ -414,9 +418,9 @@ func (db *DB) SetMaxOpenConns(n int) {
 	db.conn.SetMaxIdleConns(n / 2)
 }
 
-func (db *DB) insertRowID(ctx context.Context, postgresQuery string, sqliteQuery string, args ...interface{}) (int64, error) {
-	if db.isSQLite() {
-		res, err := db.conn.ExecContext(ctx, sqliteQuery, args...)
+func (db *DB) insertRowID(ctx context.Context, postgresQuery string, nonPostgresQuery string, args ...interface{}) (int64, error) {
+	if db.isSQLite() || db.isMySQL() {
+		res, err := db.conn.ExecContext(ctx, nonPostgresQuery, args...)
 		if err != nil {
 			return 0, err
 		}

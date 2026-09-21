@@ -670,7 +670,7 @@ func normalizePage(page, pageSize int) (int, int) {
 }
 
 func (db *DB) GetAPIKeyByID(ctx context.Context, id int64) (*APIKeyRow, error) {
-	rows, err := db.conn.QueryContext(ctx, `SELECT `+apiKeySelectColumns+` FROM api_keys WHERE id=$1`, id)
+	rows, err := db.conn.QueryContext(ctx, `SELECT `+db.apiKeySelectColumns()+` FROM api_keys WHERE id=$1`, id)
 	if err != nil {
 		return nil, err
 	}
@@ -682,7 +682,7 @@ func (db *DB) GetAPIKeyByID(ctx context.Context, id int64) (*APIKeyRow, error) {
 }
 
 func (db *DB) FirstAPIKey(ctx context.Context) (*APIKeyRow, error) {
-	rows, err := db.conn.QueryContext(ctx, `SELECT `+apiKeySelectColumns+` FROM api_keys ORDER BY id LIMIT 1`)
+	rows, err := db.conn.QueryContext(ctx, `SELECT `+db.apiKeySelectColumns()+` FROM api_keys ORDER BY id LIMIT 1`)
 	if err != nil {
 		return nil, err
 	}
