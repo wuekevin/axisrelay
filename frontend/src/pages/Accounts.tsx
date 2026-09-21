@@ -1725,7 +1725,7 @@ export default function Accounts() {
     if (params.get("pending") !== "1") return;
     const path = location.pathname.replace(/\/+$/, "");
     if (path.endsWith("/accounts/grok") || path.endsWith("/accounts/invite")) {
-      navigate({ pathname: "/accounts", search: "?pending=1" }, { replace: true });
+      navigate({ pathname: "/admin/gateway/accounts", search: "?pending=1" }, { replace: true });
       return;
     }
     const timer = window.setTimeout(() => {
@@ -1744,18 +1744,18 @@ export default function Accounts() {
   const { channels: visibleChannels, isChannelVisible } = useVisibleChannels();
   // 设置页隐藏了某个渠道后，直接打开它的账号路由要回落到 Codex 视图。
   useEffect(() => {
-    if (!isChannelVisible(providerView)) navigate("/accounts", { replace: true });
+    if (!isChannelVisible(providerView)) navigate("/admin/gateway/accounts", { replace: true });
   }, [isChannelVisible, navigate, providerView]);
   const setProviderView = useCallback(
     (view: UpstreamChannel) => {
       navigate(
         view === "grok"
-          ? "/accounts/grok"
+          ? "/admin/gateway/accounts/grok"
           : view === "antigravity"
-            ? "/accounts/antigravity"
+            ? "/admin/gateway/accounts/antigravity"
             : view === "claude"
-              ? "/accounts/claude"
-              : "/accounts",
+              ? "/admin/gateway/accounts/claude"
+              : "/admin/gateway/accounts",
       );
     },
     [navigate],
@@ -1765,7 +1765,7 @@ export default function Accounts() {
   const showInvite = normalizedPath.endsWith("/accounts/invite");
   const setShowInvite = useCallback(
     (open: boolean) => {
-      navigate(open ? "/accounts/invite" : "/accounts");
+      navigate(open ? "/admin/gateway/accounts/invite" : "/admin/gateway/accounts");
     },
     [navigate],
   );
@@ -6153,7 +6153,7 @@ export default function Accounts() {
         {grokSelfServicePending > 0 ? (
           <button
             type="button"
-            onClick={() => navigate("/accounts?pending=1")}
+            onClick={() => navigate("/admin/gateway/accounts?pending=1")}
             className="mb-3 flex w-full items-center gap-2.5 rounded-xl border border-amber-500/40 bg-amber-500/[0.06] px-3 py-2.5 text-left shadow-sm transition-colors hover:bg-amber-500/[0.1]"
           >
             <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-amber-500/15 text-amber-600 dark:text-amber-300">
@@ -11204,8 +11204,8 @@ export default function Accounts() {
               setInviteGuide((p) => ({ ...p, show: false }));
               navigate(
                 accountEmail
-                  ? `/accounts/invite?account=${encodeURIComponent(accountEmail)}`
-                  : "/accounts/invite",
+                  ? `/admin/gateway/accounts/invite?account=${encodeURIComponent(accountEmail)}`
+                  : "/admin/gateway/accounts/invite",
               );
             }}
           />

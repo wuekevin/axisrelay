@@ -4432,7 +4432,7 @@ export default function Settings() {
                     description={t('settings2.payloadRulesDesc')}
                     meta={t('settings.nav.mappingCount', { count: payloadRuleCount })}
                     openLabel={t('settings.nav.manage')}
-                    onOpen={() => navigate('/payload-rules')}
+                    onOpen={() => navigate('/admin/gateway/payload-rules')}
                   />
                 </div>
 

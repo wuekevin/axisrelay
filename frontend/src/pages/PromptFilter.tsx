@@ -824,12 +824,12 @@ export default function PromptFilter() {
 function PromptFilterTabs({ activeView }: { activeView: PromptFilterView }) {
   const { t } = useTranslation()
   const tabs = [
-    { view: 'overview' as const, label: t('promptFilter.views.overview'), to: '/prompt-filter/overview' },
-    { view: 'logs' as const, label: t('promptFilter.views.logs'), to: '/prompt-filter/logs' },
-    { view: 'profiles' as const, label: t('promptFilter.views.profiles'), to: '/prompt-filter/profiles' },
-    { view: 'rules' as const, label: t('promptFilter.views.rules'), to: '/prompt-filter/rules' },
-    { view: 'intelligence' as const, label: t('promptFilter.views.intelligence'), to: '/prompt-filter/intelligence' },
-    { view: 'docs' as const, label: t('promptFilter.views.docs'), to: '/prompt-filter/docs' },
+    { view: 'overview' as const, label: t('promptFilter.views.overview'), to: '/admin/gateway/prompt-filter/overview' },
+    { view: 'logs' as const, label: t('promptFilter.views.logs'), to: '/admin/gateway/prompt-filter/logs' },
+    { view: 'profiles' as const, label: t('promptFilter.views.profiles'), to: '/admin/gateway/prompt-filter/profiles' },
+    { view: 'rules' as const, label: t('promptFilter.views.rules'), to: '/admin/gateway/prompt-filter/rules' },
+    { view: 'intelligence' as const, label: t('promptFilter.views.intelligence'), to: '/admin/gateway/prompt-filter/intelligence' },
+    { view: 'docs' as const, label: t('promptFilter.views.docs'), to: '/admin/gateway/prompt-filter/docs' },
   ]
   const tabCount = tabs.length
   const activeIndex = Math.max(0, tabs.findIndex((tab) => tab.view === activeView))
@@ -3316,7 +3316,7 @@ function OverviewView({
                 <Badge variant="outline">{t('promptFilter.coverageEveryRequest')}</Badge>
               </div>
               <Button variant="ghost" asChild>
-                <NavLink to="/prompt-filter/intelligence"><ClipboardCheck className="size-4" />{t('promptFilter.openLearningReview')}</NavLink>
+                <NavLink to="/admin/gateway/prompt-filter/intelligence"><ClipboardCheck className="size-4" />{t('promptFilter.openLearningReview')}</NavLink>
               </Button>
             </div>
           </CardContent>
@@ -3732,7 +3732,7 @@ function OverviewView({
           <div className="mb-4 flex items-center justify-between gap-3 max-sm:flex-col max-sm:items-stretch">
             <SectionTitle title={t('promptFilter.recentLogsTitle')} />
             <Button variant="outline" asChild>
-              <NavLink to="/prompt-filter/logs">{t('promptFilter.viewAllLogs')}</NavLink>
+              <NavLink to="/admin/gateway/prompt-filter/logs">{t('promptFilter.viewAllLogs')}</NavLink>
             </Button>
           </div>
           <PromptFilterLogsTable logs={recentLogs} compact />
@@ -4640,7 +4640,7 @@ function PromptRiskProfileDetailButton({ profile }: { profile: PromptRiskProfile
               <Button size="sm" variant="destructive" disabled={unlockingConversation} onClick={() => void unlockConversation()}>{t(isUserCooldown ? 'promptFilter.risk.conversationLock.unlockUserCooldown' : isFingerprintReplay ? 'promptFilter.risk.conversationLock.fingerprintReplayUnlock' : 'promptFilter.risk.conversationLock.unlock')}</Button>
             </div>
             <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4"><PromptPolicyDetailField label={t('promptFilter.risk.conversationLock.lockedAt')} value={formatBeijingTime(item.conversation_lock.locked_at)} /><PromptPolicyDetailField label={t('promptFilter.risk.conversationLock.expiresAt')} value={item.conversation_lock.expires_at ? formatBeijingTime(item.conversation_lock.expires_at) : '-'} /><PromptPolicyDetailField label={t('promptFilter.risk.conversationLock.remaining')} value={formatPromptRestrictionRemaining(item.conversation_lock.remaining_seconds)} /><PromptPolicyDetailField label={t('promptFilter.risk.conversationLock.reason')} value={isUserCooldown ? 'user_cyber_cooldown' : item.conversation_lock.reason_code || 'conversation_cyber_locked'} /><PromptPolicyDetailField label={t('promptFilter.colEndpoint')} value={item.conversation_lock.endpoint || '-'} /><PromptPolicyDetailField label={t('promptFilter.reviewModel')} value={item.conversation_lock.model || '-'} /><PromptPolicyDetailField label={t('promptFilter.risk.conversationLock.auditReference')} value={auditReference || '-'} /><PromptPolicyDetailField label={t('promptFilter.risk.conversationLock.decisionId')} value={item.conversation_lock.decision_id || '-'} /></div>
-            {auditReference ? <div className="mt-3 flex flex-wrap items-center gap-2"><Button size="sm" variant="outline" asChild><NavLink to={`/prompt-filter/logs?audit=${encodeURIComponent(auditReference)}`}><Search className="size-3.5" />{t('promptFilter.risk.conversationLock.openAudit')}</NavLink></Button><span className="font-mono text-xs text-muted-foreground">{auditReference}</span></div> : null}
+            {auditReference ? <div className="mt-3 flex flex-wrap items-center gap-2"><Button size="sm" variant="outline" asChild><NavLink to={`/admin/gateway/prompt-filter/logs?audit=${encodeURIComponent(auditReference)}`}><Search className="size-3.5" />{t('promptFilter.risk.conversationLock.openAudit')}</NavLink></Button><span className="font-mono text-xs text-muted-foreground">{auditReference}</span></div> : null}
           </div> : null}
           <div className="rounded-lg border bg-muted/20 p-4">
             <div className="flex flex-wrap items-start justify-between gap-3">

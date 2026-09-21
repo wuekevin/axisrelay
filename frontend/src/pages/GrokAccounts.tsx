@@ -3283,7 +3283,7 @@ function GrokAccounts({
               variant="outline"
               size="xs"
               disabled={quickGroupSubmitting}
-              onClick={() => navigate("/accounts?groupManager=1")}
+              onClick={() => navigate("/admin/gateway/accounts?groupManager=1")}
             >
               <FolderOpen className="size-3" />
               {t("accounts.groupManage")}

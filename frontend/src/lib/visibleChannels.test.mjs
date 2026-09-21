@@ -20,7 +20,8 @@ test('toggleVisibleChannel never drops the fallback channel', () => {
 
 test('dashboard, accounts and the usage channel filter consume the visibility setting', () => {
   const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8')
-  assert.match(read('../App.tsx'), /<VisibleChannelsProvider>/)
+  assert.match(read('../router/guards.tsx'), /<VisibleChannelsProvider>/)
+  assert.match(read('../router/admin.routes.tsx'), /element: <AdminGuard \/>/)
   assert.match(read('../pages/Dashboard.tsx'), /useVisibleChannels\(\)/)
   assert.match(read('../pages/Accounts.tsx'), /useVisibleChannels\(\)/)
   assert.match(read('../pages/QualityTest.tsx'), /useVisibleChannels\(\)/)
