@@ -11,7 +11,7 @@ import (
 )
 
 func TestGrokMaintenanceJobTriggerLeaseAndReschedule(t *testing.T) {
-	db, err := New("sqlite", filepath.Join(t.TempDir(), "maintenance-jobs.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "maintenance-jobs.db"))
 	if err != nil {
 		t.Fatalf("New(sqlite): %v", err)
 	}
@@ -72,7 +72,7 @@ func TestGrokMaintenanceJobTriggerLeaseAndReschedule(t *testing.T) {
 }
 
 func TestFailMaintenanceJobTruncatesMultibyteError(t *testing.T) {
-	db, err := New("sqlite", filepath.Join(t.TempDir(), "maintenance-jobs-utf8.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "maintenance-jobs-utf8.db"))
 	if err != nil {
 		t.Fatalf("New(sqlite): %v", err)
 	}

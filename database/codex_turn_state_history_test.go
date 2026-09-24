@@ -11,7 +11,7 @@ import (
 
 func TestTurnStateHistorySnapshotsFiltersPaginationAndRecovery(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "history.db")
-	db, err := New("sqlite", path)
+	db, err := newTestDatabase(t, path)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -59,7 +59,7 @@ func TestTurnStateHistorySnapshotsFiltersPaginationAndRecovery(t *testing.T) {
 	if err := db.Close(); err != nil {
 		t.Fatal(err)
 	}
-	db, err = New("sqlite", path)
+	db, err = newTestDatabase(t, path)
 	if err != nil {
 		t.Fatal(err)
 	}

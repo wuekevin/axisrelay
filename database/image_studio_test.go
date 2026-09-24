@@ -10,7 +10,7 @@ import (
 
 func TestSQLiteImageStudioTablesAndPersistence(t *testing.T) {
 	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
-	db, err := New("sqlite", dbPath)
+	db, err := newTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatalf("New(sqlite) 返回错误: %v", err)
 	}
@@ -22,7 +22,7 @@ func TestSQLiteImageStudioTablesAndPersistence(t *testing.T) {
 		"image_generation_jobs":  {"id", "status", "prompt", "params_json", "api_key_id", "api_key_name", "api_key_masked", "error_message", "duration_ms", "created_at", "started_at", "completed_at"},
 		"image_assets":           {"id", "job_id", "template_id", "filename", "storage_path", "mime_type", "bytes", "width", "height", "model", "requested_size", "actual_size", "quality", "output_format", "revised_prompt", "created_at"},
 	} {
-		got, err := db.sqliteTableColumns(ctx, table)
+		got, err := db.testTableColumns(ctx, table)
 		if err != nil {
 			t.Fatalf("sqliteTableColumns(%s) 返回错误: %v", table, err)
 		}
@@ -259,7 +259,7 @@ func TestSQLiteImageStudioTablesAndPersistence(t *testing.T) {
 
 func TestImageJobsInterruptedOnStartup(t *testing.T) {
 	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
-	db, err := New("sqlite", dbPath)
+	db, err := newTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatalf("New(sqlite) 返回错误: %v", err)
 	}

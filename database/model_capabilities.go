@@ -82,8 +82,13 @@ func (db *DB) SaveModelCapabilities(ctx context.Context, snapshot ModelCapabilit
 		if len(encoded) > 2<<20 {
 			return fmt.Errorf("model capability snapshot exceeds byte limit")
 		}
-		_, err = tx.ExecContext(ctx, `INSERT INTO model_capability_snapshots(account_id,credential_generation,observed_at,models_json)
- VALUES($1,$2,$3,$4) ON CONFLICT(account_id) DO UPDATE SET credential_generation=excluded.credential_generation,observed_at=excluded.observed_at,models_json=excluded.models_json`, snapshot.AccountID, generation, snapshot.ObservedAt, string(encoded))
+		upsert := `INSERT INTO model_capability_snapshots(account_id,credential_generation,observed_at,models_json)
+ VALUES($1,$2,$3,$4) ON CONFLICT(account_id) DO UPDATE SET credential_generation=excluded.credential_generation,observed_at=excluded.observed_at,models_json=excluded.models_json`
+		if db.isMySQL() {
+			upsert = `INSERT INTO model_capability_snapshots(account_id,credential_generation,observed_at,models_json)
+ VALUES($1,$2,$3,$4) ON DUPLICATE KEY UPDATE credential_generation=VALUES(credential_generation),observed_at=VALUES(observed_at),models_json=VALUES(models_json)`
+		}
+		_, err = tx.ExecContext(ctx, upsert, snapshot.AccountID, generation, snapshot.ObservedAt, string(encoded))
 		return err
 	})
 }

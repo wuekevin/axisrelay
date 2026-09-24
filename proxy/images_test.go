@@ -15,15 +15,15 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/gin-gonic/gin"
+	"github.com/tidwall/gjson"
+	"github.com/tidwall/sjson"
 	"github.com/wuekevin/axisrelay/auth"
 	"github.com/wuekevin/axisrelay/config"
 	"github.com/wuekevin/axisrelay/database"
 	"github.com/wuekevin/axisrelay/internal/imageproc"
 	"github.com/wuekevin/axisrelay/internal/imagestore"
 	"github.com/wuekevin/axisrelay/security/promptfilter"
-	"github.com/gin-gonic/gin"
-	"github.com/tidwall/gjson"
-	"github.com/tidwall/sjson"
 )
 
 const tinyPNGBase64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII="
@@ -98,7 +98,7 @@ func TestImageGalleryPersisterRecordsAssetAndJob(t *testing.T) {
 		_ = imagestore.Configure(imagestore.Config{Backend: imagestore.BackendLocal, LocalDir: t.TempDir()})
 	})
 
-	db, err := database.New("sqlite", filepath.Join(t.TempDir(), "axisrelay.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "axisrelay.db"))
 	if err != nil {
 		t.Fatalf("database.New: %v", err)
 	}
@@ -1184,7 +1184,15 @@ func TestForwardImagesCatchAllRetriesBeyondOrdinaryAttemptCap(t *testing.T) {
 	ApplyRuntimeSettings(nextRuntime)
 
 	var calls atomic.Int32
-	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Resin 配置是进程级全局；包级全量测试中其他测试的异步请求可能在
+		// 清理边界附近命中这个临时服务。只统计本用例账号发出的图片请求，
+		// 避免无关后台请求污染“失败 N 次后成功”的重试次数断言。
+		if r.URL.Path != "/image-catch-all-test/https/chatgpt.com/backend-api/codex/responses" ||
+			r.Header.Get("Authorization") != "Bearer image-test-token" {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
 		attempt := calls.Add(1)
 		w.Header().Set("Content-Type", "text/event-stream")
 		if attempt <= maxImageAttempts {
@@ -1284,7 +1292,7 @@ func TestForwardImagesResponseFailedCyberPolicyEntersUnifiedAuditAndCandidateQue
 	}))
 	t.Cleanup(upstream.Close)
 	SetResinConfig(&ResinConfig{BaseURL: upstream.URL, PlatformName: "image-cyber-test"})
-	db, err := database.New("sqlite", filepath.Join(t.TempDir(), "images-cyber.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "images-cyber.db"))
 	if err != nil {
 		t.Fatalf("database.New(sqlite): %v", err)
 	}

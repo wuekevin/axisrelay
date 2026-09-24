@@ -168,7 +168,7 @@ func TestEvaluateAPIKeyScopeBudgetsNoScopesIsNoOp(t *testing.T) {
 // 「按分组折算用量 → 剔除候选 / 直接拒绝」这条链路。
 func scopeBudgetTestEnv(t *testing.T) (*Handler, *database.DB, int64) {
 	t.Helper()
-	db, err := database.New("sqlite", filepath.Join(t.TempDir(), "axisrelay.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "axisrelay.db"))
 	if err != nil {
 		t.Fatalf("open sqlite: %v", err)
 	}

@@ -141,7 +141,7 @@ func TestPromptReviewConnectionTestsAllKeysConcurrentlyWithoutReturningSecrets(t
 
 func TestDeletePromptReviewAPIKeyRemovesOnlySelectedKey(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	db, err := database.New("sqlite", filepath.Join(t.TempDir(), "review-keys.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "review-keys.db"))
 	if err != nil {
 		t.Fatalf("New(sqlite): %v", err)
 	}

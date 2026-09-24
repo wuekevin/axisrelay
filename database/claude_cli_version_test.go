@@ -7,7 +7,7 @@ import (
 )
 
 func TestClaudeSyncedCLIVersionRoundTrip(t *testing.T) {
-	db, err := New("sqlite", filepath.Join(t.TempDir(), "claude-cli-version.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "claude-cli-version.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -28,7 +28,7 @@ func TestClaudeSyncedCLIVersionRoundTrip(t *testing.T) {
 }
 
 func TestUpdateAccountCustomHeadersReplacesOnlyHeaders(t *testing.T) {
-	db, err := New("sqlite", filepath.Join(t.TempDir(), "claude-headers.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "claude-headers.db"))
 	if err != nil {
 		t.Fatal(err)
 	}

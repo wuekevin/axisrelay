@@ -31,12 +31,12 @@ func TestAPIKeyAuthCacheRedisAcrossInstances(t *testing.T) {
 	backend := authIntegrationRedis(t)
 	otherBackend := authIntegrationRedis(t)
 	path := filepath.Join(t.TempDir(), "auth.db")
-	db, err := database.New("sqlite", path)
+	db, err := newTestDatabase(t, path)
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = db.Close() })
-	otherDB, err := database.New("sqlite", path)
+	otherDB, err := newTestDatabase(t, path)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -105,7 +105,7 @@ func TestAPIKeyAuthCacheRedisTimeoutFallsBack(t *testing.T) {
 
 func BenchmarkAPIKeyAuthLookup(b *testing.B) {
 	backend := authIntegrationRedis(b)
-	db, err := database.New("sqlite", filepath.Join(b.TempDir(), "bench.db"))
+	db, err := newTestDatabase(b, filepath.Join(b.TempDir(), "bench.db"))
 	if err != nil {
 		b.Fatal(err)
 	}

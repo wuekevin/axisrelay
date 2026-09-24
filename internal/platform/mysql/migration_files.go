@@ -5,7 +5,9 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"io/fs"
 	"os"
+	"path"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -98,6 +100,74 @@ func BuildSQLMigrations(dir string) ([]Migration, error) {
 				for _, statement := range statements {
 					if _, err := db.ExecContext(ctx, statement); err != nil {
 						return fmt.Errorf("execute %s statement: %w", filepath.Base(file.Path), err)
+					}
+				}
+				return nil
+			},
+		})
+	}
+	if _, err := prepareMigrations(migrations); err != nil {
+		return nil, err
+	}
+	return migrations, nil
+}
+
+// BuildSQLMigrationsFS builds the same migration set from an embedded or
+// otherwise virtual filesystem, so production binaries do not depend on a
+// separate migrations directory at runtime.
+func BuildSQLMigrationsFS(fsys fs.FS, dir string) ([]Migration, error) {
+	entries, err := fs.ReadDir(fsys, dir)
+	if err != nil {
+		return nil, fmt.Errorf("read mysql migration fs directory: %w", err)
+	}
+	files := make([]SQLMigrationFile, 0, len(entries))
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		name := entry.Name()
+		if !strings.HasSuffix(strings.ToLower(name), ".sql") {
+			continue
+		}
+		match := migrationFilenamePattern.FindStringSubmatch(name)
+		if match == nil {
+			return nil, fmt.Errorf("invalid mysql migration filename %q", name)
+		}
+		version, err := strconv.ParseUint(match[1], 10, 64)
+		if err != nil || version == 0 {
+			return nil, fmt.Errorf("invalid mysql migration version in %q", name)
+		}
+		migrationPath := path.Join(dir, name)
+		data, err := fs.ReadFile(fsys, migrationPath)
+		if err != nil {
+			return nil, fmt.Errorf("read mysql migration %q: %w", name, err)
+		}
+		sqlText := strings.TrimSpace(string(data))
+		if sqlText == "" {
+			return nil, fmt.Errorf("mysql migration %q is empty", name)
+		}
+		digest := sha256.Sum256(data)
+		files = append(files, SQLMigrationFile{
+			Version:  version,
+			Name:     match[2],
+			Path:     migrationPath,
+			Checksum: hex.EncodeToString(digest[:]),
+			SQL:      sqlText,
+		})
+	}
+	sort.Slice(files, func(i, j int) bool { return files[i].Version < files[j].Version })
+	migrations := make([]Migration, 0, len(files))
+	for _, file := range files {
+		file := file
+		statements := splitSQLStatements(file.SQL)
+		migrations = append(migrations, Migration{
+			Version:  file.Version,
+			Name:     file.Name,
+			Checksum: file.Checksum,
+			Up: func(ctx context.Context, db MigrationDB) error {
+				for _, statement := range statements {
+					if _, err := db.ExecContext(ctx, statement); err != nil {
+						return fmt.Errorf("execute %s statement: %w", path.Base(file.Path), err)
 					}
 				}
 				return nil

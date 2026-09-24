@@ -2,7 +2,6 @@ package admin
 
 import (
 	"context"
-	"database/sql"
 	"net/http"
 	"path/filepath"
 	"testing"
@@ -18,7 +17,7 @@ func newImagesSettingsHandler(t *testing.T) (*Handler, *database.DB, string) {
 	previous := proxy.CurrentRuntimeSettings()
 	t.Cleanup(func() { proxy.ApplyRuntimeSettings(previous) })
 	path := filepath.Join(t.TempDir(), "images-settings.sqlite")
-	db, err := database.New("sqlite", path)
+	db, err := newTestDatabase(t, path)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -86,12 +85,12 @@ func TestImagesSettingsInvalidModelRejectedBeforeMutation(t *testing.T) {
 
 func TestImagesSettingsPersistenceFailureDoesNotApplyModel(t *testing.T) {
 	handler, db, path := newImagesSettingsHandler(t)
-	raw, err := sql.Open("sqlite", path)
+	raw, err := openRawTestDatabase(t, path)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer raw.Close()
-	if _, err := raw.Exec(`CREATE TRIGGER reject_image_settings BEFORE INSERT ON system_settings BEGIN SELECT RAISE(ABORT, 'forced settings write failure'); END`); err != nil {
+	if _, err := raw.Exec(`CREATE TRIGGER reject_image_settings BEFORE UPDATE ON system_settings FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'forced settings write failure'`); err != nil {
 		t.Fatal(err)
 	}
 	response := invokeResponseCacheSettingsAdmin(t, handler, http.MethodPut, map[string]any{"codex_images_main_model": "gpt-5.6-sol"})

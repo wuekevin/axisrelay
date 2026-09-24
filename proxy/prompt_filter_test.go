@@ -96,7 +96,7 @@ func TestReviewPromptFilterVerdictCapturesModerationDecisionThreshold(t *testing
 }
 
 func TestCleanModelReviewIsPersistedForReviewHistory(t *testing.T) {
-	db, err := database.New("sqlite", filepath.Join(t.TempDir(), "axisrelay.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "axisrelay.db"))
 	if err != nil {
 		t.Fatalf("database.New: %v", err)
 	}

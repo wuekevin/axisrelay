@@ -82,7 +82,7 @@ func TestAsyncShadowAuxiliaryRealHandlerUpstreamMatrix(t *testing.T) {
 	t.Cleanup(upstream.Close)
 	SetResinConfig(&ResinConfig{BaseURL: upstream.URL, PlatformName: "prompt-guard-handler-matrix"})
 
-	db, err := database.New("sqlite", filepath.Join(t.TempDir(), "axisrelay.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "axisrelay.db"))
 	if err != nil {
 		t.Fatalf("database.New(sqlite): %v", err)
 	}
@@ -270,7 +270,7 @@ func TestAsyncShadowAuxiliaryResponsesWebSocketRealHandler(t *testing.T) {
 		return &http.Response{StatusCode: http.StatusOK, Header: make(http.Header), Body: io.NopCloser(strings.NewReader(sse))}, nil
 	}
 
-	db, err := database.New("sqlite", filepath.Join(t.TempDir(), "axisrelay.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "axisrelay.db"))
 	if err != nil {
 		t.Fatal(err)
 	}

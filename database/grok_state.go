@@ -142,6 +142,9 @@ func (db *DB) ensureGrokStateSchema(ctx context.Context) error {
 // ensureGrokStateTables is intentionally additive. Older binaries can keep
 // reading credentials while the new tables become authoritative.
 func (db *DB) ensureGrokStateTables(ctx context.Context) error {
+	if db.isMySQL() {
+		return nil
+	}
 	if db.isSQLite() {
 		if err := db.ensureSQLiteColumn(ctx, "accounts", "credential_generation", "INTEGER NOT NULL DEFAULT 1"); err != nil {
 			return err
@@ -286,9 +289,13 @@ func (db *DB) ensureGrokStateHistoricalBackfill(ctx context.Context) error {
 	if completed != 0 {
 		return nil
 	}
-	if _, err := db.conn.ExecContext(ctx, `
-		INSERT INTO grok_state_migration_progress(version,phase,last_account_id,updated_at)
-		VALUES($1,'families',0,CURRENT_TIMESTAMP) ON CONFLICT(version) DO NOTHING`, dataMigrationGrokStateBackfillV1); err != nil {
+	progressInsert := `INSERT INTO grok_state_migration_progress(version,phase,last_account_id,updated_at)
+		VALUES($1,'families',0,CURRENT_TIMESTAMP) ON CONFLICT(version) DO NOTHING`
+	if db.isMySQL() {
+		progressInsert = `INSERT IGNORE INTO grok_state_migration_progress(version,phase,last_account_id,updated_at)
+			VALUES($1,'families',0,CURRENT_TIMESTAMP)`
+	}
+	if _, err := db.conn.ExecContext(ctx, progressInsert, dataMigrationGrokStateBackfillV1); err != nil {
 		return fmt.Errorf("initialize Grok state migration progress: %w", err)
 	}
 	for {
@@ -350,7 +357,11 @@ func (db *DB) runGrokStateHistoricalBackfillBatch(ctx context.Context) (bool, er
 				if _, err := tx.ExecContext(ctx, `UPDATE grok_state_migration_progress SET completed_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE version=$1`, dataMigrationGrokStateBackfillV1); err != nil {
 					return err
 				}
-				if _, err := tx.ExecContext(ctx, `INSERT INTO data_migrations(version,applied_at) VALUES($1,CURRENT_TIMESTAMP) ON CONFLICT(version) DO NOTHING`, dataMigrationGrokStateBackfillV1); err != nil {
+				markerInsert := `INSERT INTO data_migrations(version,applied_at) VALUES($1,CURRENT_TIMESTAMP) ON CONFLICT(version) DO NOTHING`
+				if db.isMySQL() {
+					markerInsert = `INSERT IGNORE INTO data_migrations(version,applied_at) VALUES($1,CURRENT_TIMESTAMP)`
+				}
+				if _, err := tx.ExecContext(ctx, markerInsert, dataMigrationGrokStateBackfillV1); err != nil {
 					return err
 				}
 				done = true
@@ -563,7 +574,7 @@ func (db *DB) InsertGrokAccountIfAbsent(ctx context.Context, name string, creden
 		}
 		defer tx.Rollback()
 
-		if db.isSQLite() {
+		if db.isSQLite() || db.isMySQL() {
 			result, insertErr := tx.ExecContext(ctx, `INSERT INTO accounts(name,platform,type,credentials,proxy_url,enabled) VALUES($1,'xai','grok',$2,$3,$4)`, name, encoded, proxyURL, enabled)
 			if insertErr != nil {
 				return insertErr
@@ -580,7 +591,11 @@ func (db *DB) InsertGrokAccountIfAbsent(ctx context.Context, name string, creden
 		}
 
 		for _, identityKey := range identityKeys {
-			result, claimErr := tx.ExecContext(ctx, `INSERT INTO grok_credential_identity_claims(identity_key,account_id) VALUES($1,$2) ON CONFLICT(identity_key) DO NOTHING`, identityKey, accountID)
+			claimQuery := `INSERT INTO grok_credential_identity_claims(identity_key,account_id) VALUES($1,$2) ON CONFLICT(identity_key) DO NOTHING`
+			if db.isMySQL() {
+				claimQuery = `INSERT IGNORE INTO grok_credential_identity_claims(identity_key,account_id) VALUES($1,$2)`
+			}
+			result, claimErr := tx.ExecContext(ctx, claimQuery, identityKey, accountID)
 			if claimErr != nil {
 				return claimErr
 			}
@@ -652,8 +667,12 @@ func (db *DB) ReauthGrokAccount(ctx context.Context, accountID int64, credential
 		}
 		merged["credential_family_id"] = familyID
 
+		claimQuery := `INSERT INTO grok_credential_identity_claims(identity_key,account_id) VALUES($1,$2) ON CONFLICT(identity_key) DO NOTHING`
+		if db.isMySQL() {
+			claimQuery = `INSERT IGNORE INTO grok_credential_identity_claims(identity_key,account_id) VALUES($1,$2)`
+		}
 		for _, identityKey := range grokCredentialIdentityKeys(merged, familyID) {
-			if _, claimErr := tx.ExecContext(ctx, `INSERT INTO grok_credential_identity_claims(identity_key,account_id) VALUES($1,$2) ON CONFLICT(identity_key) DO NOTHING`, identityKey, accountID); claimErr != nil {
+			if _, claimErr := tx.ExecContext(ctx, claimQuery, identityKey, accountID); claimErr != nil {
 				return claimErr
 			}
 			var holder int64
@@ -670,7 +689,7 @@ func (db *DB) ReauthGrokAccount(ctx context.Context, accountID int64, credential
 			return marshalErr
 		}
 		credentialsExpr := "$1"
-		if !db.isSQLite() {
+		if !db.isSQLite() && !db.isMySQL() {
 			credentialsExpr = "$1::jsonb"
 		}
 		if _, updateErr := tx.ExecContext(ctx, fmt.Sprintf(`UPDATE accounts SET credentials=%s, credential_family_id=$2, updated_at=CURRENT_TIMESTAMP WHERE id=$3`, credentialsExpr), encoded, familyID, accountID); updateErr != nil {
@@ -733,9 +752,13 @@ func (db *DB) backfillGrokCredentialIdentityClaims(ctx context.Context) error {
 	if err := rows.Close(); err != nil {
 		return err
 	}
+	claimQuery := `INSERT INTO grok_credential_identity_claims(identity_key,account_id) VALUES($1,$2) ON CONFLICT(identity_key) DO NOTHING`
+	if db.isMySQL() {
+		claimQuery = `INSERT IGNORE INTO grok_credential_identity_claims(identity_key,account_id) VALUES($1,$2)`
+	}
 	for _, identity := range identities {
 		for _, key := range identity.keys {
-			if _, err := db.conn.ExecContext(ctx, `INSERT INTO grok_credential_identity_claims(identity_key,account_id) VALUES($1,$2) ON CONFLICT(identity_key) DO NOTHING`, key, identity.accountID); err != nil {
+			if _, err := db.conn.ExecContext(ctx, claimQuery, key, identity.accountID); err != nil {
 				return err
 			}
 		}
@@ -745,7 +768,9 @@ func (db *DB) backfillGrokCredentialIdentityClaims(ctx context.Context) error {
 
 func (db *DB) backfillGrokCredentialIdentityClaimsBatch(ctx context.Context, tx *sql.Tx, afterID int64, limit int) (processed int, nextID int64, err error) {
 	query := `SELECT id,credentials,credential_family_id FROM accounts WHERE id>$1 ORDER BY id LIMIT $2`
-	if !db.isSQLite() {
+	if db.isMySQL() {
+		query = `SELECT id,credentials,credential_family_id FROM accounts WHERE id>$1 AND LOWER(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(credentials,'$.upstream_type')),''))='grok' ORDER BY id LIMIT $2`
+	} else if !db.isSQLite() {
 		query = `SELECT id,credentials,credential_family_id FROM accounts WHERE id>$1 AND LOWER(COALESCE(credentials->>'upstream_type',''))='grok' ORDER BY id LIMIT $2`
 	}
 	rows, err := tx.QueryContext(ctx, query, afterID, limit)
@@ -776,7 +801,11 @@ func (db *DB) backfillGrokCredentialIdentityClaimsBatch(ctx context.Context, tx 
 	if err := rows.Close(); err != nil {
 		return 0, afterID, err
 	}
-	stmt, err := tx.PrepareContext(ctx, `INSERT INTO grok_credential_identity_claims(identity_key,account_id) VALUES($1,$2) ON CONFLICT(identity_key) DO NOTHING`)
+	claimQuery := `INSERT INTO grok_credential_identity_claims(identity_key,account_id) VALUES($1,$2) ON CONFLICT(identity_key) DO NOTHING`
+	if db.isMySQL() {
+		claimQuery = `INSERT IGNORE INTO grok_credential_identity_claims(identity_key,account_id) VALUES($1,$2)`
+	}
+	stmt, err := tx.PrepareContext(ctx, claimQuery)
 	if err != nil {
 		return 0, afterID, err
 	}
@@ -853,7 +882,7 @@ func (db *DB) UpdateAccountCredentialsCAS(ctx context.Context, accountID, expect
 			return marshalErr
 		}
 		updateQuery := `UPDATE accounts SET credentials=$1, credential_family_id=$2, credential_generation=credential_generation+1, updated_at=CURRENT_TIMESTAMP WHERE id=$3 AND credential_generation=$4`
-		if !db.isSQLite() {
+		if !db.isSQLite() && !db.isMySQL() {
 			updateQuery = `UPDATE accounts SET credentials=$1::jsonb, credential_family_id=$2, credential_generation=credential_generation+1, updated_at=NOW() WHERE id=$3 AND credential_generation=$4`
 		}
 		res, execErr := tx.ExecContext(ctx, updateQuery, encoded, familyID, accountID, expectedGeneration)
@@ -933,7 +962,7 @@ func (db *DB) ReplaceAccountCredentialsCAS(ctx context.Context, accountID, expec
 			return marshalErr
 		}
 		updateQuery := `UPDATE accounts SET credentials=$1, credential_family_id=$2, credential_generation=credential_generation+1, updated_at=CURRENT_TIMESTAMP WHERE id=$3 AND credential_generation=$4`
-		if !db.isSQLite() {
+		if !db.isSQLite() && !db.isMySQL() {
 			updateQuery = `UPDATE accounts SET credentials=$1::jsonb, credential_family_id=$2, credential_generation=credential_generation+1, updated_at=NOW() WHERE id=$3 AND credential_generation=$4`
 		}
 		res, execErr := tx.ExecContext(ctx, updateQuery, encoded, familyID, accountID, expectedGeneration)
@@ -1012,7 +1041,7 @@ func (db *DB) MergeAccountCredentialsForGeneration(ctx context.Context, accountI
 			return marshalErr
 		}
 		update := `UPDATE accounts SET credentials=$1, updated_at=CURRENT_TIMESTAMP WHERE id=$2 AND credential_generation=$3`
-		if !db.isSQLite() {
+		if !db.isSQLite() && !db.isMySQL() {
 			update = `UPDATE accounts SET credentials=$1::jsonb, updated_at=NOW() WHERE id=$2 AND credential_generation=$3`
 		}
 		result, execErr := tx.ExecContext(ctx, update, encoded, accountID, expectedGeneration)
@@ -1087,7 +1116,14 @@ func (db *DB) UpsertGrokAccountFact(ctx context.Context, fact GrokAccountFact) (
 			ON CONFLICT(account_id,fact_kind) DO UPDATE SET credential_generation=excluded.credential_generation,status=excluded.status,
 			http_status=excluded.http_status,source=excluded.source,payload_json=excluded.payload_json,
 			field_presence_json=excluded.field_presence_json,observed_at=excluded.observed_at,expires_at=excluded.expires_at,updated_at=CURRENT_TIMESTAMP`
-		if !db.isSQLite() {
+		if db.isMySQL() {
+			query = `INSERT INTO grok_account_fact_snapshots
+				(account_id,fact_kind,credential_generation,status,http_status,source,payload_json,field_presence_json,observed_at,expires_at,updated_at)
+				VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,CURRENT_TIMESTAMP)
+				ON DUPLICATE KEY UPDATE credential_generation=VALUES(credential_generation),status=VALUES(status),
+				http_status=VALUES(http_status),source=VALUES(source),payload_json=VALUES(payload_json),
+				field_presence_json=VALUES(field_presence_json),observed_at=VALUES(observed_at),expires_at=VALUES(expires_at),updated_at=CURRENT_TIMESTAMP`
+		} else if !db.isSQLite() {
 			query = strings.Replace(query, "$7,$8,$9", "$7::jsonb,$8::jsonb,$9", 1)
 		}
 		if _, e = tx.ExecContext(ctx, query, fact.AccountID, fact.Kind, fact.CredentialGeneration, fact.Status, fact.HTTPStatus, fact.Source, payload, presence, db.timeArg(fact.ObservedAt), db.timeArg(fact.ExpiresAt)); e != nil {
@@ -1144,7 +1180,14 @@ func (db *DB) UpsertGrokAccountFactAndExpireCapabilities(ctx context.Context, fa
 			ON CONFLICT(account_id,fact_kind) DO UPDATE SET credential_generation=excluded.credential_generation,status=excluded.status,
 			http_status=excluded.http_status,source=excluded.source,payload_json=excluded.payload_json,
 			field_presence_json=excluded.field_presence_json,observed_at=excluded.observed_at,expires_at=excluded.expires_at,updated_at=CURRENT_TIMESTAMP`
-		if !db.isSQLite() {
+		if db.isMySQL() {
+			query = `INSERT INTO grok_account_fact_snapshots
+				(account_id,fact_kind,credential_generation,status,http_status,source,payload_json,field_presence_json,observed_at,expires_at,updated_at)
+				VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,CURRENT_TIMESTAMP)
+				ON DUPLICATE KEY UPDATE credential_generation=VALUES(credential_generation),status=VALUES(status),
+				http_status=VALUES(http_status),source=VALUES(source),payload_json=VALUES(payload_json),
+				field_presence_json=VALUES(field_presence_json),observed_at=VALUES(observed_at),expires_at=VALUES(expires_at),updated_at=CURRENT_TIMESTAMP`
+		} else if !db.isSQLite() {
 			query = strings.Replace(query, "$7,$8,$9", "$7::jsonb,$8::jsonb,$9", 1)
 		}
 		if _, e = tx.ExecContext(ctx, query, fact.AccountID, fact.Kind, fact.CredentialGeneration, fact.Status, fact.HTTPStatus, fact.Source, payload, presence, db.timeArg(fact.ObservedAt), db.timeArg(fact.ExpiresAt)); e != nil {
@@ -1203,6 +1246,13 @@ func (db *DB) ReplaceGrokModelCatalog(ctx context.Context, snapshot GrokModelCat
 			ON CONFLICT(account_id,origin) DO UPDATE SET credential_generation=excluded.credential_generation,auth_kind=excluded.auth_kind,
 			status=excluded.status,http_etag=excluded.http_etag,etag_hint=excluded.etag_hint,etag_hint_observed_at=excluded.etag_hint_observed_at,
 			observed_at=excluded.observed_at,expires_at=excluded.expires_at,updated_at=CURRENT_TIMESTAMP`
+		if db.isMySQL() {
+			upsert = `INSERT INTO grok_model_catalog_snapshots(account_id,origin,credential_generation,auth_kind,status,http_etag,etag_hint,etag_hint_observed_at,observed_at,expires_at,updated_at)
+				VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,CURRENT_TIMESTAMP)
+				ON DUPLICATE KEY UPDATE credential_generation=VALUES(credential_generation),auth_kind=VALUES(auth_kind),
+				status=VALUES(status),http_etag=VALUES(http_etag),etag_hint=VALUES(etag_hint),etag_hint_observed_at=VALUES(etag_hint_observed_at),
+				observed_at=VALUES(observed_at),expires_at=VALUES(expires_at),updated_at=CURRENT_TIMESTAMP`
+		}
 		var hintAt any
 		if !snapshot.ETagHintObservedAt.IsZero() {
 			hintAt = db.timeArg(snapshot.ETagHintObservedAt)
@@ -1279,7 +1329,7 @@ func (db *DB) ReplaceGrokModelCatalog(ctx context.Context, snapshot GrokModelCat
 			presence, _ := json.Marshal(item.FieldPresence)
 			insert := `INSERT INTO grok_model_catalog_items(account_id,origin,model_id,credential_generation,display_name,description,base_url,api_base_url,api_backend,context_window,max_output_tokens,reasoning_effort,reasoning_efforts_json,supports_reasoning_effort,supports_backend_search,stream_tool_calls,supported_in_api,hidden,extra_headers_json,field_presence_json,first_seen_at)
 				VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)`
-			if !db.isSQLite() {
+			if !db.isSQLite() && !db.isMySQL() {
 				insert = strings.Replace(insert, "$13,$14", "$13::jsonb,$14", 1)
 				insert = strings.Replace(insert, "$19,$20", "$19::jsonb,$20::jsonb", 1)
 			}
@@ -1360,9 +1410,16 @@ func (db *DB) UpdateGrokModelsETagHint(ctx context.Context, accountID int64, ori
 		if err != nil || !generationMatches {
 			return err
 		}
-		res, err := tx.ExecContext(ctx, `UPDATE grok_model_catalog_snapshots SET etag_hint=$1,etag_hint_observed_at=$2,
+		query := `UPDATE grok_model_catalog_snapshots SET etag_hint=$1,etag_hint_observed_at=$2,
 			expires_at=CASE WHEN etag_hint<>$1 AND expires_at>$2 THEN $2 ELSE expires_at END,updated_at=CURRENT_TIMESTAMP
-			WHERE account_id=$3 AND origin=$4 AND credential_generation=$5`, hint, db.timeArg(observedAt), accountID, origin, generation)
+			WHERE account_id=$3 AND origin=$4 AND credential_generation=$5`
+		if db.isMySQL() {
+			query = `UPDATE grok_model_catalog_snapshots SET
+				expires_at=CASE WHEN etag_hint<>$1 AND expires_at>$2 THEN $2 ELSE expires_at END,
+				etag_hint=$1,etag_hint_observed_at=$2,updated_at=CURRENT_TIMESTAMP
+				WHERE account_id=$3 AND origin=$4 AND credential_generation=$5`
+		}
+		res, err := tx.ExecContext(ctx, query, hint, db.timeArg(observedAt), accountID, origin, generation)
 		if err != nil {
 			return err
 		}
@@ -1403,9 +1460,15 @@ func (db *DB) UpsertGrokModelCapability(ctx context.Context, cap GrokModelCapabi
 		if e != nil || !ok {
 			return e
 		}
-		_, e = tx.ExecContext(ctx, `INSERT INTO grok_model_capabilities(account_id,model_id,origin,protocol,credential_generation,status,http_status,provider_code,source,retry_after_seconds,observed_at,expires_at,updated_at)
+		query := `INSERT INTO grok_model_capabilities(account_id,model_id,origin,protocol,credential_generation,status,http_status,provider_code,source,retry_after_seconds,observed_at,expires_at,updated_at)
 			VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,CURRENT_TIMESTAMP)
-			ON CONFLICT(account_id,model_id,origin,protocol) DO UPDATE SET credential_generation=excluded.credential_generation,status=excluded.status,http_status=excluded.http_status,provider_code=excluded.provider_code,source=excluded.source,retry_after_seconds=excluded.retry_after_seconds,observed_at=excluded.observed_at,expires_at=excluded.expires_at,updated_at=CURRENT_TIMESTAMP`, cap.AccountID, cap.ModelID, cap.Origin, cap.Protocol, cap.CredentialGeneration, cap.Status, cap.HTTPStatus, cap.ProviderCode, cap.Source, cap.RetryAfterSeconds, db.timeArg(cap.ObservedAt), db.timeArg(cap.ExpiresAt))
+			ON CONFLICT(account_id,model_id,origin,protocol) DO UPDATE SET credential_generation=excluded.credential_generation,status=excluded.status,http_status=excluded.http_status,provider_code=excluded.provider_code,source=excluded.source,retry_after_seconds=excluded.retry_after_seconds,observed_at=excluded.observed_at,expires_at=excluded.expires_at,updated_at=CURRENT_TIMESTAMP`
+		if db.isMySQL() {
+			query = `INSERT INTO grok_model_capabilities(account_id,model_id,origin,protocol,credential_generation,status,http_status,provider_code,source,retry_after_seconds,observed_at,expires_at,updated_at)
+				VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,CURRENT_TIMESTAMP)
+				ON DUPLICATE KEY UPDATE credential_generation=VALUES(credential_generation),status=VALUES(status),http_status=VALUES(http_status),provider_code=VALUES(provider_code),source=VALUES(source),retry_after_seconds=VALUES(retry_after_seconds),observed_at=VALUES(observed_at),expires_at=VALUES(expires_at),updated_at=CURRENT_TIMESTAMP`
+		}
+		_, e = tx.ExecContext(ctx, query, cap.AccountID, cap.ModelID, cap.Origin, cap.Protocol, cap.CredentialGeneration, cap.Status, cap.HTTPStatus, cap.ProviderCode, cap.Source, cap.RetryAfterSeconds, db.timeArg(cap.ObservedAt), db.timeArg(cap.ExpiresAt))
 		if e != nil {
 			return e
 		}

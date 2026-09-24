@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/wuekevin/axisrelay/auth"
-	"github.com/wuekevin/axisrelay/database"
 	"github.com/wuekevin/axisrelay/proxy"
 	"github.com/gin-gonic/gin"
 )
@@ -28,7 +27,7 @@ func refreshTestToken(blocks int) string {
 func TestTurnStateRefreshUsesScopeAndSavesOnlyValidatedResponses(t *testing.T) {
 	for _, failure := range []string{"success", "no-reissue", "no-reissue-open-stream", "degraded", "incomplete", "failed-verification", "degraded-verification", "invalid-verification", "metadata-verification", "degraded-metadata-verification", "echo-verification"} {
 		t.Run(failure, func(t *testing.T) {
-			db, err := database.New("sqlite", filepath.Join(t.TempDir(), "refresh.db"))
+			db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "refresh.db"))
 			if err != nil {
 				t.Fatal(err)
 			}

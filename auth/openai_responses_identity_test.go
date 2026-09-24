@@ -59,7 +59,7 @@ func TestApplyOpenAIResponsesIdentityChangeRecoversRuntimeAccount(t *testing.T) 
 
 func TestReconcileDispatchStateReloadsChangedResponsesIdentity(t *testing.T) {
 	ctx := context.Background()
-	db, err := database.New("sqlite", filepath.Join(t.TempDir(), "responses-reconcile.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "responses-reconcile.db"))
 	if err != nil {
 		t.Fatalf("database.New: %v", err)
 	}
@@ -111,7 +111,7 @@ func TestReconcileDispatchStateReloadsChangedResponsesIdentity(t *testing.T) {
 
 func TestApplyOpenAIResponsesConfigUsesPersistedAPIKeySemantics(t *testing.T) {
 	ctx := context.Background()
-	db, err := database.New("sqlite", filepath.Join(t.TempDir(), "responses-empty-key.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "responses-empty-key.db"))
 	if err != nil {
 		t.Fatalf("database.New: %v", err)
 	}

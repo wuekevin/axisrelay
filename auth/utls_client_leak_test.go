@@ -32,7 +32,15 @@ func newIdleAuthHTTP2ClientConn(t *testing.T) (*http.Server, net.Listener, *http
 		t.Fatalf("dial: %v", err)
 	}
 
-	transport := &http2.Transport{AllowHTTP: true}
+	baseTransport := &http.Transport{}
+	transport, err := http2.ConfigureTransports(baseTransport)
+	if err != nil {
+		_ = rawConn.Close()
+		_ = server.Close()
+		_ = listener.Close()
+		t.Fatalf("ConfigureTransports: %v", err)
+	}
+	transport.AllowHTTP = true
 	clientConn, err := transport.NewClientConn(rawConn)
 	if err != nil {
 		_ = rawConn.Close()

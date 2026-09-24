@@ -11,11 +11,11 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/gin-gonic/gin"
+	"github.com/tidwall/gjson"
 	"github.com/wuekevin/axisrelay/auth"
 	"github.com/wuekevin/axisrelay/database"
 	"github.com/wuekevin/axisrelay/security/promptfilter"
-	"github.com/gin-gonic/gin"
-	"github.com/tidwall/gjson"
 )
 
 // TestUpstreamCyberPolicyCodeDetectsResponseFailed 覆盖 #258：cyber_policy 封禁在
@@ -141,7 +141,7 @@ func assertCyberUsageIncidentLinks(t *testing.T, db *database.DB, endpoint strin
 
 func TestPromptPolicyIncidentProtocolMatrixKeepsExactUsageLinks(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	db, err := database.New("sqlite", filepath.Join(t.TempDir(), "cyber-protocol-matrix.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "cyber-protocol-matrix.db"))
 	if err != nil {
 		t.Fatalf("database.New(sqlite) error: %v", err)
 	}
@@ -260,7 +260,7 @@ func TestPromptPolicyLocalOutcomeSemantics(t *testing.T) {
 
 func TestPromptPolicyIncidentRedactsAndBoundsSeparatedFields(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	db, err := database.New("sqlite", filepath.Join(t.TempDir(), "cyber-redaction.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "cyber-redaction.db"))
 	if err != nil {
 		t.Fatalf("database.New(sqlite) error: %v", err)
 	}
@@ -312,7 +312,7 @@ func TestPromptPolicyIncidentRedactsAndBoundsSeparatedFields(t *testing.T) {
 
 func TestPromptPolicyIncidentUsesStableFingerprintWhenPromptUnavailable(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	db, err := database.New("sqlite", filepath.Join(t.TempDir(), "cyber-unavailable.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "cyber-unavailable.db"))
 	if err != nil {
 		t.Fatalf("database.New(sqlite) error: %v", err)
 	}
@@ -352,7 +352,8 @@ func TestPromptPolicyIncidentUsesStableFingerprintWhenPromptUnavailable(t *testi
 		t.Fatalf("ListPromptRuleCandidateEvidence len=%d err=%v", len(evidence), err)
 	}
 	for _, row := range evidence {
-		if !strings.Contains(row.MetadataJSON, `"evidence_quality":"insufficient"`) || !strings.Contains(row.MetadataJSON, `"quality":"insufficient"`) {
+		metadata := gjson.Parse(row.MetadataJSON)
+		if metadata.Get("evidence_quality").String() != "insufficient" || metadata.Get("learning_evidence.quality").String() != "insufficient" {
 			t.Fatalf("insufficient evidence quality metadata missing: %s", row.MetadataJSON)
 		}
 	}
@@ -360,7 +361,7 @@ func TestPromptPolicyIncidentUsesStableFingerprintWhenPromptUnavailable(t *testi
 
 func TestPromptPolicyLearningEvidenceIncludesBoundedContextAndReview(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	db, err := database.New("sqlite", filepath.Join(t.TempDir(), "cyber-learning-bundle.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "cyber-learning-bundle.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -391,10 +392,29 @@ func TestPromptPolicyLearningEvidenceIncludesBoundedContextAndReview(t *testing.
 		t.Fatalf("evidence len=%d err=%v", len(evidence), err)
 	}
 	metadata := evidence[0].MetadataJSON
-	for _, expected := range []string{`"evidence_quality":"complete"`, `"prompt_text":"current security request"`, `"linked defensive context"`, `"review_model":"review-model"`, `"review_error":"review timeout"`, `"upstream_error"`} {
-		if !strings.Contains(metadata, expected) {
-			t.Fatalf("learning evidence metadata missing %s: %s", expected, metadata)
+	parsedMetadata := gjson.Parse(metadata)
+	for path, expected := range map[string]string{
+		"evidence_quality":               "complete",
+		"learning_evidence.prompt_text":  "current security request",
+		"learning_evidence.review_model": "review-model",
+		"learning_evidence.review_error": "review timeout",
+	} {
+		if got := parsedMetadata.Get(path).String(); got != expected {
+			t.Fatalf("learning evidence metadata %s = %q, want %q: %s", path, got, expected, metadata)
 		}
+	}
+	if parsedMetadata.Get("learning_evidence.upstream_error").String() == "" {
+		t.Fatalf("learning evidence metadata missing upstream_error: %s", metadata)
+	}
+	foundLinkedContext := false
+	for _, item := range parsedMetadata.Get("learning_evidence.context").Array() {
+		if item.Get("text").String() == "linked defensive context" {
+			foundLinkedContext = true
+			break
+		}
+	}
+	if !foundLinkedContext {
+		t.Fatalf("learning evidence metadata missing linked defensive context: %s", metadata)
 	}
 	if strings.Contains(metadata, "fixed application boilerplate") {
 		t.Fatalf("server-injected boilerplate leaked into learning evidence: %s", metadata)
@@ -480,7 +500,7 @@ func TestLogUpstreamCyberPolicyRecordsStreamingFailure(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
-	db, err := database.New("sqlite", dbPath)
+	db, err := newTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatalf("database.New(sqlite) error: %v", err)
 	}
@@ -533,7 +553,7 @@ func TestLogUpstreamCyberPolicyRecordsStreamingFailure(t *testing.T) {
 
 func TestUpstreamCyberPolicyStagesGlobalEvidenceWithoutChangingRuntimeRules(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	db, err := database.New("sqlite", filepath.Join(t.TempDir(), "cyber-learning.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "cyber-learning.db"))
 	if err != nil {
 		t.Fatalf("database.New(sqlite) error: %v", err)
 	}
@@ -618,7 +638,7 @@ func TestUpstreamCyberPolicyStagesGlobalEvidenceWithoutChangingRuntimeRules(t *t
 
 func TestUpstreamCyberPolicyStagesEvidenceWhenLocalFilterIsDisabled(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	db, err := database.New("sqlite", filepath.Join(t.TempDir(), "cyber-disabled-filter.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "cyber-disabled-filter.db"))
 	if err != nil {
 		t.Fatalf("database.New(sqlite) error: %v", err)
 	}
@@ -657,7 +677,7 @@ func TestUpstreamCyberPolicyStagesEvidenceWhenLocalFilterIsDisabled(t *testing.T
 
 func TestUpstreamCyberPolicyGlobalCandidateKeepsPerPlatformProvenance(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	db, err := database.New("sqlite", filepath.Join(t.TempDir(), "cyber-platforms.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "cyber-platforms.db"))
 	if err != nil {
 		t.Fatalf("database.New(sqlite) error: %v", err)
 	}

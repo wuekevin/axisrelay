@@ -10,7 +10,7 @@ import (
 
 func newInviteSnapshotTestDB(t *testing.T) *DB {
 	t.Helper()
-	db, err := New("sqlite", filepath.Join(t.TempDir(), "invite-snapshots.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "invite-snapshots.db"))
 	if err != nil {
 		t.Fatalf("database.New: %v", err)
 	}

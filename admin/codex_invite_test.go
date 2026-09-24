@@ -61,7 +61,7 @@ func TestCollectInviteEmails(t *testing.T) {
 
 func newInviteCacheTestHandler(t *testing.T, withCache bool) *Handler {
 	t.Helper()
-	db, err := database.New("sqlite", filepath.Join(t.TempDir(), "invite-cache.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "invite-cache.db"))
 	if err != nil {
 		t.Fatalf("database.New: %v", err)
 	}
@@ -180,7 +180,7 @@ func TestInviteCacheScopeNormalization(t *testing.T) {
 
 func newInviteRecipientTestHandler(t *testing.T) (*Handler, *database.DB) {
 	t.Helper()
-	db, err := database.New("sqlite", filepath.Join(t.TempDir(), "invite-recipients.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "invite-recipients.db"))
 	if err != nil {
 		t.Fatalf("database.New: %v", err)
 	}

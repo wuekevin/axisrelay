@@ -18,7 +18,7 @@ import (
 
 func TestProxyRiskScoringProfileAPIKeepsSecretsMaskedAndSupportsLifecycle(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	db, err := database.New("sqlite", filepath.Join(t.TempDir(), "proxy-risk-api.sqlite"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "proxy-risk-api.sqlite"))
 	if err != nil {
 		t.Fatal(err)
 	}

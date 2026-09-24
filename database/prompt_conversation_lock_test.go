@@ -134,10 +134,12 @@ func TestPromptConversationLockCreatesUserCooldownIndex(t *testing.T) {
 	if err := db.ensurePromptConversationLocksTable(t.Context()); err != nil {
 		t.Fatal(err)
 	}
-	var name string
-	err := db.conn.QueryRowContext(t.Context(), `SELECT name FROM sqlite_master WHERE type='index' AND name=$1`, "idx_prompt_conversation_locks_user_cooldown").Scan(&name)
-	if err != nil || name != "idx_prompt_conversation_locks_user_cooldown" {
-		t.Fatalf("user cooldown index = %q err=%v", name, err)
+	var count int
+	err := db.conn.QueryRowContext(t.Context(), `SELECT COUNT(*) FROM information_schema.statistics
+		WHERE table_schema=DATABASE() AND table_name='prompt_conversation_locks' AND index_name=$1`,
+		"idx_prompt_conversation_locks_user_cooldown").Scan(&count)
+	if err != nil || count == 0 {
+		t.Fatalf("user cooldown index count = %d err=%v", count, err)
 	}
 }
 

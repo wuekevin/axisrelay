@@ -12,7 +12,7 @@ import (
 )
 
 func TestAPIKeyAuthRevisionSQLite(t *testing.T) {
-	db, err := New("sqlite", filepath.Join(t.TempDir(), "auth.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "auth.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -106,17 +106,17 @@ func testAPIKeyAuthRevision(t *testing.T, db *DB) {
 
 func TestAPIKeyAuthRevisionDatabaseScope(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "shared.db")
-	first, err := New("sqlite", path)
+	first, err := newTestDatabase(t, path)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer first.Close()
-	second, err := New("sqlite", path)
+	second, err := newTestDatabase(t, path)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer second.Close()
-	other, err := New("sqlite", filepath.Join(t.TempDir(), "other.db"))
+	other, err := newTestDatabase(t, filepath.Join(t.TempDir(), "other.db"))
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -9,7 +9,7 @@ import (
 
 func TestOpenAIResponsesIdentityChangeClearsPersistedFailureState(t *testing.T) {
 	ctx := context.Background()
-	db, err := New("sqlite", filepath.Join(t.TempDir(), "responses-identity.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "responses-identity.db"))
 	if err != nil {
 		t.Fatalf("New(sqlite): %v", err)
 	}

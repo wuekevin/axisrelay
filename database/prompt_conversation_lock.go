@@ -99,6 +99,50 @@ func (db *DB) ensurePromptConversationLocksTable(ctx context.Context) error {
 	}
 	promptConversationLockSchemaMu.Lock()
 	defer promptConversationLockSchemaMu.Unlock()
+	if db.isMySQL() {
+		if _, err := db.conn.ExecContext(ctx, `CREATE TABLE IF NOT EXISTS prompt_conversation_locks (
+			id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+			lock_key CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+			status VARCHAR(24) NOT NULL DEFAULT 'active',
+			identity_kind VARCHAR(24) NOT NULL DEFAULT 'newapi',
+			platform VARCHAR(100) NOT NULL DEFAULT '',
+			newapi_user_id VARCHAR(255) NOT NULL DEFAULT '',
+			session_fingerprint VARCHAR(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT '',
+			session_hash CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT '',
+			incident_id VARCHAR(64) NOT NULL DEFAULT '',
+			decision_id VARCHAR(128) NOT NULL DEFAULT '',
+			request_id VARCHAR(255) NOT NULL DEFAULT '',
+			reason_code VARCHAR(100) NOT NULL DEFAULT '',
+			endpoint VARCHAR(255) NOT NULL DEFAULT '',
+			model VARCHAR(128) NOT NULL DEFAULT '',
+			trigger_count BIGINT UNSIGNED NOT NULL DEFAULT 1,
+			unlock_count BIGINT UNSIGNED NOT NULL DEFAULT 0,
+			locked_at DATETIME(3) NOT NULL,
+			unlocked_at DATETIME(3) NULL,
+			unlock_reason TEXT NULL,
+			created_at DATETIME(3) NOT NULL,
+			updated_at DATETIME(3) NOT NULL,
+			PRIMARY KEY (id),
+			UNIQUE KEY uk_prompt_conversation_locks_key (lock_key),
+			KEY idx_prompt_conversation_locks_status (status, updated_at),
+			KEY idx_prompt_conversation_locks_session (session_hash, status),
+			KEY idx_prompt_conversation_locks_user_cooldown (platform, newapi_user_id, status, locked_at)
+		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci`); err != nil {
+			return err
+		}
+		var identityColumnCount int
+		if err := db.conn.QueryRowContext(ctx, `SELECT COUNT(*) FROM information_schema.columns
+			WHERE table_schema=DATABASE() AND table_name='prompt_conversation_locks' AND column_name='identity_kind'`).Scan(&identityColumnCount); err != nil {
+			return err
+		}
+		if identityColumnCount == 0 {
+			if _, err := db.conn.ExecContext(ctx, `ALTER TABLE prompt_conversation_locks
+				ADD COLUMN identity_kind VARCHAR(24) NOT NULL DEFAULT 'newapi' AFTER status`); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
 	idType := "BIGSERIAL PRIMARY KEY"
 	timeType := "TIMESTAMPTZ"
 	if db.isSQLite() {
@@ -227,6 +271,9 @@ func (db *DB) LockPromptConversation(ctx context.Context, raw PromptConversation
 	if err := db.ensurePromptConversationLocksTable(ctx); err != nil {
 		return nil, false, err
 	}
+	if db.isMySQL() {
+		return db.lockPromptConversationMySQL(ctx, input)
+	}
 	now := time.Now().UTC()
 	query := `INSERT INTO prompt_conversation_locks (
 		lock_key, status, identity_kind, platform, newapi_user_id, session_fingerprint, session_hash,
@@ -259,6 +306,64 @@ func (db *DB) LockPromptConversation(ctx context.Context, raw PromptConversation
 	}
 	item, err = db.GetPromptConversationLock(ctx, input.LockKey)
 	return item, false, err
+}
+
+func (db *DB) lockPromptConversationMySQL(ctx context.Context, input PromptConversationLockInput) (*PromptConversationLock, bool, error) {
+	tx, err := db.conn.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, false, err
+	}
+	defer tx.Rollback()
+
+	existing, err := scanPromptConversationLock(tx.QueryRowContext(ctx,
+		promptConversationLockSelect+` WHERE lock_key=$1 FOR UPDATE`, input.LockKey))
+	switch {
+	case err == nil:
+		if existing.DecisionID == input.DecisionID {
+			if err := tx.Commit(); err != nil {
+				return nil, false, err
+			}
+			return existing, false, nil
+		}
+		now := time.Now().UTC()
+		if _, err := tx.ExecContext(ctx, `UPDATE prompt_conversation_locks SET
+			status='active', identity_kind=$2, platform=$3, newapi_user_id=$4,
+			session_fingerprint=$5, session_hash=$6, incident_id=$7, decision_id=$8,
+			request_id=$9, reason_code=$10, endpoint=$11, model=$12,
+			trigger_count=trigger_count+1, locked_at=$13, unlocked_at=NULL,
+			unlock_reason='', updated_at=$14 WHERE lock_key=$1`,
+			input.LockKey, input.IdentityKind, input.Platform, input.NewAPIUserID,
+			input.SessionFingerprint, input.SessionHash, input.IncidentID, input.DecisionID,
+			input.RequestID, input.ReasonCode, input.Endpoint, input.Model,
+			db.timeArg(input.LockedAt), db.timeArg(now)); err != nil {
+			return nil, false, err
+		}
+	case errors.Is(err, sql.ErrNoRows):
+		now := time.Now().UTC()
+		if _, err := tx.ExecContext(ctx, `INSERT INTO prompt_conversation_locks (
+			lock_key,status,identity_kind,platform,newapi_user_id,session_fingerprint,session_hash,
+			incident_id,decision_id,request_id,reason_code,endpoint,model,trigger_count,
+			unlock_count,locked_at,unlocked_at,unlock_reason,created_at,updated_at
+		) VALUES ($1,'active',$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,1,0,$13,NULL,'',$14,$14)`,
+			input.LockKey, input.IdentityKind, input.Platform, input.NewAPIUserID,
+			input.SessionFingerprint, input.SessionHash, input.IncidentID, input.DecisionID,
+			input.RequestID, input.ReasonCode, input.Endpoint, input.Model,
+			db.timeArg(input.LockedAt), db.timeArg(now)); err != nil {
+			return nil, false, err
+		}
+	default:
+		return nil, false, err
+	}
+
+	item, err := scanPromptConversationLock(tx.QueryRowContext(ctx,
+		promptConversationLockSelect+` WHERE lock_key=$1`, input.LockKey))
+	if err != nil {
+		return nil, false, err
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, false, err
+	}
+	return item, true, nil
 }
 
 func (db *DB) GetPromptConversationLock(ctx context.Context, lockKey string) (*PromptConversationLock, error) {
@@ -430,6 +535,9 @@ func (db *DB) UnlockPromptConversationUserCooldown(ctx context.Context, platform
 	if reason == "" {
 		reason = "管理员解除用户安全冷却"
 	}
+	if db.isMySQL() {
+		return db.unlockPromptConversationUserCooldownMySQL(ctx, platform, newAPIUserID, reason)
+	}
 	now := time.Now().UTC()
 	rows, err := db.conn.QueryContext(ctx, `UPDATE prompt_conversation_locks SET
 		status='unlocked', unlock_count=unlock_count+1, unlocked_at=$3,
@@ -453,6 +561,51 @@ func (db *DB) UnlockPromptConversationUserCooldown(ctx context.Context, platform
 	}
 	if len(keys) == 0 {
 		return nil, sql.ErrNoRows
+	}
+	return keys, nil
+}
+
+func (db *DB) unlockPromptConversationUserCooldownMySQL(ctx context.Context, platform, newAPIUserID, reason string) ([]string, error) {
+	tx, err := db.conn.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+
+	rows, err := tx.QueryContext(ctx, `SELECT lock_key FROM prompt_conversation_locks
+		WHERE platform=$1 AND newapi_user_id=$2 AND status='active'
+		ORDER BY lock_key FOR UPDATE`, platform, newAPIUserID)
+	if err != nil {
+		return nil, err
+	}
+	keys := make([]string, 0, 4)
+	for rows.Next() {
+		var key string
+		if err := rows.Scan(&key); err != nil {
+			_ = rows.Close()
+			return nil, err
+		}
+		keys = append(keys, key)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	if len(keys) == 0 {
+		return nil, sql.ErrNoRows
+	}
+	now := time.Now().UTC()
+	if _, err := tx.ExecContext(ctx, `UPDATE prompt_conversation_locks SET
+		status='unlocked', unlock_count=unlock_count+1, unlocked_at=$3,
+		unlock_reason=$4, updated_at=$3
+		WHERE platform=$1 AND newapi_user_id=$2 AND status='active'`,
+		platform, newAPIUserID, db.timeArg(now), reason); err != nil {
+		return nil, err
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, err
 	}
 	return keys, nil
 }

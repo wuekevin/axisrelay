@@ -11,7 +11,7 @@ import (
 
 func TestGetAPIKeyAccountWindowUsageSplitsByAccount(t *testing.T) {
 	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
-	db, err := New("sqlite", dbPath)
+	db, err := newTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatalf("New(sqlite) 返回错误: %v", err)
 	}
@@ -93,7 +93,7 @@ func TestGetAPIKeyAccountWindowUsageSplitsByAccount(t *testing.T) {
 
 func TestAPIKeyAccountStatsKeepsDeletedAccountLastGroup(t *testing.T) {
 	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
-	db, err := New("sqlite", dbPath)
+	db, err := newTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatalf("New(sqlite) 返回错误: %v", err)
 	}
@@ -180,7 +180,7 @@ func TestAPIKeyAccountStatsKeepsDeletedAccountLastGroup(t *testing.T) {
 
 func TestDeleteAccountGroupPrunesScopeLimits(t *testing.T) {
 	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
-	db, err := New("sqlite", dbPath)
+	db, err := newTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatalf("New(sqlite) 返回错误: %v", err)
 	}
@@ -240,7 +240,7 @@ func TestDeleteAccountGroupPrunesScopeLimits(t *testing.T) {
 
 func TestScopeCountersAccumulateAcrossGroupAndAccount(t *testing.T) {
 	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
-	db, err := New("sqlite", dbPath)
+	db, err := newTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatalf("New(sqlite) 返回错误: %v", err)
 	}
@@ -251,9 +251,12 @@ func TestScopeCountersAccumulateAcrossGroupAndAccount(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateAccountGroup: %v", err)
 	}
-	accountID := int64(4242)
-	if _, err := db.conn.ExecContext(ctx, `INSERT INTO account_group_members (account_id, group_id) VALUES (?, ?)`, accountID, groupID); err != nil {
-		t.Fatalf("insert group member: %v", err)
+	accountID, err := db.InsertAccount(ctx, "scope-account", "scope-refresh", "")
+	if err != nil {
+		t.Fatalf("InsertAccount: %v", err)
+	}
+	if err := db.SetAccountGroups(ctx, accountID, []int64{groupID}); err != nil {
+		t.Fatalf("SetAccountGroups: %v", err)
 	}
 
 	keyID, err := db.InsertAPIKeyWithOptions(ctx, APIKeyInput{
@@ -325,7 +328,7 @@ func TestScopeCountersAccumulateAcrossGroupAndAccount(t *testing.T) {
 
 func TestScopeCountersSkipKeysWithoutCumulativeQuota(t *testing.T) {
 	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
-	db, err := New("sqlite", dbPath)
+	db, err := newTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatalf("New(sqlite) 返回错误: %v", err)
 	}
@@ -362,7 +365,7 @@ func TestScopeCountersSkipKeysWithoutCumulativeQuota(t *testing.T) {
 
 func TestDeleteAPIKeyRemovesScopeCounters(t *testing.T) {
 	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
-	db, err := New("sqlite", dbPath)
+	db, err := newTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatalf("New(sqlite) 返回错误: %v", err)
 	}

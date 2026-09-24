@@ -50,7 +50,7 @@ func TestPopulateUsageCredentialGenerationUsesDispatchedGrokAccount(t *testing.T
 
 func TestLogUsagePersistsGrokCredentialGeneration(t *testing.T) {
 	ctx := context.Background()
-	db, err := database.New("sqlite", filepath.Join(t.TempDir(), "usage-generation.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "usage-generation.db"))
 	if err != nil {
 		t.Fatalf("database.New: %v", err)
 	}

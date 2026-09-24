@@ -163,7 +163,7 @@ func TestMessagesResponseFailedCyberPolicyEntersUnifiedAuditAndCandidateQueue(t 
 			`{"type":"response.failed","response":{"error":{"code":"cyber_policy","message":"cyber security risk detected"}}}`,
 		)
 	})
-	db, err := database.New("sqlite", filepath.Join(t.TempDir(), "messages-cyber.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "messages-cyber.db"))
 	if err != nil {
 		t.Fatalf("database.New(sqlite): %v", err)
 	}

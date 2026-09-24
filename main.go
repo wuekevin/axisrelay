@@ -64,9 +64,7 @@ func main() {
 		log.Println("数据库迁移完成，AXISRELAY_MIGRATE_ONLY 已启用，进程退出")
 		return
 	}
-	if cfg.Database.Driver == "sqlite" {
-		log.Printf("%s 连接成功: %s", cfg.Database.Label(), cfg.Database.Path)
-	}
+	log.Printf("%s 连接成功: %s:%d/%s", cfg.Database.Label(), cfg.Database.Host, cfg.Database.Port, cfg.Database.DBName)
 
 	// 3. 读取运行时的系统逻辑设置（需在缓存初始化之前，以获取连接池大小）
 	sysCtx, sysCancel := context.WithTimeout(context.Background(), 5*time.Second)

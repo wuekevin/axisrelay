@@ -5,12 +5,18 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
+
+	mysqlDriver "github.com/go-sql-driver/mysql"
 )
+
+var excludedColumnPattern = regexp.MustCompile(`EXCLUDED\.([A-Za-z0-9_]+)`)
 
 func normalizeDriver(driver string) string {
 	driver = strings.TrimSpace(strings.ToLower(driver))
@@ -121,6 +127,57 @@ func (db *DB) timeArg(value time.Time) interface{} {
 		return sqliteTimeParam(value)
 	}
 	return value
+}
+
+func (db *DB) withMySQLTransactionRetry(ctx context.Context, fn func() error) error {
+	const maxAttempts = 3
+	for attempt := 0; attempt < maxAttempts; attempt++ {
+		err := fn()
+		if err == nil || db == nil || !db.isMySQL() || !isMySQLRetryableTransactionError(err) {
+			return err
+		}
+		if attempt == maxAttempts-1 {
+			return err
+		}
+		timer := time.NewTimer(time.Duration(attempt+1) * 10 * time.Millisecond)
+		select {
+		case <-ctx.Done():
+			if !timer.Stop() {
+				<-timer.C
+			}
+			return ctx.Err()
+		case <-timer.C:
+		}
+	}
+	return nil
+}
+
+func isMySQLRetryableTransactionError(err error) bool {
+	var mysqlErr *mysqlDriver.MySQLError
+	if !errors.As(err, &mysqlErr) {
+		return false
+	}
+	return mysqlErr.Number == 1213 || mysqlErr.Number == 1205
+}
+
+func (db *DB) credentialsTextSQL(alias string) string {
+	column := "credentials"
+	if strings.TrimSpace(alias) != "" {
+		column = strings.TrimSpace(alias) + ".credentials"
+	}
+	if db != nil && db.isMySQL() {
+		return "COALESCE(CONVERT(" + column + " USING utf8mb4), '{}')"
+	}
+	return "COALESCE(CAST(" + column + " AS TEXT), '{}')"
+}
+
+func (db *DB) singletonUpsertSQL(query string) string {
+	if db == nil || !db.isMySQL() {
+		return query
+	}
+	query = strings.Replace(query, "ON CONFLICT (id) DO NOTHING", "ON DUPLICATE KEY UPDATE id=id", 1)
+	query = strings.Replace(query, "ON CONFLICT (id) DO UPDATE SET", "ON DUPLICATE KEY UPDATE", 1)
+	return excludedColumnPattern.ReplaceAllString(query, "VALUES($1)")
 }
 
 func decodeCredentials(raw interface{}) map[string]interface{} {
@@ -395,10 +452,17 @@ func (db *DB) Driver() string {
 }
 
 func (db *DB) Label() string {
-	if db.isSQLite() {
-		return "SQLite"
+	if db == nil {
+		return "PostgreSQL"
 	}
-	return "PostgreSQL"
+	switch db.driver {
+	case "sqlite":
+		return "SQLite"
+	case "mysql":
+		return "MySQL"
+	default:
+		return "PostgreSQL"
+	}
 }
 
 func (db *DB) SetMaxOpenConns(n int) {

@@ -78,13 +78,13 @@ func TestValidateImageUserBilling(t *testing.T) {
 }
 
 func TestImageUserBillingPersistence(t *testing.T) {
-	testImageUserBillingPersistence(t, "sqlite", filepath.Join(t.TempDir(), "image-fees.db"))
+	testImageUserBillingPersistence(t, filepath.Join(t.TempDir(), "image-fees.db"))
 }
 
-func testImageUserBillingPersistence(t *testing.T, driver, dsn string) {
+func testImageUserBillingPersistence(t *testing.T, dsn string) {
 	previous := currentModelPricingOverrides()
 	t.Cleanup(func() { SetModelPricingOverrides(previous) })
-	db, err := New(driver, dsn)
+	db, err := newTestDatabase(t, dsn)
 	if err != nil {
 		t.Fatal(err)
 	}

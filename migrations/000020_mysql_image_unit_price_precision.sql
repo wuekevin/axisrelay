@@ -1,0 +1,2 @@
+ALTER TABLE usage_logs
+  MODIFY COLUMN image_unit_price DECIMAL(20,8) NOT NULL DEFAULT 0;

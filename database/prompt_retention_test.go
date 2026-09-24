@@ -2,6 +2,7 @@ package database
 
 import (
 	"context"
+	"fmt"
 	"path/filepath"
 	"testing"
 	"time"
@@ -9,9 +10,9 @@ import (
 
 func newPromptRetentionTestDB(t *testing.T) *DB {
 	t.Helper()
-	db, err := New("sqlite", filepath.Join(t.TempDir(), "prompt-retention.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "prompt-retention.db"))
 	if err != nil {
-		t.Fatalf("New(sqlite) error: %v", err)
+		t.Fatalf("New(test database) error: %v", err)
 	}
 	t.Cleanup(func() { _ = db.Close() })
 	ctx := context.Background()
@@ -47,9 +48,9 @@ func (db *DB) mustCount(t *testing.T, query string, args ...interface{}) int {
 //   - CY：incident-1，request_correlation_id=cy-1
 func seedPromptRetentionFixture(t *testing.T, db *DB) {
 	t.Helper()
-	old := sqliteTimeParam(time.Now().UTC().Add(-10 * 24 * time.Hour))
-	fresh := sqliteTimeParam(time.Now().UTC().Add(-time.Hour))
-	insertLog := func(id int, createdAt, corr string, reviewed int, source string) {
+	old := time.Now().UTC().Add(-10 * 24 * time.Hour)
+	fresh := time.Now().UTC().Add(-time.Hour)
+	insertLog := func(id int, createdAt time.Time, corr string, reviewed int, source string) {
 		db.mustExec(t, `INSERT INTO prompt_filter_logs (id, created_at, request_correlation_id, reviewed, source, action) VALUES ($1, $2, $3, $4, $5, 'block')`, id, createdAt, corr, reviewed, source)
 	}
 	insertLog(1, old, "", 0, "local_filter")
@@ -57,9 +58,9 @@ func seedPromptRetentionFixture(t *testing.T, db *DB) {
 	insertLog(3, old, "cy-1", 0, "local_filter")
 	insertLog(4, fresh, "", 0, "local_filter")
 	db.mustExec(t, `INSERT INTO prompt_policy_incidents (incident_id, request_correlation_id, created_at) VALUES ('incident-1', 'cy-1', $1)`, old)
-	insertEvent := func(id int, createdAt, sourceID, incidentID string, logID int) {
+	insertEvent := func(id int, createdAt time.Time, sourceID, incidentID string, logID int) {
 		db.mustExec(t, `INSERT INTO prompt_risk_events (id, created_at, source_type, source_id, incident_id, prompt_filter_log_id, subject_type, subject_key, event_kind)
-			VALUES ($1, $2, 'src', $3, $4, $5, 'user', 'u-'||$1, 'block')`, id, createdAt, sourceID, incidentID, logID)
+			VALUES ($1, $2, 'src', $3, $4, $5, 'user', $6, 'block')`, id, createdAt, sourceID, incidentID, logID, fmt.Sprintf("u-%d", id))
 		db.mustExec(t, `INSERT INTO prompt_risk_event_sources (source_type, source_id, processed_at) VALUES ('src', $1, $2)`, sourceID, createdAt)
 	}
 	insertEvent(1, old, "s1", "", 1)

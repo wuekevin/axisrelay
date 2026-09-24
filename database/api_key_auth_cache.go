@@ -44,7 +44,54 @@ func (db *DB) GetAPIKeyAuthQuota(ctx context.Context, id int64) (float64, APIKey
 	return used, state, err
 }
 
+func (db *DB) bumpMySQLAPIKeyAuthRevisionTx(ctx context.Context, tx *sql.Tx, keyCountDelta int) error {
+	if !db.isMySQL() {
+		return nil
+	}
+	query := `UPDATE api_key_auth_cache_state SET generation=generation+1 WHERE id=1`
+	switch {
+	case keyCountDelta > 0:
+		query = `UPDATE api_key_auth_cache_state SET generation=generation+1,key_count=key_count+1 WHERE id=1`
+	case keyCountDelta < 0:
+		query = `UPDATE api_key_auth_cache_state SET generation=generation+1,key_count=GREATEST(key_count-1,0) WHERE id=1`
+	}
+	_, err := tx.ExecContext(ctx, query)
+	return err
+}
+
+func (db *DB) execMySQLAPIKeyConfigUpdate(ctx context.Context, query string, args ...interface{}) error {
+	return db.withWriteTx(ctx, func(tx *sql.Tx) error {
+		res, err := tx.ExecContext(ctx, query, args...)
+		if err != nil {
+			return err
+		}
+		affected, err := res.RowsAffected()
+		if err != nil {
+			return err
+		}
+		if affected == 0 {
+			if len(args) == 0 {
+				return sql.ErrNoRows
+			}
+			id, ok := args[len(args)-1].(int64)
+			if !ok {
+				return sql.ErrNoRows
+			}
+			var exists int
+			if err := tx.QueryRowContext(ctx, `SELECT 1 FROM api_keys WHERE id=$1`, id).Scan(&exists); err != nil {
+				return err
+			}
+			// MySQL reports zero affected rows for an idempotent UPDATE.
+			return nil
+		}
+		return db.bumpMySQLAPIKeyAuthRevisionTx(ctx, tx, 0)
+	})
+}
+
 func (db *DB) ensureAPIKeyAuthCacheSchema(ctx context.Context) error {
+	if db.isMySQL() {
+		return nil
+	}
 	return db.withWriteTx(ctx, func(tx *sql.Tx) error {
 		if !db.isSQLite() {
 			if _, err := tx.ExecContext(ctx, `LOCK TABLE api_keys IN SHARE ROW EXCLUSIVE MODE`); err != nil {

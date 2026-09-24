@@ -21,7 +21,7 @@ import (
 // request and a read lease. Rejection must roll back both reservations without
 // writing response.create or destroying the otherwise healthy pooled socket.
 func TestExecuteWebsocketModelQuotaRejectionReturnsUnsentLeaseToIdle(t *testing.T) {
-	db, err := database.New("sqlite", filepath.Join(t.TempDir(), "quota.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "quota.db"))
 	if err != nil {
 		t.Fatal(err)
 	}

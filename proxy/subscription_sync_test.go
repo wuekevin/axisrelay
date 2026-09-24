@@ -136,7 +136,7 @@ func TestMaybeSyncSubscriptionExpiry_SyncsAndThrottles(t *testing.T) {
 	defer SetSubscriptionsURLForTest(server.URL)()
 
 	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
-	db, err := database.New("sqlite", dbPath)
+	db, err := newTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatalf("database.New: %v", err)
 	}
@@ -229,7 +229,7 @@ func newSubscriptionSyncTestStore(t *testing.T, plan string) (*auth.Store, *data
 	t.Helper()
 	ctx := context.Background()
 	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
-	db, err := database.New("sqlite", dbPath)
+	db, err := newTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatalf("database.New: %v", err)
 	}

@@ -267,7 +267,7 @@ func TestSignedPolicyMetaAcceptsSessionFingerprintAndRejectsMalformedValue(t *te
 
 func TestSignedPolicyDecisionUsesStructured400WithoutLocalPenalty(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	db, err := database.New("sqlite", filepath.Join(t.TempDir(), "newapi-audit.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "newapi-audit.db"))
 	if err != nil {
 		t.Fatalf("database.New(sqlite): %v", err)
 	}
@@ -790,7 +790,7 @@ func TestBindingSnapshotRefreshesPolicyAndRevokesObsoleteWebSocketIdentity(t *te
 
 func TestResponsesWebSocketClosesBeforeUpstreamAfterBindingSecretRevocation(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	db, err := database.New("sqlite", filepath.Join(t.TempDir(), "ws-binding-revocation.sqlite"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "ws-binding-revocation.sqlite"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1111,7 +1111,7 @@ func TestRequiredBoundIdentityFailsWithoutPolicyPenalty(t *testing.T) {
 
 func TestAuthMiddlewareEnforcesBoundIdentityAndRestoresV1Body(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	db, err := database.New("sqlite", filepath.Join(t.TempDir(), "axisrelay.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "axisrelay.db"))
 	if err != nil {
 		t.Fatal(err)
 	}

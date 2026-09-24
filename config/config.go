@@ -3,18 +3,20 @@ package config
 import (
 	"fmt"
 	"log"
+	"net"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/joho/godotenv"
+	platformmysql "github.com/wuekevin/axisrelay/internal/platform/mysql"
 )
 
 // DatabaseConfig 数据库核心配置。
 type DatabaseConfig struct {
 	Driver   string
-	Path     string
 	Host     string
 	Port     int
 	User     string
@@ -24,16 +26,41 @@ type DatabaseConfig struct {
 
 // DSN 返回当前驱动的连接字符串。
 func (d *DatabaseConfig) DSN() string {
-	if strings.EqualFold(d.Driver, "sqlite") {
-		return d.Path
+	switch strings.ToLower(strings.TrimSpace(d.Driver)) {
+	case "mysql":
+		dsn, err := (platformmysql.Config{
+			Host:     d.Host,
+			Port:     d.Port,
+			User:     d.User,
+			Password: d.Password,
+			Database: d.DBName,
+		}).DSN()
+		if err == nil {
+			return dsn
+		}
+	case "postgres", "postgresql":
+		port := d.Port
+		if port == 0 {
+			port = 5432
+		}
+		u := &url.URL{
+			Scheme: "postgres",
+			User:   url.UserPassword(d.User, d.Password),
+			Host:   net.JoinHostPort(d.Host, strconv.Itoa(port)),
+			Path:   d.DBName,
+		}
+		return u.String()
 	}
 	return ""
 }
 
 // Label 返回用于展示的数据库标签。
 func (d *DatabaseConfig) Label() string {
-	if strings.EqualFold(d.Driver, "sqlite") {
-		return "SQLite"
+	switch strings.ToLower(strings.TrimSpace(d.Driver)) {
+	case "mysql":
+		return "MySQL"
+	case "postgres", "postgresql":
+		return "PostgreSQL"
 	}
 	return strings.ToUpper(strings.TrimSpace(d.Driver))
 }
@@ -176,8 +203,7 @@ func Load(envPath string) (*Config, error) {
 	}
 
 	// 数据库配置
-	cfg.Database.Driver = normalizeDriver(os.Getenv("AXISRELAY_DATABASE_DRIVER"), "sqlite")
-	cfg.Database.Path = strings.TrimSpace(os.Getenv("AXISRELAY_DATABASE_PATH"))
+	cfg.Database.Driver = normalizeDriver(os.Getenv("AXISRELAY_DATABASE_DRIVER"), "mysql")
 	cfg.Database.Host = os.Getenv("AXISRELAY_DATABASE_HOST")
 	if v := os.Getenv("AXISRELAY_DATABASE_PORT"); v != "" {
 		if p, err := strconv.Atoi(v); err == nil {
@@ -187,6 +213,14 @@ func Load(envPath string) (*Config, error) {
 	cfg.Database.User = os.Getenv("AXISRELAY_DATABASE_USER")
 	cfg.Database.Password = os.Getenv("AXISRELAY_DATABASE_PASSWORD")
 	cfg.Database.DBName = os.Getenv("AXISRELAY_DATABASE_NAME")
+	if cfg.Database.Port == 0 {
+		switch cfg.Database.Driver {
+		case "mysql":
+			cfg.Database.Port = 3306
+		case "postgres", "postgresql":
+			cfg.Database.Port = 5432
+		}
+	}
 
 	// 缓存配置
 	cfg.Cache.Driver = normalizeDriver(os.Getenv("AXISRELAY_CACHE_DRIVER"), "redis")
@@ -203,12 +237,18 @@ func Load(envPath string) (*Config, error) {
 
 	// 校验必填物理层配置
 	switch cfg.Database.Driver {
-	case "sqlite":
-		if cfg.Database.Path == "" {
-			return nil, fmt.Errorf("必须通过 .env 或环境变量配置 SQLite 数据库路径 (AXISRELAY_DATABASE_PATH)")
+	case "mysql", "postgres", "postgresql":
+		if strings.TrimSpace(cfg.Database.Host) == "" {
+			return nil, fmt.Errorf("必须配置数据库主机 (AXISRELAY_DATABASE_HOST)")
+		}
+		if strings.TrimSpace(cfg.Database.User) == "" {
+			return nil, fmt.Errorf("必须配置数据库用户 (AXISRELAY_DATABASE_USER)")
+		}
+		if strings.TrimSpace(cfg.Database.DBName) == "" {
+			return nil, fmt.Errorf("必须配置数据库名称 (AXISRELAY_DATABASE_NAME)")
 		}
 	default:
-		return nil, fmt.Errorf("S0.3 已移除 PostgreSQL，当前阶段仅支持 sqlite；MySQL 将由 S0.4 接入: %s", cfg.Database.Driver)
+		return nil, fmt.Errorf("不支持的数据库驱动: %s（仅支持 mysql 或 postgres）", cfg.Database.Driver)
 	}
 
 	switch cfg.Cache.Driver {

@@ -8,13 +8,12 @@ import (
 	"time"
 
 	"github.com/wuekevin/axisrelay/auth"
-	"github.com/wuekevin/axisrelay/database"
 )
 
 func TestTurnStateDatabaseSurvivesRestartAndScope(t *testing.T) {
 	enableTurnStateTemplateCache(t)
 	path := filepath.Join(t.TempDir(), "templates.db")
-	db, err := database.New("sqlite", path)
+	db, err := newTestDatabase(t, path)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -30,7 +29,7 @@ func TestTurnStateDatabaseSurvivesRestartAndScope(t *testing.T) {
 	}
 	db.Close()
 	resetTurnStateTemplateStoreForTest()
-	db, err = database.New("sqlite", path)
+	db, err = newTestDatabase(t, path)
 	if err != nil {
 		t.Fatal(err)
 	}

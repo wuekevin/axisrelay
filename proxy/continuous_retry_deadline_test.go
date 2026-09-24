@@ -732,7 +732,7 @@ func TestResponsesWebSocketContinuousRetryDeadlineWritesOneErrorAndCloses1013(t 
 			Body:       &continuousRetryDeadlineBlockingBody{ctx: ctx, started: activeRead},
 		}, nil
 	}
-	db, err := database.New("sqlite", filepath.Join(t.TempDir(), "axisrelay.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "axisrelay.db"))
 	if err != nil {
 		t.Fatalf("open sqlite: %v", err)
 	}

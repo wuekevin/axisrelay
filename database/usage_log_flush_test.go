@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 )
 
 // insertUsageLogs 往缓冲里塞 count 条最简用量日志。
@@ -29,7 +28,7 @@ func insertUsageLogs(t *testing.T, db *DB, count int) {
 // usage_log_batch_size 条，FlushUsageLogs 必须循环刷完整个缓冲。
 func TestFlushUsageLogsDrainsBeyondOneBatch(t *testing.T) {
 	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
-	db, err := New("sqlite", dbPath)
+	db, err := newTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatalf("New(sqlite) 返回错误: %v", err)
 	}
@@ -65,50 +64,12 @@ func TestFlushUsageLogsDrainsBeyondOneBatch(t *testing.T) {
 	}
 }
 
-func TestSQLiteUsageLogFlushWaitsForUnifiedWriteLock(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
-	db, err := New("sqlite", dbPath)
-	if err != nil {
-		t.Fatalf("New(sqlite) 返回错误: %v", err)
-	}
-	close(db.logStop)
-	db.logWg.Wait()
-	defer db.conn.Close()
-
-	db.SetUsageLogConfig(UsageLogModeFull, 10, maxUsageLogFlushIntervalSeconds)
-	insertUsageLogs(t, db, 1)
-	db.sqliteWriteSem <- struct{}{}
-	flushed := make(chan struct{})
-	go func() {
-		db.FlushUsageLogs()
-		close(flushed)
-	}()
-	select {
-	case <-flushed:
-		t.Fatal("FlushUsageLogs bypassed SQLite write lock")
-	case <-time.After(50 * time.Millisecond):
-	}
-	<-db.sqliteWriteSem
-	select {
-	case <-flushed:
-	case <-time.After(2 * time.Second):
-		t.Fatal("FlushUsageLogs did not resume after SQLite write lock release")
-	}
-	logs, err := db.ListRecentUsageLogs(context.Background(), 10)
-	if err != nil {
-		t.Fatalf("ListRecentUsageLogs 返回错误: %v", err)
-	}
-	if len(logs) != 1 {
-		t.Fatalf("flushed logs = %d, want 1", len(logs))
-	}
-}
-
 // TestCloseFlushesEntireUsageLogBuffer 覆盖优雅关闭：Close 会先停掉后台 flusher，
 // 此时再走「只刷一个批次 + notifyLogFlush」的路径没人消费信号，超出一个批次的日志
 // 会被静默丢弃，所以收尾必须刷完整个缓冲。
 func TestCloseFlushesEntireUsageLogBuffer(t *testing.T) {
 	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
-	db, err := New("sqlite", dbPath)
+	db, err := newTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatalf("New(sqlite) 返回错误: %v", err)
 	}
@@ -122,7 +83,7 @@ func TestCloseFlushesEntireUsageLogBuffer(t *testing.T) {
 		t.Fatalf("Close 返回错误: %v", err)
 	}
 
-	reopened, err := New("sqlite", dbPath)
+	reopened, err := newTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatalf("重新打开数据库返回错误: %v", err)
 	}
@@ -142,7 +103,7 @@ func TestCloseFlushesEntireUsageLogBuffer(t *testing.T) {
 // 一条脏数据就能永久堵死日志写入。
 func TestUsageLogTextClampedToColumnWidth(t *testing.T) {
 	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
-	db, err := New("sqlite", dbPath)
+	db, err := newTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatalf("New(sqlite) 返回错误: %v", err)
 	}
@@ -353,7 +314,7 @@ func TestSalvageKeepsTransientFailuresForRetry(t *testing.T) {
 // 超限丢最旧的并计数，运维能从运行状态里看见丢了多少。
 func TestUsageLogBufferHonorsHardLimit(t *testing.T) {
 	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
-	db, err := New("sqlite", dbPath)
+	db, err := newTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatalf("New(sqlite) 返回错误: %v", err)
 	}
@@ -380,7 +341,7 @@ func TestUsageLogBufferHonorsHardLimit(t *testing.T) {
 // TestRequeueHonorsHardLimit 失败批次放回缓冲区同样要守住上限。
 func TestRequeueHonorsHardLimit(t *testing.T) {
 	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
-	db, err := New("sqlite", dbPath)
+	db, err := newTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatalf("New(sqlite) 返回错误: %v", err)
 	}

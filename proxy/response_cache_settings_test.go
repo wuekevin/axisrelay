@@ -168,7 +168,7 @@ func TestResponseCacheConfigPollReadHasBoundedTimeout(t *testing.T) {
 func TestResponseCacheConfigStartupLoadAndDatabaseLifecycle(t *testing.T) {
 	resetResponseCacheStateForTest(defaultResponseCacheConfig())
 	t.Cleanup(func() { resetResponseCacheStateForTest(defaultResponseCacheConfig()) })
-	db, err := database.New("sqlite", filepath.Join(t.TempDir(), "response-cache-poller.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "response-cache-poller.db"))
 	if err != nil {
 		t.Fatalf("database.New(sqlite) error = %v", err)
 	}

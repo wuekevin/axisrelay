@@ -10,7 +10,7 @@ import (
 )
 
 func TestStoreInitLoadsAndHotReplacesPromptFilterNewAPIBinding(t *testing.T) {
-	db, err := database.New("sqlite", filepath.Join(t.TempDir(), "store-binding.sqlite"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "store-binding.sqlite"))
 	if err != nil {
 		t.Fatalf("New sqlite: %v", err)
 	}

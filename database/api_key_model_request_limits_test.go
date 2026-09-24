@@ -93,18 +93,18 @@ func TestAPIKeyModelRequestWindowCalendarAndDST(t *testing.T) {
 	}
 }
 
-func TestAPIKeyModelRequestQuotasSQLite(t *testing.T) {
-	runAPIKeyModelRequestQuotaSuite(t, "sqlite", filepath.Join(t.TempDir(), "quota.db"))
+func TestAPIKeyModelRequestQuotasMySQL(t *testing.T) {
+	runAPIKeyModelRequestQuotaSuite(t, filepath.Join(t.TempDir(), "quota.db"))
 }
 
-func runAPIKeyModelRequestQuotaSuite(t *testing.T, driver, dsn string) {
+func runAPIKeyModelRequestQuotaSuite(t *testing.T, dsn string) {
 	t.Helper()
-	db, err := New(driver, dsn)
+	db, err := newTestDatabase(t, dsn)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer db.Close()
-	db2, err := New(driver, dsn)
+	db2, err := newTestDatabase(t, dsn)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -120,7 +120,7 @@ func runAPIKeyModelRequestQuotaSuite(t *testing.T, driver, dsn string) {
 		}
 		t.Cleanup(func() {
 			// Cleanup runs after function-scoped defers closed DB handles.
-			conn, err := New(driver, dsn)
+			conn, err := newTestDatabase(t, dsn)
 			if err != nil {
 				t.Error(err)
 				return
@@ -290,7 +290,7 @@ func runAPIKeyModelRequestQuotaSuite(t *testing.T, driver, dsn string) {
 
 func TestAPIKeyModelRequestQuotasSurviveReopen(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "persistent.db")
-	db, err := New("sqlite", path)
+	db, err := newTestDatabase(t, path)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -310,7 +310,7 @@ func TestAPIKeyModelRequestQuotasSurviveReopen(t *testing.T) {
 		t.Fatalf("consume=%v,%v", ex, err)
 	}
 	db.Close()
-	db, err = New("sqlite", path)
+	db, err = newTestDatabase(t, path)
 	if err != nil {
 		t.Fatal(err)
 	}

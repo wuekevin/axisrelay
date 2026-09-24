@@ -21,7 +21,7 @@ func TestLiveOfficialPricingSyncIsolated(t *testing.T) {
 	database.SetModelPricingOverrides(nil)
 	t.Cleanup(func() { database.SetModelPricingOverrides(nil) })
 
-	db, err := database.New("sqlite", filepath.Join(t.TempDir(), "official-pricing-live.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "official-pricing-live.db"))
 	if err != nil {
 		t.Fatalf("create isolated sqlite: %v", err)
 	}

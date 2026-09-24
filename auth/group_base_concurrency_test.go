@@ -114,7 +114,7 @@ func TestGroupBaseConcurrencyHotUpdateRefreshesFastScheduler(t *testing.T) {
 
 func TestStoreInitLoadsGroupBaseConcurrencyOverrides(t *testing.T) {
 	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
-	db, err := database.New("sqlite", dbPath)
+	db, err := newTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatalf("database.New: %v", err)
 	}

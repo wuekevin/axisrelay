@@ -92,7 +92,7 @@ func TestAPIKeyLimitsBatchPreservesOrderAndReducesReads(t *testing.T) {
 }
 
 func TestAPIKeyLimitsBatchMissCorruptionAndFailureUseSQL(t *testing.T) {
-	db, err := database.New("sqlite", filepath.Join(t.TempDir(), "limits.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "limits.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -258,7 +258,7 @@ func (c *slowLookupCache) GetRuntime(ctx context.Context, ns, key string) (json.
 }
 
 func TestAPIKeyLookupsShareOnlyOverlappingReads(t *testing.T) {
-	db, err := database.New("sqlite", filepath.Join(t.TempDir(), "auth.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "auth.db"))
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -7,7 +7,7 @@ import (
 )
 
 func TestPromptReviewProfilesPersistMetadataAndSecretsServerSide(t *testing.T) {
-	db, err := New("sqlite", filepath.Join(t.TempDir(), "profiles.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "profiles.db"))
 	if err != nil {
 		t.Fatalf("New sqlite: %v", err)
 	}

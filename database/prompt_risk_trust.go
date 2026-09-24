@@ -128,7 +128,42 @@ func (db *DB) ensurePromptRiskTrustTables(ctx context.Context) error {
 		request_id_hash VARCHAR(128) NOT NULL DEFAULT '',
 		created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 	)`
-	if db.isSQLite() {
+	if db.isMySQL() {
+		policyDDL = `CREATE TABLE IF NOT EXISTS prompt_risk_trust_policies (
+			id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+			subject_type VARCHAR(40) NOT NULL,
+			subject_key VARCHAR(128) NOT NULL UNIQUE,
+			status VARCHAR(24) NOT NULL DEFAULT 'active',
+			source VARCHAR(24) NOT NULL DEFAULT 'manual',
+			reason VARCHAR(1000) NOT NULL DEFAULT '',
+			risk_threshold INT NOT NULL DEFAULT 35,
+			valid_until TIMESTAMP NOT NULL,
+			last_evaluated_at TIMESTAMP NULL,
+			last_risk_score INT NOT NULL DEFAULT 0,
+			last_risk_level VARCHAR(24) NOT NULL DEFAULT 'low',
+			bypass_count BIGINT NOT NULL DEFAULT 0,
+			last_bypass_at TIMESTAMP NULL,
+			model_review_count BIGINT NOT NULL DEFAULT 0,
+			last_model_review_at TIMESTAMP NULL,
+			created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			KEY idx_prompt_risk_trust_status_until (status, valid_until)
+		)`
+		eventDDL = `CREATE TABLE IF NOT EXISTS prompt_risk_trust_events (
+			id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+			policy_id BIGINT NOT NULL,
+			subject_type VARCHAR(40) NOT NULL,
+			subject_key VARCHAR(128) NOT NULL,
+			event_type VARCHAR(40) NOT NULL,
+			reason VARCHAR(1000) NOT NULL DEFAULT '',
+			risk_score INT NOT NULL DEFAULT 0,
+			risk_level VARCHAR(24) NOT NULL DEFAULT '',
+			request_id_hash VARCHAR(128) NOT NULL DEFAULT '',
+			created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			KEY idx_prompt_risk_trust_events_policy (policy_id, created_at),
+			KEY idx_prompt_risk_trust_events_subject (subject_type, subject_key, created_at)
+		)`
+	} else if db.isSQLite() {
 		policyDDL = `CREATE TABLE IF NOT EXISTS prompt_risk_trust_policies (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			subject_type TEXT NOT NULL,
@@ -161,18 +196,22 @@ func (db *DB) ensurePromptRiskTrustTables(ctx context.Context) error {
 			created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 		)`
 	}
-	for _, stmt := range []string{
-		policyDDL,
-		eventDDL,
-		`CREATE INDEX IF NOT EXISTS idx_prompt_risk_trust_status_until ON prompt_risk_trust_policies(status, valid_until)`,
-		`CREATE INDEX IF NOT EXISTS idx_prompt_risk_trust_events_policy ON prompt_risk_trust_events(policy_id, created_at)`,
-		`CREATE INDEX IF NOT EXISTS idx_prompt_risk_trust_events_subject ON prompt_risk_trust_events(subject_type, subject_key, created_at)`,
-	} {
+	statements := []string{policyDDL, eventDDL}
+	if !db.isMySQL() {
+		statements = append(statements,
+			`CREATE INDEX IF NOT EXISTS idx_prompt_risk_trust_status_until ON prompt_risk_trust_policies(status, valid_until)`,
+			`CREATE INDEX IF NOT EXISTS idx_prompt_risk_trust_events_policy ON prompt_risk_trust_events(policy_id, created_at)`,
+			`CREATE INDEX IF NOT EXISTS idx_prompt_risk_trust_events_subject ON prompt_risk_trust_events(subject_type, subject_key, created_at)`,
+		)
+	}
+	for _, stmt := range statements {
 		if _, err := db.conn.ExecContext(ctx, stmt); err != nil {
 			return err
 		}
 	}
-	if db.isSQLite() {
+	if db.isMySQL() {
+		// MySQL 8 的新表定义已包含完整列；已有 MySQL 表由 migrations 管理。
+	} else if db.isSQLite() {
 		for _, column := range []struct{ name, definition string }{
 			{"source", "TEXT NOT NULL DEFAULT 'manual'"},
 			{"model_review_count", "INTEGER NOT NULL DEFAULT 0"},
@@ -243,14 +282,25 @@ func (db *DB) UpsertPromptRiskTrustPolicy(ctx context.Context, raw PromptRiskTru
 	defer tx.Rollback()
 	previous := ""
 	_ = tx.QueryRowContext(ctx, `SELECT status FROM prompt_risk_trust_policies WHERE subject_key=$1`, input.SubjectKey).Scan(&previous)
-	_, err = tx.ExecContext(ctx, `INSERT INTO prompt_risk_trust_policies (
+	upsertSQL := `INSERT INTO prompt_risk_trust_policies (
 		subject_type, subject_key, status, source, reason, risk_threshold, valid_until, last_model_review_at, updated_at
 	) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,CURRENT_TIMESTAMP)
 	ON CONFLICT(subject_key) DO UPDATE SET
 		subject_type=EXCLUDED.subject_type, status='active', source=EXCLUDED.source, reason=EXCLUDED.reason,
 		risk_threshold=EXCLUDED.risk_threshold, valid_until=EXCLUDED.valid_until,
 		last_evaluated_at=NULL, last_model_review_at=COALESCE(EXCLUDED.last_model_review_at, prompt_risk_trust_policies.last_model_review_at),
-		updated_at=CURRENT_TIMESTAMP`, input.SubjectType, input.SubjectKey,
+		updated_at=CURRENT_TIMESTAMP`
+	if db.isMySQL() {
+		upsertSQL = `INSERT INTO prompt_risk_trust_policies (
+			subject_type, subject_key, status, source, reason, risk_threshold, valid_until, last_model_review_at, updated_at
+		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,CURRENT_TIMESTAMP)
+		ON DUPLICATE KEY UPDATE
+			subject_type=VALUES(subject_type), status='active', source=VALUES(source), reason=VALUES(reason),
+			risk_threshold=VALUES(risk_threshold), valid_until=VALUES(valid_until),
+			last_evaluated_at=NULL, last_model_review_at=COALESCE(VALUES(last_model_review_at), last_model_review_at),
+			updated_at=CURRENT_TIMESTAMP`
+	}
+	_, err = tx.ExecContext(ctx, upsertSQL, input.SubjectType, input.SubjectKey,
 		PromptRiskTrustStatusActive, input.Source, input.Reason, input.RiskThreshold, input.ValidUntil.UTC(), input.LastModelReviewAt)
 	if err != nil {
 		return nil, err
@@ -498,19 +548,27 @@ type PromptRiskAdaptiveReviewBasis struct {
 	LastCleanAt           *time.Time `json:"last_clean_at,omitempty"`
 }
 
+func (db *DB) promptRiskTrustCleanKeyExpr() string {
+	if db.isMySQL() {
+		return "CONCAT(source_type, ':', source_id)"
+	}
+	return "source_type || ':' || source_id"
+}
+
 func (db *DB) GetPromptRiskAdaptiveReviewBasis(ctx context.Context, subjectType, subjectKey string, since time.Time) (PromptRiskAdaptiveReviewBasis, error) {
 	if err := db.ensurePromptRiskEventsTable(ctx); err != nil {
 		return PromptRiskAdaptiveReviewBasis{}, err
 	}
 	var result PromptRiskAdaptiveReviewBasis
 	var firstClean, lastClean any
-	err := db.conn.QueryRowContext(ctx, `SELECT
-		COUNT(DISTINCT CASE WHEN event_kind='review_cleared' THEN CASE WHEN request_correlation_id<>'' THEN request_correlation_id ELSE source_type || ':' || source_id END END),
+	query := `SELECT
+		COUNT(DISTINCT CASE WHEN event_kind='review_cleared' THEN CASE WHEN request_correlation_id<>'' THEN request_correlation_id ELSE ` + db.promptRiskTrustCleanKeyExpr() + ` END END),
 		COALESCE(SUM(CASE WHEN request_risk_score>0 AND event_kind IN ('review_flagged_monitor','local_block_strike','upstream_cy_confirmed_miss','upstream_cy_local_detected','upstream_cy_upstream_only') THEN 1 ELSE 0 END), 0),
 		MIN(CASE WHEN event_kind='review_cleared' THEN created_at ELSE NULL END),
 		MAX(CASE WHEN event_kind='review_cleared' THEN created_at ELSE NULL END)
 	FROM prompt_risk_events
-	WHERE subject_type=$1 AND subject_key=$2 AND is_person=TRUE AND created_at >= $3`,
+	WHERE subject_type=$1 AND subject_key=$2 AND is_person=TRUE AND created_at >= $3`
+	err := db.conn.QueryRowContext(ctx, query,
 		strings.TrimSpace(subjectType), strings.TrimSpace(subjectKey), since.UTC()).Scan(
 		&result.CleanReviewCount, &result.PositiveEvidenceCount, &firstClean, &lastClean)
 	if err != nil {
@@ -559,14 +617,15 @@ func (db *DB) promptRiskTrustEvidenceSummaries(ctx context.Context, since time.T
 	if err := db.ensurePromptRiskEventsTable(ctx); err != nil {
 		return nil, err
 	}
-	rows, err := db.conn.QueryContext(ctx, `SELECT subject_type, subject_key,
-		COUNT(DISTINCT CASE WHEN event_kind='review_cleared' THEN CASE WHEN request_correlation_id<>'' THEN request_correlation_id ELSE source_type || ':' || source_id END END),
+	query := `SELECT subject_type, subject_key,
+		COUNT(DISTINCT CASE WHEN event_kind='review_cleared' THEN CASE WHEN request_correlation_id<>'' THEN request_correlation_id ELSE ` + db.promptRiskTrustCleanKeyExpr() + ` END END),
 		COALESCE(SUM(CASE WHEN request_risk_score>0 AND event_kind IN ('review_flagged_monitor','local_block_strike','upstream_cy_confirmed_miss','upstream_cy_local_detected','upstream_cy_upstream_only') THEN 1 ELSE 0 END), 0),
 		MIN(CASE WHEN event_kind='review_cleared' THEN created_at ELSE NULL END),
 		MAX(CASE WHEN event_kind='review_cleared' THEN created_at ELSE NULL END)
 	FROM prompt_risk_events
 	WHERE subject_type=$1 AND is_person=TRUE AND created_at >= $2
-	GROUP BY subject_type, subject_key`, PromptRiskSubjectNewAPIUser, since.UTC())
+	GROUP BY subject_type, subject_key`
+	rows, err := db.conn.QueryContext(ctx, query, PromptRiskSubjectNewAPIUser, since.UTC())
 	if err != nil {
 		return nil, err
 	}
@@ -603,12 +662,13 @@ func (db *DB) promptRiskTrustEvidenceSummarySince(ctx context.Context, subjectKe
 	}
 	item := promptRiskTrustEvidenceSummary{SubjectType: PromptRiskSubjectNewAPIUser, SubjectKey: subjectKey}
 	var firstClean, lastClean any
-	err := db.conn.QueryRowContext(ctx, `SELECT
-		COUNT(DISTINCT CASE WHEN event_kind='review_cleared' THEN CASE WHEN request_correlation_id<>'' THEN request_correlation_id ELSE source_type || ':' || source_id END END),
+	query := `SELECT
+		COUNT(DISTINCT CASE WHEN event_kind='review_cleared' THEN CASE WHEN request_correlation_id<>'' THEN request_correlation_id ELSE ` + db.promptRiskTrustCleanKeyExpr() + ` END END),
 		COALESCE(SUM(CASE WHEN request_risk_score>0 AND event_kind IN ('review_flagged_monitor','local_block_strike','upstream_cy_confirmed_miss','upstream_cy_local_detected','upstream_cy_upstream_only') THEN 1 ELSE 0 END), 0),
 		MIN(CASE WHEN event_kind='review_cleared' THEN created_at ELSE NULL END),
 		MAX(CASE WHEN event_kind='review_cleared' THEN created_at ELSE NULL END)
-	FROM prompt_risk_events WHERE subject_type=$1 AND subject_key=$2 AND is_person=TRUE AND created_at >= $3`,
+	FROM prompt_risk_events WHERE subject_type=$1 AND subject_key=$2 AND is_person=TRUE AND created_at >= $3`
+	err := db.conn.QueryRowContext(ctx, query,
 		PromptRiskSubjectNewAPIUser, subjectKey, since.UTC()).Scan(&item.CleanCount, &item.PositiveCount, &firstClean, &lastClean)
 	if err != nil {
 		return item, err

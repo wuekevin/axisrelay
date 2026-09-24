@@ -42,8 +42,8 @@ func TestProjectSQLMigrationsContract(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(files) != 14 {
-		t.Fatalf("migration files = %d, want 14", len(files))
+	if len(files) != 20 {
+		t.Fatalf("migration files = %d, want 20", len(files))
 	}
 	for i, file := range files {
 		wantVersion := uint64(i + 1)
@@ -124,9 +124,21 @@ func TestProjectSQLMigrationsContract(t *testing.T) {
 		t.Fatalf("migration SQL contains PostgreSQL syntax %q", match)
 	}
 
-	moneyFloat := regexp.MustCompile(`(?i)(amount|balance|quota_limit|quota_used|total_used|used_cost|account_billed|user_billed|image_unit_price|credits|price_amount|provider_cost|user_charge|margin)[^,\n]*(float|double|decimal)`)
-	if match := moneyFloat.FindString(sqlText); match != "" {
-		t.Fatalf("money column uses non-integer SQL type: %q", match)
+	moneyBinaryFloat := regexp.MustCompile(`(?i)(amount|balance|quota_limit|quota_used|total_used|used_cost|account_billed|user_billed|image_unit_price|credits|price_amount|provider_cost|user_charge|margin)[^,\n]*(float|double)`)
+	if match := moneyBinaryFloat.FindString(sqlText); match != "" {
+		t.Fatalf("money column uses binary floating SQL type: %q", match)
+	}
+	for _, precisionInvariant := range []string{
+		"MODIFY COLUMN account_billed DECIMAL(20,8)",
+		"MODIFY COLUMN user_billed DECIMAL(20,8)",
+		"MODIFY COLUMN quota_limit DECIMAL(20,8)",
+		"MODIFY COLUMN quota_used DECIMAL(20,8)",
+		"MODIFY COLUMN total_used DECIMAL(20,8)",
+		"MODIFY COLUMN used_cost DECIMAL(20,8)",
+	} {
+		if !strings.Contains(sqlText, precisionInvariant) {
+			t.Fatalf("billing precision migration missing %q", precisionInvariant)
+		}
 	}
 
 	for _, invariant := range []string{

@@ -8,10 +8,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/wuekevin/axisrelay/auth"
-	"github.com/wuekevin/axisrelay/proxy"
 	"github.com/gin-gonic/gin"
 	"github.com/tidwall/gjson"
+	"github.com/wuekevin/axisrelay/auth"
+	"github.com/wuekevin/axisrelay/proxy"
 )
 
 func TestGetClaudeConfigReturnsSecurityDefaults(t *testing.T) {
@@ -64,7 +64,9 @@ func TestUpdateClaudeConfigPersistsSecurityPolicy(t *testing.T) {
 		t.Fatalf("runtime client version policy = %q/%q", got, store.ClaudeClientVersion())
 	}
 	settings, err := db.GetSystemSettings(context.Background())
-	if err != nil || !strings.Contains(settings.ClaudeConfig, `"allow_service_tier":true`) {
+	persisted := auth.ParseClaudeConfig(settings.ClaudeConfig)
+	if err != nil || !persisted.AllowServiceTier || persisted.MaxOutputTokens != 4096 ||
+		persisted.MaxToolCount != 4 || persisted.MaxToolSchemaBytes != 65536 {
 		t.Fatalf("persisted Claude config = %q err=%v", settings.ClaudeConfig, err)
 	}
 }

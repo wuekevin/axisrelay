@@ -6,8 +6,7 @@ import (
 )
 
 func TestLoadSchedulerWaitLimits(t *testing.T) {
-	t.Setenv("AXISRELAY_DATABASE_DRIVER", "sqlite")
-	t.Setenv("AXISRELAY_DATABASE_PATH", ":memory:")
+	setTestMySQLConfig(t)
 	t.Setenv("AXISRELAY_CACHE_DRIVER", "memory")
 	for _, tc := range []struct {
 		total, perKey         string

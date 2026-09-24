@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/wuekevin/axisrelay/cache"
-	"github.com/wuekevin/axisrelay/database"
 	"github.com/wuekevin/axisrelay/security/promptfilter"
 	"github.com/gin-gonic/gin"
 )
@@ -47,7 +46,7 @@ func TestPromptAdapterUnclassifiedPersistsNonPunitiveAuditWithoutExtensionsOrBod
 	}))
 	defer sidecar.Close()
 
-	db, err := database.New("sqlite", filepath.Join(t.TempDir(), "axisrelay.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "axisrelay.db"))
 	if err != nil {
 		t.Fatalf("database.New(sqlite): %v", err)
 	}

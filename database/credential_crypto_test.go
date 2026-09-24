@@ -109,7 +109,7 @@ func TestCredentialCrypto_DBRoundTrip_AtRestEncrypted(t *testing.T) {
 	setCredEncryptionKeyForTest("db-master-key")
 	defer setCredEncryptionKeyForTest("")
 
-	db, err := New("sqlite", filepath.Join(t.TempDir(), "cred-crypto.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "cred-crypto.db"))
 	if err != nil {
 		t.Fatalf("New sqlite: %v", err)
 	}

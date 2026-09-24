@@ -2,7 +2,6 @@ package auth
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -53,7 +52,7 @@ func (c *observingGrokLegacyLockCache) AcquireRefreshLock(ctx context.Context, a
 
 func TestGrokRefreshBridgeReloadsLegacyRotationWithoutGenerationAdvance(t *testing.T) {
 	dbPath := filepath.Join(t.TempDir(), "grok-refresh-bridge.db")
-	db, err := database.New("sqlite", dbPath)
+	db, err := newTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatalf("database.New: %v", err)
 	}
@@ -136,16 +135,16 @@ func TestGrokRefreshBridgeReloadsLegacyRotationWithoutGenerationAdvance(t *testi
 	if err != nil {
 		t.Fatalf("marshal legacy credentials: %v", err)
 	}
-	legacyConn, err := sql.Open("sqlite", dbPath)
+	legacyConn, err := openRawTestDatabase(t, dbPath)
 	if err != nil {
-		t.Fatalf("open legacy sqlite connection: %v", err)
+		t.Fatalf("open legacy MySQL connection: %v", err)
 	}
-	if _, err = legacyConn.ExecContext(ctx, `UPDATE accounts SET credentials=$1,updated_at=CURRENT_TIMESTAMP WHERE id=$2`, encoded, accountID); err != nil {
+	if _, err = legacyConn.ExecContext(ctx, `UPDATE accounts SET credentials=?,updated_at=CURRENT_TIMESTAMP WHERE id=?`, encoded, accountID); err != nil {
 		_ = legacyConn.Close()
 		t.Fatalf("legacy credential write: %v", err)
 	}
 	if err = legacyConn.Close(); err != nil {
-		t.Fatalf("close legacy sqlite connection: %v", err)
+		t.Fatalf("close legacy MySQL connection: %v", err)
 	}
 	afterLegacyWrite, err := db.GetAccountByID(ctx, accountID)
 	if err != nil {

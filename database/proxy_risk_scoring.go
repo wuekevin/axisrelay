@@ -338,7 +338,7 @@ func (db *DB) CreateProxyRiskScoringProfile(ctx context.Context, profile *ProxyR
 	}
 	var id int64
 	err := db.withWriteTx(ctx, func(tx *sql.Tx) error {
-		if db.isSQLite() {
+		if db.isSQLite() || db.isMySQL() {
 			result, err := tx.ExecContext(ctx, query, args...)
 			if err != nil {
 				return err
@@ -398,7 +398,7 @@ func (db *DB) DeleteProxyRiskScoringProfile(ctx context.Context, id int64) error
 }
 
 func (db *DB) ListProxyRiskScoringProfiles(ctx context.Context) ([]ProxyRiskScoringProfile, error) {
-	rows, err := db.conn.QueryContext(ctx, `SELECT id,name,provider,enabled,priority,base_url,access_token,scamalytics_host,scamalytics_user,scamalytics_key,timeout_seconds,concurrency,request_delay_ms,cache_ttl_seconds,max_checks_per_job,daily_check_limit,credit_reserve,allow_force_refresh,resolve_hostnames,allow_private_targets,docs_url,tutorial_url,daily_used_date,daily_used_count,credits_remaining,credits_used,credit_reset_at,last_quota_checked_at,last_error,created_at,updated_at FROM proxy_risk_scoring_profiles ORDER BY enabled DESC, priority ASC, id ASC`)
+	rows, err := db.conn.QueryContext(ctx, `SELECT id,name,provider,enabled,priority,COALESCE(base_url,''),COALESCE(access_token,''),COALESCE(scamalytics_host,''),COALESCE(scamalytics_user,''),COALESCE(scamalytics_key,''),timeout_seconds,concurrency,request_delay_ms,cache_ttl_seconds,max_checks_per_job,daily_check_limit,credit_reserve,allow_force_refresh,resolve_hostnames,allow_private_targets,COALESCE(docs_url,''),COALESCE(tutorial_url,''),COALESCE(CAST(daily_used_date AS CHAR),''),daily_used_count,credits_remaining,credits_used,credit_reset_at,last_quota_checked_at,COALESCE(last_error,''),created_at,updated_at FROM proxy_risk_scoring_profiles ORDER BY enabled DESC, priority ASC, id ASC`)
 	if err != nil {
 		return nil, err
 	}
@@ -418,7 +418,7 @@ func (db *DB) GetProxyRiskScoringProfile(ctx context.Context, id int64) (*ProxyR
 	if id <= 0 {
 		return nil, errors.New("profile id is invalid")
 	}
-	query := `SELECT id,name,provider,enabled,priority,base_url,access_token,scamalytics_host,scamalytics_user,scamalytics_key,timeout_seconds,concurrency,request_delay_ms,cache_ttl_seconds,max_checks_per_job,daily_check_limit,credit_reserve,allow_force_refresh,resolve_hostnames,allow_private_targets,docs_url,tutorial_url,daily_used_date,daily_used_count,credits_remaining,credits_used,credit_reset_at,last_quota_checked_at,last_error,created_at,updated_at FROM proxy_risk_scoring_profiles WHERE id=$1`
+	query := `SELECT id,name,provider,enabled,priority,COALESCE(base_url,''),COALESCE(access_token,''),COALESCE(scamalytics_host,''),COALESCE(scamalytics_user,''),COALESCE(scamalytics_key,''),timeout_seconds,concurrency,request_delay_ms,cache_ttl_seconds,max_checks_per_job,daily_check_limit,credit_reserve,allow_force_refresh,resolve_hostnames,allow_private_targets,COALESCE(docs_url,''),COALESCE(tutorial_url,''),COALESCE(CAST(daily_used_date AS CHAR),''),daily_used_count,credits_remaining,credits_used,credit_reset_at,last_quota_checked_at,COALESCE(last_error,''),created_at,updated_at FROM proxy_risk_scoring_profiles WHERE id=$1`
 	if db.isSQLite() {
 		query = `SELECT id,name,provider,enabled,priority,base_url,access_token,scamalytics_host,scamalytics_user,scamalytics_key,timeout_seconds,concurrency,request_delay_ms,cache_ttl_seconds,max_checks_per_job,daily_check_limit,credit_reserve,allow_force_refresh,resolve_hostnames,allow_private_targets,docs_url,tutorial_url,daily_used_date,daily_used_count,credits_remaining,credits_used,credit_reset_at,last_quota_checked_at,last_error,created_at,updated_at FROM proxy_risk_scoring_profiles WHERE id=?`
 	}
@@ -540,13 +540,22 @@ func (db *DB) InsertProxyRiskScoreSnapshot(ctx context.Context, snapshot *ProxyR
 	if snapshot.CheckedAt.IsZero() {
 		snapshot.CheckedAt = time.Now().UTC()
 	}
-	args := []any{snapshot.ProxyID, snapshot.ProfileID, snapshot.Provider, snapshot.ResolvedIP, nullableScore(snapshot.Score), snapshot.RiskLevel, snapshot.Recommendation, snapshot.ProxyType, snapshot.IsVPN, snapshot.IsTOR, snapshot.IsDatacenter, snapshot.IsBlacklisted, jsonString(snapshot.BlacklistSource, "[]"), snapshot.ISP, snapshot.Country, snapshot.LatencyMS, snapshot.Status, snapshot.Error, snapshot.FeaturesJSON, snapshot.RawResponseJSON, db.timeArg(snapshot.CheckedAt), nullableTime(db, snapshot.ExpiresAt)}
+	featuresJSON, rawResponseJSON := any(snapshot.FeaturesJSON), any(snapshot.RawResponseJSON)
+	if db.isMySQL() {
+		if strings.TrimSpace(snapshot.FeaturesJSON) == "" {
+			featuresJSON = nil
+		}
+		if strings.TrimSpace(snapshot.RawResponseJSON) == "" {
+			rawResponseJSON = nil
+		}
+	}
+	args := []any{snapshot.ProxyID, snapshot.ProfileID, snapshot.Provider, snapshot.ResolvedIP, nullableScore(snapshot.Score), snapshot.RiskLevel, snapshot.Recommendation, snapshot.ProxyType, snapshot.IsVPN, snapshot.IsTOR, snapshot.IsDatacenter, snapshot.IsBlacklisted, jsonString(snapshot.BlacklistSource, "[]"), snapshot.ISP, snapshot.Country, snapshot.LatencyMS, snapshot.Status, snapshot.Error, featuresJSON, rawResponseJSON, db.timeArg(snapshot.CheckedAt), nullableTime(db, snapshot.ExpiresAt)}
 	query := `INSERT INTO proxy_risk_score_snapshots (proxy_id,profile_id,provider,resolved_ip,score,risk_level,recommendation,proxy_type,is_vpn,is_tor,is_datacenter,is_blacklisted,blacklist_sources,isp,country,latency_ms,status,error,features_json,raw_response_json,checked_at,expires_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22)`
 	if db.isSQLite() {
 		query = strings.ReplaceAll(query, "$", "?")
 	}
 	return db.withWriteTx(ctx, func(tx *sql.Tx) error {
-		if db.isSQLite() {
+		if db.isSQLite() || db.isMySQL() {
 			result, err := tx.ExecContext(ctx, query, args...)
 			if err != nil {
 				return err
@@ -591,7 +600,7 @@ func (db *DB) ListLatestProxyRiskScores(ctx context.Context, proxyIDs []int64) (
 	if db.isSQLite() {
 		placeholders = strings.ReplaceAll(placeholders, "$", "?")
 	}
-	query := fmt.Sprintf(`SELECT s.id,s.proxy_id,s.profile_id,s.provider,s.resolved_ip,s.score,s.risk_level,s.recommendation,s.proxy_type,s.is_vpn,s.is_tor,s.is_datacenter,s.is_blacklisted,s.blacklist_sources,s.isp,s.country,s.latency_ms,s.status,s.error,s.features_json,s.raw_response_json,s.checked_at,s.expires_at FROM proxy_risk_score_snapshots s WHERE s.proxy_id IN (%s) AND s.id=(SELECT latest.id FROM proxy_risk_score_snapshots latest WHERE latest.proxy_id=s.proxy_id AND latest.profile_id=s.profile_id ORDER BY latest.checked_at DESC,latest.id DESC LIMIT 1)`, placeholders)
+	query := fmt.Sprintf(`SELECT s.id,s.proxy_id,s.profile_id,s.provider,s.resolved_ip,s.score,s.risk_level,COALESCE(s.recommendation,''),s.proxy_type,s.is_vpn,s.is_tor,s.is_datacenter,s.is_blacklisted,COALESCE(s.blacklist_sources,'[]'),s.isp,s.country,s.latency_ms,s.status,COALESCE(s.error,''),COALESCE(s.features_json,'{}'),COALESCE(s.raw_response_json,'{}'),s.checked_at,s.expires_at FROM proxy_risk_score_snapshots s WHERE s.proxy_id IN (%s) AND s.id=(SELECT latest.id FROM proxy_risk_score_snapshots latest WHERE latest.proxy_id=s.proxy_id AND latest.profile_id=s.profile_id ORDER BY latest.checked_at DESC,latest.id DESC LIMIT 1)`, placeholders)
 	rows, err := db.conn.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, err
@@ -621,9 +630,11 @@ func (db *DB) ListProxyRiskScoreHistory(ctx context.Context, proxyID, profileID 
 		pageSize = 50
 	}
 	countQuery := `SELECT COUNT(*) FROM proxy_risk_score_snapshots WHERE proxy_id=$1 AND profile_id=$2`
-	listQuery := `SELECT id,proxy_id,profile_id,provider,resolved_ip,score,risk_level,recommendation,proxy_type,is_vpn,is_tor,is_datacenter,is_blacklisted,blacklist_sources,isp,country,latency_ms,status,error,features_json,raw_response_json,checked_at,expires_at FROM proxy_risk_score_snapshots WHERE proxy_id=$1 AND profile_id=$2 ORDER BY checked_at DESC,id DESC OFFSET $3 LIMIT $4`
+	listQuery := `SELECT id,proxy_id,profile_id,provider,resolved_ip,score,risk_level,COALESCE(recommendation,''),proxy_type,is_vpn,is_tor,is_datacenter,is_blacklisted,COALESCE(blacklist_sources,'[]'),isp,country,latency_ms,status,COALESCE(error,''),COALESCE(features_json,'{}'),COALESCE(raw_response_json,'{}'),checked_at,expires_at FROM proxy_risk_score_snapshots WHERE proxy_id=$1 AND profile_id=$2 ORDER BY checked_at DESC,id DESC OFFSET $3 LIMIT $4`
 	listArgs := []any{proxyID, profileID, (page - 1) * pageSize, pageSize}
-	if db.isSQLite() {
+	if db.isMySQL() {
+		listQuery = `SELECT id,proxy_id,profile_id,provider,resolved_ip,score,risk_level,COALESCE(recommendation,''),proxy_type,is_vpn,is_tor,is_datacenter,is_blacklisted,COALESCE(blacklist_sources,'[]'),isp,country,latency_ms,status,COALESCE(error,''),COALESCE(features_json,'{}'),COALESCE(raw_response_json,'{}'),checked_at,expires_at FROM proxy_risk_score_snapshots WHERE proxy_id=$1 AND profile_id=$2 ORDER BY checked_at DESC,id DESC LIMIT $4 OFFSET $3`
+	} else if db.isSQLite() {
 		countQuery = strings.ReplaceAll(countQuery, "$", "?")
 		listQuery = `SELECT id,proxy_id,profile_id,provider,resolved_ip,score,risk_level,recommendation,proxy_type,is_vpn,is_tor,is_datacenter,is_blacklisted,blacklist_sources,isp,country,latency_ms,status,error,features_json,raw_response_json,checked_at,expires_at FROM proxy_risk_score_snapshots WHERE proxy_id=? AND profile_id=? ORDER BY checked_at DESC,id DESC LIMIT ? OFFSET ?`
 		listArgs = []any{proxyID, profileID, pageSize, (page - 1) * pageSize}

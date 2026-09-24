@@ -8,7 +8,7 @@ import (
 )
 
 func TestOwnedAccountErrorDoesNotOverwriteOrClearUnrelatedFence(t *testing.T) {
-	db, err := New("sqlite", filepath.Join(t.TempDir(), "owned-error.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "owned-error.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -37,7 +37,7 @@ func TestOwnedAccountErrorDoesNotOverwriteOrClearUnrelatedFence(t *testing.T) {
 }
 
 func TestClearOwnedAccountErrorDoesNotEraseNewerCooldown(t *testing.T) {
-	db, err := New("sqlite", filepath.Join(t.TempDir(), "owned-error-cooldown.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "owned-error-cooldown.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -67,7 +67,7 @@ func TestClearOwnedAccountErrorDoesNotEraseNewerCooldown(t *testing.T) {
 }
 
 func TestOwnedAccountErrorCannotReviveSoftDeletedAccount(t *testing.T) {
-	db, err := New("sqlite", filepath.Join(t.TempDir(), "owned-error-deleted.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "owned-error-deleted.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -96,7 +96,7 @@ func TestOwnedAccountErrorCannotReviveSoftDeletedAccount(t *testing.T) {
 }
 
 func TestOwnedAccountErrorCanUpdateAndClearItsOwnFence(t *testing.T) {
-	db, err := New("sqlite", filepath.Join(t.TempDir(), "owned-error-update.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "owned-error-update.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -125,7 +125,7 @@ func TestOwnedAccountErrorCanUpdateAndClearItsOwnFence(t *testing.T) {
 }
 
 func TestOwnedAccountErrorPreservesExistingCooldown(t *testing.T) {
-	db, err := New("sqlite", filepath.Join(t.TempDir(), "owned-error-existing-cooldown.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "owned-error-existing-cooldown.db"))
 	if err != nil {
 		t.Fatal(err)
 	}

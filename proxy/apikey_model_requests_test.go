@@ -36,7 +36,7 @@ func newModelQuotaTestHandler(t *testing.T, limit int64, upstream string, native
 	settings.CodexForceWebsocket = false
 	ApplyRuntimeSettings(settings)
 	t.Cleanup(func() { ApplyRuntimeSettings(previous) })
-	db, err := database.New("sqlite", filepath.Join(t.TempDir(), "quota.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "quota.db"))
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -3,8 +3,7 @@ package config
 import "testing"
 
 func TestAPIKeyAuthCacheConfiguration(t *testing.T) {
-	t.Setenv("AXISRELAY_DATABASE_DRIVER", "sqlite")
-	t.Setenv("AXISRELAY_DATABASE_PATH", ":memory:")
+	setTestMySQLConfig(t)
 	t.Setenv("AXISRELAY_CACHE_DRIVER", "memory")
 	for _, tc := range []struct {
 		value   string

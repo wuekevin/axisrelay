@@ -550,7 +550,7 @@ func TestRestoreCreditBalanceKeepsDrainedBalance(t *testing.T) {
 func TestPersistCreditBalance_SuccessAndRollbackOnDBError(t *testing.T) {
 	ctx := context.Background()
 	dbPath := filepath.Join(t.TempDir(), "persist-credit-test.db")
-	db, err := database.New("sqlite", dbPath)
+	db, err := newTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatalf("database.New: %v", err)
 	}
@@ -613,7 +613,7 @@ func TestPersistCreditBalance_SuccessAndRollbackOnDBError(t *testing.T) {
 func TestPersistSparseCreditObservation_SuccessAndRollbackOnDBError(t *testing.T) {
 	ctx := context.Background()
 	dbPath := filepath.Join(t.TempDir(), "sparse-credit-test.db")
-	db, err := database.New("sqlite", dbPath)
+	db, err := newTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatalf("database.New: %v", err)
 	}

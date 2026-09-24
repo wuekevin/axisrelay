@@ -135,7 +135,7 @@ func TestApplyWhamUsage_SkipsIdentityWriteBackWhenAccountIDOverridden(t *testing
 func TestApplyWhamUsage_PersistsPlanAnd5h7d(t *testing.T) {
 	ctx := context.Background()
 	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
-	db, err := database.New("sqlite", dbPath)
+	db, err := newTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatalf("database.New: %v", err)
 	}
@@ -192,7 +192,7 @@ func TestApplyWhamUsage_PersistsPlanAnd5h7d(t *testing.T) {
 func TestApplyWhamUsage_PersistsIdentity(t *testing.T) {
 	ctx := context.Background()
 	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
-	db, err := database.New("sqlite", dbPath)
+	db, err := newTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatalf("database.New: %v", err)
 	}
@@ -236,7 +236,7 @@ func TestApplyWhamUsage_PersistsIdentity(t *testing.T) {
 func TestApplyWhamUsage_PersistsSubscriptionExpiresAtWhenMemoryAlreadyMatches(t *testing.T) {
 	ctx := context.Background()
 	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
-	db, err := database.New("sqlite", dbPath)
+	db, err := newTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatalf("database.New: %v", err)
 	}
@@ -270,7 +270,7 @@ func TestApplyWhamUsage_PersistsSubscriptionExpiresAtWhenMemoryAlreadyMatches(t 
 func TestApplyWhamUsage_ClearsStaleSubscriptionExpiry(t *testing.T) {
 	ctx := context.Background()
 	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
-	db, err := database.New("sqlite", dbPath)
+	db, err := newTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatalf("database.New: %v", err)
 	}
@@ -309,7 +309,7 @@ func TestApplyWhamUsage_ClearsStaleSubscriptionExpiry(t *testing.T) {
 func TestApplyWhamUsage_KeepsExpiredSubscriptionForFreePlan(t *testing.T) {
 	ctx := context.Background()
 	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
-	db, err := database.New("sqlite", dbPath)
+	db, err := newTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatalf("database.New: %v", err)
 	}
@@ -420,7 +420,7 @@ func TestApplyWhamUsage5hOnlyDoesNotRefreshStale7dProbeFreshness(t *testing.T) {
 func TestApplyWhamUsage_FreeAccountPrimaryIs7d(t *testing.T) {
 	ctx := context.Background()
 	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
-	db, err := database.New("sqlite", dbPath)
+	db, err := newTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatalf("database.New: %v", err)
 	}
@@ -474,7 +474,7 @@ func TestApplyWhamUsage_FreeAccountPrimaryIs7d(t *testing.T) {
 func TestApplyWhamUsage_ClearsStale5hWhenUpstreamOmitsWindow(t *testing.T) {
 	ctx := context.Background()
 	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
-	db, err := database.New("sqlite", dbPath)
+	db, err := newTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatalf("database.New: %v", err)
 	}
@@ -1291,7 +1291,7 @@ func TestQueryWhamResetCreditsRoutesThroughResin(t *testing.T) {
 
 func TestApplyWhamUsage_PersistsIndependentSparkSnapshot(t *testing.T) {
 	ctx := context.Background()
-	db, err := database.New("sqlite", filepath.Join(t.TempDir(), "axisrelay.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "axisrelay.db"))
 	if err != nil {
 		t.Fatalf("database.New: %v", err)
 	}
@@ -1350,7 +1350,7 @@ func TestApplyWhamUsage_PersistsIndependentSparkSnapshot(t *testing.T) {
 
 func TestApplyWhamUsage_ClearsStaleSparkWhenUpstreamOmitsWindow(t *testing.T) {
 	ctx := context.Background()
-	db, err := database.New("sqlite", filepath.Join(t.TempDir(), "axisrelay.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "axisrelay.db"))
 	if err != nil {
 		t.Fatalf("database.New: %v", err)
 	}
@@ -1450,7 +1450,7 @@ func TestQueryWhamUsage_ParsesTeamMemberNullBalanceCredits(t *testing.T) {
 
 	ctx := context.Background()
 	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
-	db, err := database.New("sqlite", dbPath)
+	db, err := newTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatalf("database.New: %v", err)
 	}
@@ -1491,7 +1491,7 @@ func TestQueryWhamUsage_ParsesTeamMemberNullBalanceCredits(t *testing.T) {
 func TestApplyWhamUsage_WorkspaceHardStopPreventsCreditBypass(t *testing.T) {
 	ctx := context.Background()
 	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
-	db, err := database.New("sqlite", dbPath)
+	db, err := newTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatalf("database.New: %v", err)
 	}

@@ -11,8 +11,9 @@ import (
 )
 
 const (
-	DefaultPort    = 3306
-	DefaultCharset = "utf8mb4"
+	DefaultPort      = 3306
+	DefaultCharset   = "utf8mb4"
+	DefaultCollation = "utf8mb4_0900_ai_ci"
 )
 
 type Config struct {
@@ -117,11 +118,13 @@ func (c Config) DSN() (string, error) {
 		DBName:       c.Database,
 		ParseTime:    true,
 		Loc:          time.UTC,
+		Collation:    DefaultCollation,
 		Timeout:      c.ConnectTimeout,
 		ReadTimeout:  c.ReadTimeout,
 		WriteTimeout: c.WriteTimeout,
 		Params: map[string]string{
-			"charset": DefaultCharset,
+			"charset":   DefaultCharset,
+			"time_zone": "'+00:00'",
 		},
 	}
 	return driverConfig.FormatDSN(), nil

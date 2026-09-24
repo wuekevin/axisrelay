@@ -200,7 +200,7 @@ func TestClaudeAPIKeyMessagesHandlerAndUsage(t *testing.T) {
 	t.Setenv("AXISRELAY_TRANSPORT_MODE", "standard")
 	for _, stream := range []bool{false, true} {
 		t.Run(fmt.Sprintf("stream=%t", stream), func(t *testing.T) {
-			db, err := database.New("sqlite", filepath.Join(t.TempDir(), "claude-api-key.db"))
+			db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "claude-api-key.db"))
 			if err != nil {
 				t.Fatal(err)
 			}

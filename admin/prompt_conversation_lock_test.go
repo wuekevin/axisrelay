@@ -17,7 +17,7 @@ import (
 
 func TestAdminCanUnlockPromptConversationAndInvalidateCache(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	db, err := database.New("sqlite", filepath.Join(t.TempDir(), "admin-conversation-lock.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "admin-conversation-lock.db"))
 	if err != nil {
 		t.Fatalf("database.New: %v", err)
 	}
@@ -58,7 +58,7 @@ func TestAdminCanUnlockPromptConversationAndInvalidateCache(t *testing.T) {
 
 func TestAdminCanReleaseVerifiedUserCooldownAndInvalidateAllSessionCaches(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	db, err := database.New("sqlite", filepath.Join(t.TempDir(), "admin-user-cooldown.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "admin-user-cooldown.db"))
 	if err != nil {
 		t.Fatalf("database.New: %v", err)
 	}
@@ -110,7 +110,7 @@ func TestAdminCanReleaseVerifiedUserCooldownAndInvalidateAllSessionCaches(t *tes
 
 func TestRiskProfileShowsUserCooldownWithManualReleaseMetadata(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	db, err := database.New("sqlite", filepath.Join(t.TempDir(), "admin-user-cooldown-profile.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "admin-user-cooldown-profile.db"))
 	if err != nil {
 		t.Fatalf("database.New: %v", err)
 	}

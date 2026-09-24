@@ -15,7 +15,7 @@ import (
 )
 
 func TestSignedCYCreatesSeparatedPersonKeyNetworkSessionAndAccountProfiles(t *testing.T) {
-	db, err := database.New("sqlite", filepath.Join(t.TempDir(), "signed-cy-risk.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "signed-cy-risk.db"))
 	if err != nil {
 		t.Fatalf("database.New: %v", err)
 	}

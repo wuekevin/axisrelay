@@ -31,7 +31,7 @@ func TestImagePerImageRetryBilling(t *testing.T) {
 	database.SetModelPricingOverrides(map[string]database.ModelPricingOverride{"gpt-image-2": {UserBillingMode: database.UserBillingModePerImage, ImageUnitPrice: .05}})
 	for _, stream := range []bool{false, true} {
 		t.Run(fmt.Sprintf("stream=%t", stream), func(t *testing.T) {
-			db, err := database.New("sqlite", filepath.Join(t.TempDir(), "fees.db"))
+			db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "fees.db"))
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -103,7 +103,7 @@ func TestImagePerImageRetryBilling(t *testing.T) {
 func TestDeferredImageBillingFinalizesOnce(t *testing.T) {
 	database.SetModelPricingOverrides(map[string]database.ModelPricingOverride{"gpt-image-2": {UserBillingMode: database.UserBillingModePerImage, ImageUnitPrice: .05}})
 	t.Cleanup(func() { database.SetModelPricingOverrides(nil) })
-	db, err := database.New("sqlite", filepath.Join(t.TempDir(), "deferred.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "deferred.db"))
 	if err != nil {
 		t.Fatal(err)
 	}

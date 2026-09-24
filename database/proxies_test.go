@@ -2,7 +2,6 @@ package database
 
 import (
 	"context"
-	"fmt"
 	"path/filepath"
 	"slices"
 	"testing"
@@ -10,9 +9,9 @@ import (
 
 func newProxyTestDB(t *testing.T) *DB {
 	t.Helper()
-	db, err := New("sqlite", filepath.Join(t.TempDir(), "axisrelay.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "axisrelay.db"))
 	if err != nil {
-		t.Fatalf("New(sqlite) returned error: %v", err)
+		t.Fatalf("New(test database) returned error: %v", err)
 	}
 	t.Cleanup(func() { _ = db.Close() })
 	return db
@@ -264,126 +263,6 @@ func TestCleanErrorProxiesDeletesAndUnbindsAtomically(t *testing.T) {
 	}
 	if emptyResult.Deleted != 0 || emptyResult.Unbound != 0 || len(emptyResult.UnboundAccountIDs) != 0 {
 		t.Fatalf("second cleanup result = %#v, want zero-value result", emptyResult)
-	}
-}
-
-func TestCleanErrorProxiesUsesStableProxySnapshot(t *testing.T) {
-	db := newProxyTestDB(t)
-	ctx := context.Background()
-	const (
-		errorURL = "http://error.example:8080"
-		lateURL  = "http://late-error.example:8080"
-	)
-
-	errorID, err := db.InsertProxy(ctx, errorURL, "")
-	if err != nil {
-		t.Fatalf("InsertProxy(error) returned error: %v", err)
-	}
-	lateID, err := db.InsertProxy(ctx, lateURL, "")
-	if err != nil {
-		t.Fatalf("InsertProxy(late error) returned error: %v", err)
-	}
-	if err := db.UpdateProxyTestResult(ctx, errorID, errorURL, ProxyTestStatusError, "", "", 0); err != nil {
-		t.Fatalf("mark initial proxy error: %v", err)
-	}
-	if err := db.UpdateProxyTestResult(ctx, lateID, lateURL, ProxyTestStatusSuccess, "1.2.3.4", "US", 100); err != nil {
-		t.Fatalf("mark late proxy healthy: %v", err)
-	}
-	if _, err := db.InsertAccount(ctx, "bound", "rt-bound", errorURL); err != nil {
-		t.Fatalf("InsertAccount returned error: %v", err)
-	}
-
-	trigger := fmt.Sprintf(`
-		CREATE TRIGGER mark_late_proxy_error_after_unbind
-		AFTER UPDATE OF proxy_url ON accounts
-		WHEN OLD.proxy_url = %q AND NEW.proxy_url = ''
-		BEGIN
-			UPDATE proxies SET test_status = 'error' WHERE id = %d;
-		END
-	`, errorURL, lateID)
-	if _, err := db.conn.ExecContext(ctx, trigger); err != nil {
-		t.Fatalf("create trigger: %v", err)
-	}
-
-	result, err := db.CleanErrorProxies(ctx)
-	if err != nil {
-		t.Fatalf("CleanErrorProxies returned error: %v", err)
-	}
-	if result.Deleted != 1 {
-		t.Fatalf("Deleted = %d, want only the 1 proxy captured at cleanup start", result.Deleted)
-	}
-	lateRow := findProxyRow(t, db, lateID)
-	if lateRow.TestStatus != ProxyTestStatusError {
-		t.Fatalf("late proxy status = %q, want error and retained for next cleanup", lateRow.TestStatus)
-	}
-}
-
-func TestCleanErrorProxiesReturnsOnlyActuallyUnboundAccounts(t *testing.T) {
-	db := newProxyTestDB(t)
-	ctx := context.Background()
-	const errorURL = "http://error.example:8080"
-
-	errorID, err := db.InsertProxy(ctx, errorURL, "")
-	if err != nil {
-		t.Fatalf("InsertProxy returned error: %v", err)
-	}
-	if err := db.UpdateProxyTestResult(ctx, errorID, errorURL, ProxyTestStatusError, "", "", 0); err != nil {
-		t.Fatalf("mark proxy error: %v", err)
-	}
-	unboundID, err := db.InsertAccount(ctx, "unbound", "rt-unbound", errorURL)
-	if err != nil {
-		t.Fatalf("InsertAccount(unbound) returned error: %v", err)
-	}
-	protectedID, err := db.InsertAccount(ctx, "protected", "rt-protected", errorURL)
-	if err != nil {
-		t.Fatalf("InsertAccount(protected) returned error: %v", err)
-	}
-
-	trigger := fmt.Sprintf(`
-		CREATE TRIGGER ignore_protected_proxy_unbind
-		BEFORE UPDATE OF proxy_url ON accounts
-		WHEN OLD.id = %d
-		BEGIN
-			SELECT RAISE(IGNORE);
-		END
-	`, protectedID)
-	if _, err := db.conn.ExecContext(ctx, trigger); err != nil {
-		t.Fatalf("create trigger: %v", err)
-	}
-
-	result, err := db.CleanErrorProxies(ctx)
-	if err != nil {
-		t.Fatalf("CleanErrorProxies returned error: %v", err)
-	}
-	if result.Unbound != 1 {
-		t.Fatalf("Unbound = %d, want 1", result.Unbound)
-	}
-	if len(result.UnboundAccountIDs) != 1 || result.UnboundAccountIDs[0] != unboundID {
-		t.Fatalf("UnboundAccountIDs = %v, want only actually updated account %d", result.UnboundAccountIDs, unboundID)
-	}
-}
-
-func TestSQLiteProxyStatusMigrationBackfillsExistingTestData(t *testing.T) {
-	db := newProxyTestDB(t)
-	ctx := context.Background()
-
-	id, err := db.InsertProxy(ctx, "http://migrated.example:8080", "")
-	if err != nil {
-		t.Fatalf("InsertProxy returned error: %v", err)
-	}
-	if _, err := db.conn.ExecContext(ctx, `
-		UPDATE proxies
-		SET test_status = 'untested', test_ip = '1.2.3.4', test_location = 'US', test_latency_ms = 123
-		WHERE id = $1
-	`, id); err != nil {
-		t.Fatalf("seed pre-migration proxy result: %v", err)
-	}
-
-	if err := db.migrateSQLite(ctx); err != nil {
-		t.Fatalf("migrateSQLite returned error: %v", err)
-	}
-	if got := findProxyRow(t, db, id).TestStatus; got != ProxyTestStatusSuccess {
-		t.Fatalf("migrated test_status = %q, want %q", got, ProxyTestStatusSuccess)
 	}
 }
 

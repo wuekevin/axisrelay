@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-func TestLoadDefaultsToSQLiteAndRedis(t *testing.T) {
+func TestLoadDefaultsToMySQLAndRedis(t *testing.T) {
 	keys := []string{
 		"AXISRELAY_PORT",
 		"AXISRELAY_MAX_REQUEST_BODY_SIZE_MB",
@@ -32,8 +32,7 @@ func TestLoadDefaultsToSQLiteAndRedis(t *testing.T) {
 		t.Setenv(key, "")
 	}
 
-	// S0.3 过渡阶段默认 SQLite；缓存仍默认 Redis。
-	t.Setenv("AXISRELAY_DATABASE_PATH", filepath.Join(t.TempDir(), "axisrelay.db"))
+	setTestMySQLConfig(t)
 	t.Setenv("AXISRELAY_REDIS_ADDR", "redis:6379")
 
 	cfg, err := Load("__not_exists__.env")
@@ -41,8 +40,8 @@ func TestLoadDefaultsToSQLiteAndRedis(t *testing.T) {
 		t.Fatalf("Load() 返回错误: %v", err)
 	}
 
-	if got := cfg.Database.Driver; got != "sqlite" {
-		t.Fatalf("Database.Driver = %q, want %q", got, "sqlite")
+	if got := cfg.Database.Driver; got != "mysql" {
+		t.Fatalf("Database.Driver = %q, want %q", got, "mysql")
 	}
 	if got := cfg.Cache.Driver; got != "redis" {
 		t.Fatalf("Cache.Driver = %q, want %q", got, "redis")
@@ -58,13 +57,12 @@ func TestLoadDefaultsToSQLiteAndRedis(t *testing.T) {
 	}
 }
 
-func TestLoadAllowsExplicitSQLiteAndMemory(t *testing.T) {
+func TestLoadRejectsSQLiteDatabaseDriver(t *testing.T) {
 	keys := []string{
 		"AXISRELAY_PORT",
 		"AXISRELAY_MAX_REQUEST_BODY_SIZE_MB",
 		"AXISRELAY_ADMIN_SECRET",
 		"AXISRELAY_DATABASE_DRIVER",
-		"AXISRELAY_DATABASE_PATH",
 		"AXISRELAY_DATABASE_HOST",
 		"AXISRELAY_DATABASE_PORT",
 		"AXISRELAY_DATABASE_USER",
@@ -83,22 +81,14 @@ func TestLoadAllowsExplicitSQLiteAndMemory(t *testing.T) {
 	}
 
 	t.Setenv("AXISRELAY_DATABASE_DRIVER", "sqlite")
-	t.Setenv("AXISRELAY_DATABASE_PATH", "/data/axisrelay.db")
 	t.Setenv("AXISRELAY_CACHE_DRIVER", "memory")
 
-	cfg, err := Load("__not_exists__.env")
-	if err != nil {
-		t.Fatalf("Load() 返回错误: %v", err)
+	_, err := Load("__not_exists__.env")
+	if err == nil {
+		t.Fatal("Load() accepted sqlite database driver, want rejection")
 	}
-
-	if got := cfg.Database.Driver; got != "sqlite" {
-		t.Fatalf("Database.Driver = %q, want %q", got, "sqlite")
-	}
-	if got := cfg.Database.Path; got != "/data/axisrelay.db" {
-		t.Fatalf("Database.Path = %q, want %q", got, "/data/axisrelay.db")
-	}
-	if got := cfg.Cache.Driver; got != "memory" {
-		t.Fatalf("Cache.Driver = %q, want %q", got, "memory")
+	if !strings.Contains(err.Error(), "仅支持 mysql 或 postgres") {
+		t.Fatalf("Load() error = %q, want unsupported database driver error", err)
 	}
 }
 
@@ -126,7 +116,7 @@ func TestLoadReadsAdminSecretFromEnv(t *testing.T) {
 		t.Setenv(key, "")
 	}
 
-	t.Setenv("AXISRELAY_DATABASE_PATH", filepath.Join(t.TempDir(), "axisrelay.db"))
+	setTestMySQLConfig(t)
 	t.Setenv("AXISRELAY_REDIS_ADDR", "redis:6379")
 	t.Setenv("AXISRELAY_ADMIN_SECRET", "from-env-secret")
 
@@ -164,7 +154,7 @@ func TestLoadReadsMaxRequestBodySizeFromEnv(t *testing.T) {
 		t.Setenv(key, "")
 	}
 
-	t.Setenv("AXISRELAY_DATABASE_PATH", filepath.Join(t.TempDir(), "axisrelay.db"))
+	setTestMySQLConfig(t)
 	t.Setenv("AXISRELAY_REDIS_ADDR", "redis:6379")
 	t.Setenv("AXISRELAY_MAX_REQUEST_BODY_SIZE_MB", "64")
 
@@ -179,8 +169,7 @@ func TestLoadReadsMaxRequestBodySizeFromEnv(t *testing.T) {
 }
 
 func TestLoadParsesTrustedProxiesEnv(t *testing.T) {
-	t.Setenv("AXISRELAY_DATABASE_DRIVER", "")
-	t.Setenv("AXISRELAY_DATABASE_PATH", filepath.Join(t.TempDir(), "axisrelay.db"))
+	setTestMySQLConfig(t)
 	t.Setenv("AXISRELAY_CACHE_DRIVER", "")
 	t.Setenv("AXISRELAY_REDIS_ADDR", "redis:6379")
 	t.Setenv("AXISRELAY_TRUSTED_PROXIES", "10.0.0.0/8, 172.16.0.0/12;192.168.1.10")
@@ -195,8 +184,7 @@ func TestLoadParsesTrustedProxiesEnv(t *testing.T) {
 }
 
 func TestLoadCanDisableTrustedProxies(t *testing.T) {
-	t.Setenv("AXISRELAY_DATABASE_DRIVER", "")
-	t.Setenv("AXISRELAY_DATABASE_PATH", filepath.Join(t.TempDir(), "axisrelay.db"))
+	setTestMySQLConfig(t)
 	t.Setenv("AXISRELAY_CACHE_DRIVER", "")
 	t.Setenv("AXISRELAY_REDIS_ADDR", "redis:6379")
 	t.Setenv("AXISRELAY_TRUSTED_PROXIES", "none")
@@ -211,8 +199,7 @@ func TestLoadCanDisableTrustedProxies(t *testing.T) {
 }
 
 func TestLoadDefaultsCodexUpstreamTransportToHTTP(t *testing.T) {
-	t.Setenv("AXISRELAY_DATABASE_DRIVER", "")
-	t.Setenv("AXISRELAY_DATABASE_PATH", filepath.Join(t.TempDir(), "axisrelay.db"))
+	setTestMySQLConfig(t)
 	t.Setenv("AXISRELAY_CACHE_DRIVER", "")
 	t.Setenv("AXISRELAY_REDIS_ADDR", "redis:6379")
 	t.Setenv("AXISRELAY_UPSTREAM_TRANSPORT", "")
@@ -230,8 +217,7 @@ func TestLoadDefaultsCodexUpstreamTransportToHTTP(t *testing.T) {
 }
 
 func TestLoadHonorsCodexUpstreamTransportWS(t *testing.T) {
-	t.Setenv("AXISRELAY_DATABASE_DRIVER", "")
-	t.Setenv("AXISRELAY_DATABASE_PATH", filepath.Join(t.TempDir(), "axisrelay.db"))
+	setTestMySQLConfig(t)
 	t.Setenv("AXISRELAY_CACHE_DRIVER", "")
 	t.Setenv("AXISRELAY_REDIS_ADDR", "redis:6379")
 	t.Setenv("AXISRELAY_UPSTREAM_TRANSPORT", "websocket")
@@ -272,7 +258,7 @@ func TestLoadReadsRedisTLSSettings(t *testing.T) {
 		t.Setenv(key, "")
 	}
 
-	t.Setenv("AXISRELAY_DATABASE_PATH", filepath.Join(t.TempDir(), "axisrelay.db"))
+	setTestMySQLConfig(t)
 	t.Setenv("AXISRELAY_REDIS_ADDR", "rediss://default:url-pass@example.upstash.io:6379/2")
 	t.Setenv("AXISRELAY_REDIS_USERNAME", "env-user")
 	t.Setenv("AXISRELAY_REDIS_PASSWORD", "env-pass")
@@ -313,7 +299,7 @@ func TestLoadAppliesTimezoneFromEnvFile(t *testing.T) {
 	if err := os.Unsetenv("TZ"); err != nil {
 		t.Fatalf("Unsetenv(TZ) 失败: %v", err)
 	}
-	t.Setenv("AXISRELAY_DATABASE_PATH", filepath.Join(t.TempDir(), "axisrelay.db"))
+	setTestMySQLConfig(t)
 	t.Setenv("AXISRELAY_REDIS_ADDR", "redis:6379")
 
 	envPath := filepath.Join(t.TempDir(), ".env")
@@ -352,7 +338,7 @@ func TestApplyTimezoneKeepsLocalOnInvalidTZ(t *testing.T) {
 }
 
 func TestLoadIgnoresLegacyEnvironmentAliases(t *testing.T) {
-	t.Setenv("AXISRELAY_DATABASE_PATH", filepath.Join(t.TempDir(), "axisrelay.db"))
+	setTestMySQLConfig(t)
 	t.Setenv("AXISRELAY_REDIS_ADDR", "redis:6379")
 	t.Setenv("AXISRELAY_PORT", "")
 	t.Setenv("AXISRELAY_ADMIN_SECRET", "")

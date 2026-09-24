@@ -24,7 +24,7 @@ import (
 
 func newPromptConversationLockTestHandler(t *testing.T) (*Handler, *database.DB) {
 	t.Helper()
-	db, err := database.New("sqlite", filepath.Join(t.TempDir(), "conversation-lock.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "conversation-lock.db"))
 	if err != nil {
 		t.Fatalf("database.New: %v", err)
 	}

@@ -12,7 +12,7 @@ import (
 
 func newReconcileReentryStore(t *testing.T, dbName string) (*auth.Store, *database.DB) {
 	t.Helper()
-	db, err := database.New("sqlite", filepath.Join(t.TempDir(), dbName))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), dbName))
 	if err != nil {
 		t.Fatalf("database.New: %v", err)
 	}

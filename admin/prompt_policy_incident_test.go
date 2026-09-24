@@ -23,7 +23,7 @@ func adminPolicyFingerprint(value string) string {
 
 func TestPromptPolicyIncidentListAndDetailAPI(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	db, err := database.New("sqlite", filepath.Join(t.TempDir(), "admin-policy.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "admin-policy.db"))
 	if err != nil {
 		t.Fatalf("database.New: %v", err)
 	}
@@ -108,7 +108,7 @@ func TestPromptPolicyIncidentListAndDetailAPI(t *testing.T) {
 
 func TestPromptPolicyAuditHealthAPI(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	db, err := database.New("sqlite", filepath.Join(t.TempDir(), "admin-policy-health.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "admin-policy-health.db"))
 	if err != nil {
 		t.Fatalf("database.New: %v", err)
 	}
@@ -169,7 +169,7 @@ func TestPromptPolicyAuditHealthAPI(t *testing.T) {
 
 func TestPromptPolicyIncidentHistoricalRoutingUsesCurrentDirectory(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	db, err := database.New("sqlite", filepath.Join(t.TempDir(), "admin-policy-routing.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "admin-policy-routing.db"))
 	if err != nil {
 		t.Fatalf("database.New: %v", err)
 	}

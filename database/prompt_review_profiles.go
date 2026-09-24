@@ -29,7 +29,7 @@ func (db *DB) ensurePromptReviewProfiles(ctx context.Context) error {
 	if db == nil || db.conn == nil {
 		return errors.New("database is not initialized")
 	}
-	_, err := db.conn.ExecContext(ctx, `
+	ddl := `
 		CREATE TABLE IF NOT EXISTS prompt_review_profiles (
 			id VARCHAR(64) PRIMARY KEY,
 			name VARCHAR(120) NOT NULL,
@@ -42,7 +42,24 @@ func (db *DB) ensurePromptReviewProfiles(ctx context.Context) error {
 			active BOOLEAN NOT NULL DEFAULT FALSE,
 			created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-		)`)
+		)`
+	if db.isMySQL() {
+		ddl = `
+		CREATE TABLE IF NOT EXISTS prompt_review_profiles (
+			id VARCHAR(64) PRIMARY KEY,
+			name VARCHAR(120) NOT NULL,
+			base_url VARCHAR(512) NOT NULL DEFAULT '',
+			model VARCHAR(128) NOT NULL DEFAULT '',
+			request_mode VARCHAR(32) NOT NULL DEFAULT 'moderations',
+			adapter_json LONGTEXT NOT NULL,
+			api_keys LONGTEXT NOT NULL,
+			timeout_seconds INTEGER NOT NULL DEFAULT 10,
+			active BOOLEAN NOT NULL DEFAULT FALSE,
+			created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+		)`
+	}
+	_, err := db.conn.ExecContext(ctx, ddl)
 	return err
 }
 
@@ -104,7 +121,7 @@ func (db *DB) UpsertPromptReviewProfile(ctx context.Context, profile PromptRevie
 	if profile.TimeoutSecond <= 0 {
 		profile.TimeoutSecond = 10
 	}
-	_, err := db.conn.ExecContext(ctx, `
+	query := `
 		INSERT INTO prompt_review_profiles
 			(id, name, base_url, model, request_mode, adapter_json, api_keys, timeout_seconds, active, created_at, updated_at)
 		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)
@@ -112,7 +129,19 @@ func (db *DB) UpsertPromptReviewProfile(ctx context.Context, profile PromptRevie
 			name=EXCLUDED.name, base_url=EXCLUDED.base_url, model=EXCLUDED.model,
 			request_mode=EXCLUDED.request_mode, adapter_json=EXCLUDED.adapter_json,
 			api_keys=EXCLUDED.api_keys, timeout_seconds=EXCLUDED.timeout_seconds,
-			active=EXCLUDED.active, updated_at=CURRENT_TIMESTAMP`,
+			active=EXCLUDED.active, updated_at=CURRENT_TIMESTAMP`
+	if db.isMySQL() {
+		query = `
+		INSERT INTO prompt_review_profiles
+			(id, name, base_url, model, request_mode, adapter_json, api_keys, timeout_seconds, active, created_at, updated_at)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)
+		ON DUPLICATE KEY UPDATE
+			name=VALUES(name), base_url=VALUES(base_url), model=VALUES(model),
+			request_mode=VALUES(request_mode), adapter_json=VALUES(adapter_json),
+			api_keys=VALUES(api_keys), timeout_seconds=VALUES(timeout_seconds),
+			active=VALUES(active), updated_at=CURRENT_TIMESTAMP`
+	}
+	_, err := db.conn.ExecContext(ctx, query,
 		profile.ID, profile.Name, profile.BaseURL, profile.Model, profile.RequestMode,
 		profile.AdapterJSON, profile.APIKeys, profile.TimeoutSecond, profile.Active)
 	return err

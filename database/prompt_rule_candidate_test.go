@@ -12,7 +12,7 @@ import (
 )
 
 func TestPromptRuleCandidateLifecycleSQLite(t *testing.T) {
-	db, err := New("sqlite", filepath.Join(t.TempDir(), "candidates.sqlite"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "candidates.sqlite"))
 	if err != nil {
 		t.Fatalf("New sqlite: %v", err)
 	}
@@ -81,7 +81,7 @@ func TestPromptRuleCandidateLifecycleSQLite(t *testing.T) {
 }
 
 func TestPromptRuleMigrationCompletionIsAtomicWithRuntimeCAS(t *testing.T) {
-	db, err := New("sqlite", filepath.Join(t.TempDir(), "candidate-migration-atomic.sqlite"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "candidate-migration-atomic.sqlite"))
 	if err != nil {
 		t.Fatalf("New sqlite: %v", err)
 	}
@@ -126,7 +126,7 @@ func TestPromptRuleMigrationCompletionIsAtomicWithRuntimeCAS(t *testing.T) {
 		t.Fatalf("missing candidate did not roll back CAS: swapped=%v err=%v", swapped, err)
 	}
 	var current string
-	if err := db.conn.QueryRowContext(ctx, `SELECT prompt_filter_custom_patterns FROM system_settings WHERE id=1`).Scan(&current); err != nil || current != original {
+	if err := db.conn.QueryRowContext(ctx, `SELECT prompt_filter_custom_patterns FROM system_settings WHERE id=1`).Scan(&current); err != nil || !semanticJSONEqual([]byte(current), []byte(original)) {
 		t.Fatalf("failed completion changed runtime patterns: current=%q err=%v", current, err)
 	}
 
@@ -154,7 +154,7 @@ func TestPromptRuleMigrationCompletionIsAtomicWithRuntimeCAS(t *testing.T) {
 }
 
 func TestPromptRuleCandidateNewestEvidenceWinsWithoutReplayInflation(t *testing.T) {
-	db, err := New("sqlite", filepath.Join(t.TempDir(), "candidate-order.sqlite"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "candidate-order.sqlite"))
 	if err != nil {
 		t.Fatalf("New sqlite: %v", err)
 	}
@@ -196,7 +196,7 @@ func TestPromptRuleCandidateNewestEvidenceWinsWithoutReplayInflation(t *testing.
 }
 
 func TestPromptRuleCandidatePublishRejectsStaleAndSupersedesSameName(t *testing.T) {
-	db, err := New("sqlite", filepath.Join(t.TempDir(), "candidate-publish.sqlite"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "candidate-publish.sqlite"))
 	if err != nil {
 		t.Fatalf("New sqlite: %v", err)
 	}
@@ -241,13 +241,14 @@ func TestPromptRuleCandidatePublishRejectsStaleAndSupersedesSameName(t *testing.
 		t.Fatalf("published candidate overwrote later manual edit: %v", err)
 	}
 	settings, err := db.GetSystemSettings(ctx)
-	if err != nil || settings.PromptFilterCustomPatterns != `[`+manualRule+`]` {
+	wantManualJSON := `[` + manualRule + `]`
+	if err != nil || !semanticJSONEqual([]byte(settings.PromptFilterCustomPatterns), []byte(wantManualJSON)) {
 		t.Fatalf("manual runtime rule changed: settings=%#v err=%v", settings, err)
 	}
 }
 
 func TestPromptRuleCandidateValidationFailureRollsBackPublish(t *testing.T) {
-	db, err := New("sqlite", filepath.Join(t.TempDir(), "candidate-validation.sqlite"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "candidate-validation.sqlite"))
 	if err != nil {
 		t.Fatalf("New sqlite: %v", err)
 	}
@@ -283,7 +284,7 @@ func TestPromptRuleCandidateValidationFailureRollsBackPublish(t *testing.T) {
 }
 
 func TestPromptRuleCandidateConcurrentPublishesPreserveDifferentRules(t *testing.T) {
-	db, err := New("sqlite", filepath.Join(t.TempDir(), "candidate-concurrent.sqlite"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "candidate-concurrent.sqlite"))
 	if err != nil {
 		t.Fatalf("New sqlite: %v", err)
 	}
@@ -355,7 +356,7 @@ func TestPromptRuleCandidateConcurrentPublishesPreserveDifferentRules(t *testing
 }
 
 func TestSystemSettingsUpdateCanPreserveConcurrentPromptRules(t *testing.T) {
-	db, err := New("sqlite", filepath.Join(t.TempDir(), "settings-preserve-rules.sqlite"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "settings-preserve-rules.sqlite"))
 	if err != nil {
 		t.Fatalf("New sqlite: %v", err)
 	}
@@ -376,7 +377,7 @@ func TestSystemSettingsUpdateCanPreserveConcurrentPromptRules(t *testing.T) {
 		t.Fatalf("preserving settings update: %v", err)
 	}
 	got, err := db.GetSystemSettings(ctx)
-	if err != nil || got.PromptFilterCustomPatterns != runtimeRules {
+	if err != nil || !semanticJSONEqual([]byte(got.PromptFilterCustomPatterns), []byte(runtimeRules)) {
 		t.Fatalf("stale settings update overwrote runtime rules: settings=%#v err=%v", got, err)
 	}
 	got.PromptFilterCustomPatterns = "[]"
@@ -391,7 +392,7 @@ func TestSystemSettingsUpdateCanPreserveConcurrentPromptRules(t *testing.T) {
 }
 
 func TestPromptRuleCandidateEvidenceAllowsNoPattern(t *testing.T) {
-	db, err := New("sqlite", filepath.Join(t.TempDir(), "evidence.sqlite"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "evidence.sqlite"))
 	if err != nil {
 		t.Fatalf("New sqlite: %v", err)
 	}

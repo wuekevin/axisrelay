@@ -21,8 +21,7 @@ func TestRequestMemoryBudgetConfiguration(t *testing.T) {
 		{"invalid", "48", "wrong", 0, true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			t.Setenv("AXISRELAY_DATABASE_DRIVER", "sqlite")
-			t.Setenv("AXISRELAY_DATABASE_PATH", ":memory:")
+			setTestMySQLConfig(t)
 			t.Setenv("AXISRELAY_CACHE_DRIVER", "memory")
 			t.Setenv("AXISRELAY_MAX_REQUEST_BODY_SIZE_MB", tc.maxBody)
 			t.Setenv("AXISRELAY_REQUEST_MEMORY_BUDGET_MB", tc.budget)

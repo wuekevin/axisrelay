@@ -848,7 +848,7 @@ func TestCreateAPIKeyPersistsQuotaAndExpiration(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
-	db, err := database.New("sqlite", dbPath)
+	db, err := newTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatalf("database.New 返回错误: %v", err)
 	}
@@ -888,7 +888,7 @@ func TestUpdateAPIKeyPreservesOmittedFieldsAndUpdatesLimits(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
-	db, err := database.New("sqlite", dbPath)
+	db, err := newTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatalf("database.New 返回错误: %v", err)
 	}
@@ -949,7 +949,7 @@ func TestUpdateAPIKeyRefreshesRuntimeStoreAndCache(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
-	db, err := database.New("sqlite", dbPath)
+	db, err := newTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatalf("database.New 返回错误: %v", err)
 	}
@@ -1393,7 +1393,7 @@ func TestGetUsageLogsAllowsFiveHundredPageSize(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	dbPath := filepath.Join(t.TempDir(), "usage-logs-page-size.sqlite")
-	db, err := database.New("sqlite", dbPath)
+	db, err := newTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatalf("new test db: %v", err)
 	}
@@ -1425,22 +1425,22 @@ func TestGetUsageLogsAllowsFiveHundredPageSize(t *testing.T) {
 		t.Fatalf("flush usage logs: %v", err)
 	}
 
-	rawDB, err := sql.Open("sqlite", dbPath)
+	rawDB, err := openRawTestDatabase(t, dbPath)
 	if err != nil {
-		t.Fatalf("open raw sqlite db: %v", err)
+		t.Fatalf("open raw MySQL db: %v", err)
 	}
 	if _, err := rawDB.ExecContext(ctx, `
 		UPDATE usage_logs
-		SET created_at = datetime(?, printf('+%d seconds', id - 1))
+		SET created_at = DATE_ADD(?, INTERVAL (id - 1) SECOND)
 	`, baseTime.Format("2006-01-02 15:04:05")); err != nil {
 		_ = rawDB.Close()
 		t.Fatalf("update created_at: %v", err)
 	}
 	if err := rawDB.Close(); err != nil {
-		t.Fatalf("close raw sqlite db: %v", err)
+		t.Fatalf("close raw MySQL db: %v", err)
 	}
 
-	db, err = database.New("sqlite", dbPath)
+	db, err = newTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatalf("reopen test db: %v", err)
 	}
@@ -1506,8 +1506,8 @@ func TestRuntimeStatusRouteReturnsDependencySnapshot(t *testing.T) {
 	if payload.Status != runtimeStatusDegraded {
 		t.Fatalf("status = %q, want %q for empty account pool", payload.Status, runtimeStatusDegraded)
 	}
-	if !payload.Database.Healthy || payload.Database.Driver != "sqlite" {
-		t.Fatalf("database = healthy:%v driver:%q, want healthy sqlite", payload.Database.Healthy, payload.Database.Driver)
+	if !payload.Database.Healthy || payload.Database.Driver != "mysql" {
+		t.Fatalf("database = healthy:%v driver:%q, want healthy mysql", payload.Database.Healthy, payload.Database.Driver)
 	}
 	if !payload.Cache.Healthy || payload.Cache.Driver != "memory" {
 		t.Fatalf("cache = healthy:%v driver:%q, want healthy memory", payload.Cache.Healthy, payload.Cache.Driver)
@@ -1572,6 +1572,9 @@ func TestUpdateSettingsPersistsAutoResetCreditsAcrossPartialUpdates(t *testing.T
 	settings.ModelPricingSyncURL = "https://example.com/pricing.json"
 	if err := db.UpdateSystemSettings(context.Background(), settings); err != nil {
 		t.Fatalf("seed settings: %v", err)
+	}
+	if err := db.UpdateModelPricingSettings(context.Background(), settings.ModelPricingOverrides, settings.ModelPricingSyncURL); err != nil {
+		t.Fatalf("seed model pricing settings: %v", err)
 	}
 	store := auth.NewStore(db, tc, settings)
 	t.Cleanup(store.Stop)
@@ -1643,7 +1646,7 @@ func TestUpdateSettingsPersistsAutoResetCreditsAcrossPartialUpdates(t *testing.T
 	if persisted.AutoResetCreditsBeforeExpiryMin != 90 {
 		t.Fatalf("AutoResetCreditsBeforeExpiryMin = %d, want 90", persisted.AutoResetCreditsBeforeExpiryMin)
 	}
-	if persisted.ModelPricingOverrides != settings.ModelPricingOverrides {
+	if !customPatternJSONEqual(persisted.ModelPricingOverrides, settings.ModelPricingOverrides) {
 		t.Fatalf("ModelPricingOverrides = %q, want %q", persisted.ModelPricingOverrides, settings.ModelPricingOverrides)
 	}
 	if persisted.ModelPricingSyncURL != settings.ModelPricingSyncURL {
@@ -2089,8 +2092,8 @@ func TestPromptFilterAdvancedSettingsRejectInvalidJSONWithoutReplacingLastValidS
 	if err != nil {
 		t.Fatalf("GetSystemSettings: %v", err)
 	}
-	if persisted.PromptFilterAdvancedConfig != settings.PromptFilterAdvancedConfig {
-		t.Fatalf("persisted raw config changed after invalid JSON\nbefore=%s\nafter=%s", settings.PromptFilterAdvancedConfig, persisted.PromptFilterAdvancedConfig)
+	if !customPatternJSONEqual(persisted.PromptFilterAdvancedConfig, settings.PromptFilterAdvancedConfig) {
+		t.Fatalf("persisted config changed after invalid JSON\nbefore=%s\nafter=%s", settings.PromptFilterAdvancedConfig, persisted.PromptFilterAdvancedConfig)
 	}
 }
 
@@ -3634,7 +3637,7 @@ func newTestAdminDB(t *testing.T) *database.DB {
 
 	tempDir := t.TempDir()
 	dbPath := filepath.Join(tempDir, "admin-handler-test.sqlite")
-	db, err := database.New("sqlite", dbPath)
+	db, err := newTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatalf("new test db: %v", err)
 	}

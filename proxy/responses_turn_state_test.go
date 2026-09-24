@@ -197,7 +197,7 @@ func TestResponsesReconcilesEndpointEnabledDirectlyInDatabase(t *testing.T) {
 	}))
 	t.Cleanup(upstream.Close)
 
-	db, err := database.New("sqlite", filepath.Join(t.TempDir(), "responses-reconcile.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "responses-reconcile.db"))
 	if err != nil {
 		t.Fatalf("database.New: %v", err)
 	}

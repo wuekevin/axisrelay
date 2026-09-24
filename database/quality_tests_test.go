@@ -10,7 +10,7 @@ import (
 )
 
 func TestQualityTestSlotsAreAtomicAndReleaseOnlyAfterCompletion(t *testing.T) {
-	db, err := New("sqlite", filepath.Join(t.TempDir(), "quality.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "quality.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -69,7 +69,7 @@ func TestQualityTestSlotsAreAtomicAndReleaseOnlyAfterCompletion(t *testing.T) {
 
 func TestQualityTestRecordsPersistWithMetadataAndExcludeOutputFromLists(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "history.db")
-	db, err := New("sqlite", path)
+	db, err := newTestDatabase(t, path)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -87,7 +87,7 @@ func TestQualityTestRecordsPersistWithMetadataAndExcludeOutputFromLists(t *testi
 	if err := db.Close(); err != nil {
 		t.Fatal(err)
 	}
-	db, err = New("sqlite", path)
+	db, err = newTestDatabase(t, path)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -123,7 +123,7 @@ func TestQualityTestRecordsPersistWithMetadataAndExcludeOutputFromLists(t *testi
 }
 
 func TestQualityTestHistoryFiltersCombineAndFacetsStayGlobal(t *testing.T) {
-	db, err := New("sqlite", filepath.Join(t.TempDir(), "filters.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "filters.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -192,7 +192,7 @@ func TestQualityTestHistoryFiltersCombineAndFacetsStayGlobal(t *testing.T) {
 }
 
 func TestQualityTestSchemaAddsPresetColumnsToExistingTables(t *testing.T) {
-	db, err := New("sqlite", filepath.Join(t.TempDir(), "legacy.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "legacy.db"))
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -12,9 +12,8 @@ import (
 )
 
 func TestCodexRefreshTransactions(t *testing.T) {
-	driver := "sqlite"
 	dsn := filepath.Join(t.TempDir(), "refresh.db")
-	db, err := New(driver, dsn)
+	db, err := newTestDatabase(t, dsn)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -86,9 +85,6 @@ func TestCodexRefreshTransactions(t *testing.T) {
 func testCodexKeepaliveSettings(t *testing.T, db *DB) {
 	t.Helper()
 	ctx := context.Background()
-	if _, err := db.conn.ExecContext(ctx, `INSERT INTO system_settings(id) VALUES (1) ON CONFLICT(id) DO NOTHING`); err != nil {
-		t.Fatal(err)
-	}
 	settings, err := db.GetSystemSettings(ctx)
 	if err != nil {
 		t.Fatal(err)
@@ -111,7 +107,7 @@ func testCodexKeepaliveSettings(t *testing.T, db *DB) {
 }
 
 func TestCodexRefreshEncryptedAndPlaintextPeers(t *testing.T) {
-	db, err := New("sqlite", filepath.Join(t.TempDir(), "encrypted-refresh.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "encrypted-refresh.db"))
 	if err != nil {
 		t.Fatal(err)
 	}

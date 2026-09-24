@@ -11,7 +11,7 @@ import (
 
 func TestReconcileDispatchStateLoadsAccountAddedAfterStartup(t *testing.T) {
 	ctx := context.Background()
-	db, err := database.New("sqlite", filepath.Join(t.TempDir(), "dispatch-reconcile.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "dispatch-reconcile.db"))
 	if err != nil {
 		t.Fatalf("database.New: %v", err)
 	}
@@ -58,7 +58,7 @@ func TestReconcileDispatchStateLoadsAccountAddedAfterStartup(t *testing.T) {
 
 func TestTriggerDispatchStateReconcileAsyncLoadsAccount(t *testing.T) {
 	ctx := context.Background()
-	db, err := database.New("sqlite", filepath.Join(t.TempDir(), "dispatch-reconcile-async.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "dispatch-reconcile-async.db"))
 	if err != nil {
 		t.Fatalf("database.New: %v", err)
 	}
@@ -107,7 +107,7 @@ func TestTriggerDispatchStateReconcileAsyncLoadsAccount(t *testing.T) {
 
 func TestReconcileDispatchStateDoesNotQueueBehindAnotherRun(t *testing.T) {
 	ctx := context.Background()
-	db, err := database.New("sqlite", filepath.Join(t.TempDir(), "dispatch-reconcile-singleflight.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "dispatch-reconcile-singleflight.db"))
 	if err != nil {
 		t.Fatalf("database.New: %v", err)
 	}
@@ -135,7 +135,7 @@ func TestReconcileDispatchStateDoesNotQueueBehindAnotherRun(t *testing.T) {
 
 func TestAsyncReconcileCoalescesOntoActiveRunCompletion(t *testing.T) {
 	ctx := context.Background()
-	db, err := database.New("sqlite", filepath.Join(t.TempDir(), "dispatch-reconcile-interleaving.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "dispatch-reconcile-interleaving.db"))
 	if err != nil {
 		t.Fatalf("database.New: %v", err)
 	}
@@ -198,7 +198,7 @@ func TestAsyncReconcileCoalescesOntoActiveRunCompletion(t *testing.T) {
 
 func TestTriggerDispatchStateReconcileAsyncThrottledReturnsNil(t *testing.T) {
 	ctx := context.Background()
-	db, err := database.New("sqlite", filepath.Join(t.TempDir(), "dispatch-reconcile-throttle.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "dispatch-reconcile-throttle.db"))
 	if err != nil {
 		t.Fatalf("database.New: %v", err)
 	}

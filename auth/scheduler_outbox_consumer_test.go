@@ -26,7 +26,7 @@ func waitForSchedulerProjection(t *testing.T, predicate func() bool) {
 
 func TestSchedulerOutboxConsumerLoadsUpdatesAndRemovesAccount(t *testing.T) {
 	ctx := context.Background()
-	db, err := database.New("sqlite", filepath.Join(t.TempDir(), "scheduler-consumer.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "scheduler-consumer.db"))
 	if err != nil {
 		t.Fatalf("database.New: %v", err)
 	}
@@ -84,7 +84,7 @@ func TestSchedulerOutboxConsumerLoadsUpdatesAndRemovesAccount(t *testing.T) {
 
 func TestIndexedAvailabilityWaitWakesOnOutboxAccountInsert(t *testing.T) {
 	ctx := context.Background()
-	db, err := database.New("sqlite", filepath.Join(t.TempDir(), "scheduler-wait.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "scheduler-wait.db"))
 	if err != nil {
 		t.Fatalf("database.New: %v", err)
 	}
@@ -230,7 +230,7 @@ func TestApplyPersistentAccountSnapshotPreservesRuntimeState(t *testing.T) {
 
 func TestReloadDispatchAccountsByIDsAppliesBatchProjection(t *testing.T) {
 	ctx := context.Background()
-	db, err := database.New("sqlite", filepath.Join(t.TempDir(), "scheduler-batch-reload.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "scheduler-batch-reload.db"))
 	if err != nil {
 		t.Fatalf("database.New: %v", err)
 	}

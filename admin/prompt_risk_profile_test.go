@@ -21,7 +21,7 @@ func TestPromptRiskProfileListTimeoutAllowsProductionAggregation(t *testing.T) {
 
 func TestPromptRiskProfileListAndDetailAPI(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	db, err := database.New("sqlite", filepath.Join(t.TempDir(), "admin-risk-profile.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "admin-risk-profile.db"))
 	if err != nil {
 		t.Fatalf("database.New: %v", err)
 	}
@@ -99,7 +99,7 @@ func TestPromptRiskProfileDetailRejectsUnknownSubjectType(t *testing.T) {
 
 func TestPromptRiskProfileListAndDetailExposeActiveLockWithoutAuditHistory(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	db, err := database.New("sqlite", filepath.Join(t.TempDir(), "admin-lock-only-profile.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "admin-lock-only-profile.db"))
 	if err != nil {
 		t.Fatalf("database.New: %v", err)
 	}
@@ -152,7 +152,7 @@ func TestPromptRiskProfileListAndDetailExposeActiveLockWithoutAuditHistory(t *te
 
 func TestPromptRiskProfileDetailReturnsAdaptiveBasisAndPagedTrustAudit(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	db, err := database.New("sqlite", filepath.Join(t.TempDir(), "admin-risk-profile-audit.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "admin-risk-profile-audit.db"))
 	if err != nil {
 		t.Fatalf("database.New: %v", err)
 	}

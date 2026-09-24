@@ -10,7 +10,7 @@ import (
 // 用量页选中某个账号后,顶部区间卡片曾经仍按全局口径显示(接口没有账号维度)。
 // 现在区间字段(today_*/rpm/tpm/错误率/分项)跟随维度筛选,累计字段保持全局。
 func TestGetUsageStatsFilteredNarrowsRangeFieldsKeepsTotals(t *testing.T) {
-	db, err := New("sqlite", filepath.Join(t.TempDir(), "stats-filter.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "stats-filter.db"))
 	if err != nil {
 		t.Fatalf("New(sqlite): %v", err)
 	}

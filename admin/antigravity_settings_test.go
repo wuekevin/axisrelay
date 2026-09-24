@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/wuekevin/axisrelay/auth"
 	"github.com/gin-gonic/gin"
+	"github.com/wuekevin/axisrelay/auth"
 )
 
 func TestAntigravitySettingsRoundTrip(t *testing.T) {
@@ -46,7 +46,11 @@ func TestAntigravitySettingsRoundTrip(t *testing.T) {
 		t.Fatalf("empty target must clear the redirect, got %q", got)
 	}
 	raw, err := db.LoadAntigravityConfig(context.Background())
-	if err != nil || !strings.Contains(raw, `"gemini-3.8-flash":"gemini-3.8-flash-high"`) {
+	var persisted struct {
+		ModelRedirects map[string]string `json:"model_redirects"`
+	}
+	if err != nil || json.Unmarshal([]byte(raw), &persisted) != nil ||
+		persisted.ModelRedirects["gemini-3.8-flash"] != "gemini-3.8-flash-high" {
 		t.Fatalf("persisted=%q err=%v", raw, err)
 	}
 
