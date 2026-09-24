@@ -56,7 +56,7 @@ AxisRelay 采用三层配置架构：
 | 变量 | 必填 | 默认值 | 说明 |
 |------|------|--------|------|
 | `AXISRELAY_PORT` | 否 | 8080 | HTTP 服务端口 |
-| `AXISRELAY_BIND_HOST` | 否 | `127.0.0.1`（SQLite）/ `0.0.0.0`（PostgreSQL） | Docker 端口发布绑定地址（非进程监听地址，由 `AXISRELAY_BIND` 控制）。SQLite compose 默认 `127.0.0.1` 仅本机访问；标准 compose 默认 `0.0.0.0` 所有网络接口 |
+| `AXISRELAY_BIND_HOST` | 否 | `0.0.0.0` | Docker 端口发布绑定地址（非进程监听地址，由 `AXISRELAY_BIND` 控制）。仅允许本机反向代理访问时可设为 `127.0.0.1` |
 | `AXISRELAY_MAX_REQUEST_BODY_SIZE_MB` | 否 | 48 | HTTP 请求体上限。后台 MP4 动态壁纸上传最大 40MB，默认值为 multipart 上传预留余量 |
 | `AXISRELAY_REQUEST_MEMORY_BUDGET_MB` | 否 | 至少 128 | 单进程 HTTP/WS 逻辑正文总预算（MiB），包括读入/解压、排队和处理中正文及 Realtime 会话正文；默认取 128 与单请求上限的较大值，显式配置不能小于单请求上限，重启生效。预算不足时 HTTP 返回 503 和 `Retry-After: 1`，WS 关闭码为 1013。不是 RSS 硬上限，账号导入的流式 multipart 路径仍按独立导入上限处理 |
 | `AXISRELAY_ADMIN_SECRET` | 否 | - | 管理后台登录密钥 |
@@ -95,12 +95,18 @@ AxisRelay 采用三层配置架构：
 
 ### 数据库配置
 
-#### SQLite 过渡模式
+#### MySQL 8（默认）
 
 | 变量 | 必填 | 默认值 | 说明 |
 |------|------|--------|------|
-| `AXISRELAY_DATABASE_DRIVER` | 是 | sqlite | S0.3 过渡阶段固定为 `sqlite`；MySQL 在 S0.4 接入 |
-| `AXISRELAY_DATABASE_PATH` | 是 | - | SQLite 数据文件路径，例如 `/data/axisrelay.db` |
+| `AXISRELAY_DATABASE_DRIVER` | 是 | `mysql` | MySQL 使用 `mysql`；PostgreSQL 兼容模式使用 `postgres` / `postgresql` |
+| `AXISRELAY_DATABASE_HOST` | 是 | - | 数据库主机；标准 compose 内为 `mysql` |
+| `AXISRELAY_DATABASE_PORT` | 否 | `3306` | MySQL 端口；PostgreSQL 未显式配置时默认 `5432` |
+| `AXISRELAY_DATABASE_USER` | 是 | - | 数据库用户 |
+| `AXISRELAY_DATABASE_PASSWORD` | 否 | - | 数据库密码 |
+| `AXISRELAY_DATABASE_NAME` | 是 | - | 数据库名 |
+
+> MySQL 8 是默认和主要验收数据库；PostgreSQL 保留兼容。SQLite 已不再是可启动的数据库驱动。
 
 ### 生图工作台
 
@@ -121,13 +127,6 @@ AxisRelay 采用三层配置架构：
 | `AXISRELAY_LOG_DIR` | 否 | `logs` | 上游错误日志目录；只允许写临时盘的平台可设为 `/tmp/logs` |
 | `AXISRELAY_LOG_DISABLED` | 否 | `false` | 设为 `true` 时禁用文件型错误日志与安全审计日志 |
 | `AXISRELAY_SECURITY_LOG_DIR` | 否 | `${AXISRELAY_LOG_DIR}/security` | 安全审计日志目录；未设置时跟随 `AXISRELAY_LOG_DIR` |
-
-#### SQLite 模式
-
-| 变量 | 必填 | 默认值 | 说明 |
-|------|------|--------|------|
-| `AXISRELAY_DATABASE_DRIVER` | 是 | sqlite | 固定值: sqlite |
-| `AXISRELAY_DATABASE_PATH` | 是 | - | SQLite 数据库文件路径，如 `/data/axisrelay.db` |
 
 ### 缓存配置
 
@@ -163,7 +162,7 @@ AxisRelay 采用三层配置架构：
 
 设置了累计额度的 Key 每次鉴权仍查询数据库中的 `quota_used`；模型周预算仍在转发前执行数据库权威计数和请求幂等校验。窗口统计的原有 TTL、已建立长连接的校验策略不变。修订号变更会淘汰当前实例的全部鉴权条目；频繁修改 Key 配置会增加冷缓存回源。快照回填使用版本隔离和本地代际检查，延迟完成的旧查询不能恢复新版本的权限。
 
-启动自动创建修订表和 PostgreSQL/SQLite 触发器，无需手工迁移。关闭两级缓存后仍保留这些表和触发器，便于混合版本部署；旧版策略只对无访问约束的 Key 缓存元数据，并合并同一时刻的相同 Key 查询。
+启动自动创建修订表和 MySQL/PostgreSQL 触发器，无需手工迁移。关闭两级缓存后仍保留这些表和触发器，便于混合版本部署；旧版策略只对无访问约束的 Key 缓存元数据，并合并同一时刻的相同 Key 查询。
 
 `GET /api/admin/ops/overview` 的 `api_key_auth_cache` 提供开关、L1 条目/字节数、本地/远端命中、数据库配置加载次数、动态额度读取次数、修订号复核次数、失效、淘汰、超限旁路和错误计数。评估收益时应分开看配置回源与动态额度查询。
 
@@ -205,7 +204,7 @@ API Key 启用多个 RPM/RPD/费用/Token 窗口时，Redis 会通过一次 `MGE
 
 ### Turn-State 模板生命周期
 
-管理后台的实验性模板缓存开关默认关闭。开启后，上游铸造的有效模板按账号和精确模型存入 PostgreSQL/SQLite，重启后可用；只采集上游响应，不从客户端请求头收集模板。账号可关闭注入、限定模型范围，或设置独立模板签发代理。模板和代理配置保留在数据库，关闭注入不会删除它们。
+管理后台的实验性模板缓存开关默认关闭。开启后，上游铸造的有效模板按账号和精确模型存入 MySQL/PostgreSQL，重启后可用；只采集上游响应，不从客户端请求头收集模板。账号可关闭注入、限定模型范围，或设置独立模板签发代理。模板和代理配置保留在数据库，关闭注入不会删除它们。
 
 账号页的“重新获取模板”先获取候选，再发起验证请求，验证通过才保存。无显式范围时默认选择 `gpt-6-astra` 与 `gpt-5.6-*`。`codex-auto-review` 不参与缓存、获取、续签或账号形态状态汇总，也不会作为智力检测可选模型。状态标签是 Turn-State 形态启发式信号，不证明实际推理能力。
 
@@ -279,9 +278,9 @@ Codex 瞬时账号限流按 `15s → 30s → 60s → 120s → 240s → 300s` 退
 
 运维 API 的 `scheduler` 指标新增 `fast_scanned_accounts`（实际候选检查数）、`fast_filter_checks`、`fast_acquire_failures`、`fast_lock_wait_ns` 和 `model_cooldown_cache_reads`。这些是本进程累计计数，宜取时间差计算每次选号成本；快路径命中不再代表没有扫描。`selection_duration_buckets` 为 `10us/100us/1ms/10ms/100ms/1s/+Inf` 累积直方图，覆盖与 `selection_total` 相同的普通/新会话选号，已有绑定的直接复用不计入该直方图。跨实例共享冷却与 outbox 不提供账号全局并发限制，并发名额仍由每个实例独立计数。
 
-等待队列还暴露 `max_waiters`、`max_waiters_per_key`、`waiters`、`wait_rejected`（全部队列拒绝）、`wait_rejected_per_key`（其中因单 Key 上限被拒绝的子集）、`wait_granted`、`wait_duration_ns`，以及 `10ms/100ms/1s/10s/30s/+Inf` 的 `wait_duration_buckets` 累积直方图。等待耗时统计包含成功、取消和超时，拒绝入队不计入；`wait_wakeups / wait_granted` 的增量比可辅助观察无效唤醒，不能当作上游吞吐指标。Docker 部署应将两个新环境变量传给应用容器；项目标准/SQLite compose 的 `env_file` 会读取 `.env`，2004 专用 compose 可用 `environment` 覆盖。
+等待队列还暴露 `max_waiters`、`max_waiters_per_key`、`waiters`、`wait_rejected`（全部队列拒绝）、`wait_rejected_per_key`（其中因单 Key 上限被拒绝的子集）、`wait_granted`、`wait_duration_ns`，以及 `10ms/100ms/1s/10s/30s/+Inf` 的 `wait_duration_buckets` 累积直方图。等待耗时统计包含成功、取消和超时，拒绝入队不计入；`wait_wakeups / wait_granted` 的增量比可辅助观察无效唤醒，不能当作上游吞吐指标。Docker 部署应将两个新环境变量传给应用容器；项目标准 compose 的 `env_file` 会读取 `.env`，2004 专用 compose 可用 `environment` 覆盖。
 
-启动会自动创建 `scheduler_outbox` 和 `maintenance_jobs` 及相应索引/触发器，PostgreSQL 与 SQLite 均无需手工迁移。多实例对账号、API Key、分组、代理和调度设置的变化按 outbox 水位增量重放；高频用量计数不会产生调度事件。环境变量 `AXISRELAY_SCHEDULER_ENGINE` 一旦设置，会固定本实例引擎并覆盖管理后台值。
+启动会自动创建 `scheduler_outbox` 和 `maintenance_jobs` 及相应索引/触发器，MySQL 与 PostgreSQL 均无需手工迁移。多实例对账号、API Key、分组、代理和调度设置的变化按 outbox 水位增量重放；高频用量计数不会产生调度事件。环境变量 `AXISRELAY_SCHEDULER_ENGINE` 一旦设置，会固定本实例引擎并覆盖管理后台值。
 
 `ContinuousRetryPolicy` 是默认关闭的独立持续重试策略，持久化为 JSON：
 
@@ -436,7 +435,7 @@ Claude / Grok / Antigravity 等中继型账号不经 Resin，始终按第 2、3 
 
 规则的 `id` 与模型匹配条件、时区及重置安排共同标识一个预算。已有规则只允许修改 `max_requests` 或列表顺序，保留已用次数；模型或重置安排需要变化时，删除旧规则并新增规则，新规则从零计数。提高次数上限立即提供更多余额；将上限调低到已用次数以下会停止放行该规则。更新请求不带 `limits` 时保留全部限制；传入 `limits` 时按完整限制对象替换，`model_request_limits: []` 移除模型周预算。
 
-计数与请求幂等记录保存在 PostgreSQL / SQLite 的独立表中，启动时自动创建。PostgreSQL 多实例共享同一权威计数；SQLite 轻量模式使用相同语义。重启服务、清理 Redis/内存缓存、删除用量日志或重置金额额度不会清零模型周预算，到下一窗口自然获得新额度。扣额数据库不可用时，有模型周预算的相关请求返回服务不可用，避免并发超发。
+计数与请求幂等记录保存在 MySQL / PostgreSQL 的独立表中，启动时自动创建。多实例共享同一权威计数。重启服务、清理 Redis/内存缓存、删除用量日志或重置金额额度不会清零模型周预算，到下一窗口自然获得新额度。扣额数据库不可用时，有模型周预算的相关请求返回服务不可用，避免并发超发。
 
 后台 Key 编辑窗口和公开 `/key-usage` 页面展示本周已用、剩余、上限及下次重置时间。展示不受用量图表的 `today` / `7d` / `30d` / `all` 筛选影响，始终显示规则当前周窗口。该预算用于分配网关调用次数，不保证与上游套餐的计量口径相同；超额响应与查询接口见 [API 文档](API.md#api-key-模型周请求次数预算)。
 
@@ -454,9 +453,13 @@ AXISRELAY_PORT=8080
 AXISRELAY_ADMIN_SECRET=your-secure-admin-password-here
 TZ=Asia/Shanghai
 
-# 数据库配置（S0.3 过渡：SQLite；S0.4 切换 MySQL）
-AXISRELAY_DATABASE_DRIVER=sqlite
-AXISRELAY_DATABASE_PATH=/data/axisrelay.db
+# 数据库配置（MySQL 8 默认）
+AXISRELAY_DATABASE_DRIVER=mysql
+AXISRELAY_DATABASE_HOST=mysql
+AXISRELAY_DATABASE_PORT=3306
+AXISRELAY_DATABASE_USER=axisrelay
+AXISRELAY_DATABASE_PASSWORD=your-mysql-password
+AXISRELAY_DATABASE_NAME=axisrelay
 AXISRELAY_IMAGE_ASSET_DIR=/data/images
 AXISRELAY_LOG_DIR=logs
 AXISRELAY_LOG_DISABLED=false
@@ -471,29 +474,6 @@ AXISRELAY_REDIS_TLS=false
 AXISRELAY_REDIS_INSECURE_SKIP_VERIFY=false
 ```
 
-### SQLite 轻量环境 (.env)
-
-```bash
-# ============================================================
-# AxisRelay SQLite 轻量版配置
-# ============================================================
-
-# 服务配置
-AXISRELAY_PORT=8080
-AXISRELAY_ADMIN_SECRET=your-admin-password
-TZ=Asia/Shanghai
-
-# 数据库配置 (SQLite)
-AXISRELAY_DATABASE_DRIVER=sqlite
-AXISRELAY_DATABASE_PATH=/data/axisrelay.db
-AXISRELAY_IMAGE_ASSET_DIR=/data/images
-AXISRELAY_LOG_DIR=logs
-AXISRELAY_LOG_DISABLED=false
-
-# 缓存配置 (内存)
-AXISRELAY_CACHE_DRIVER=memory
-```
-
 ### 开发环境 (.env)
 
 ```bash
@@ -504,9 +484,13 @@ AXISRELAY_CACHE_DRIVER=memory
 AXISRELAY_PORT=8080
 # AXISRELAY_ADMIN_SECRET=dev  # 开发环境可不设置
 
-# 本地数据库（S0.3 过渡）
-AXISRELAY_DATABASE_DRIVER=sqlite
-AXISRELAY_DATABASE_PATH=./data/axisrelay.db
+# 本地 MySQL
+AXISRELAY_DATABASE_DRIVER=mysql
+AXISRELAY_DATABASE_HOST=127.0.0.1
+AXISRELAY_DATABASE_PORT=3306
+AXISRELAY_DATABASE_USER=root
+AXISRELAY_DATABASE_PASSWORD=
+AXISRELAY_DATABASE_NAME=axisrelay
 
 # 本地 Redis
 AXISRELAY_CACHE_DRIVER=redis
@@ -566,7 +550,7 @@ TZ=Asia/Shanghai
 程序启动时会自动验证配置：
 
 ```
-✓ 数据库连接成功: PostgreSQL
+✓ 数据库连接成功: MySQL
 ✓ 缓存连接成功: Redis
 ✓ 账号池初始化完成: 10/10 可用
 ✓ 系统设置加载完成
@@ -595,7 +579,7 @@ curl -H "X-Admin-Key: your-secret" http://localhost:8080/api/admin/ops/overview
 
 **A:** 通过管理后台 `/admin/settings` 修改的业务配置（如 MaxConcurrency、GlobalRPM）会立即生效。
 
-### Q: SQLite 和 PostgreSQL 可以切换吗？
+### Q: MySQL 和 PostgreSQL 可以切换吗？
 
 **A:** 可以，但需要：
 1. 停止服务
@@ -612,10 +596,9 @@ curl -H "X-Admin-Key: your-secret" http://localhost:8080/api/admin/ops/overview
 **A:** 检查日志输出，常见错误：
 - `AXISRELAY_DATABASE_HOST is empty` - 未配置数据库主机
 - `AXISRELAY_REDIS_ADDR is empty` - Redis 模式下未配置 Redis 地址
-- `AXISRELAY_DATABASE_PATH is empty` - SQLite 模式下未配置数据路径
 
 ### 惰性模式下的 Codex 授权保活
 
 管理设置 `codex_oauth_keepalive_enabled`（默认 `false`）允许惰性模式单独运行 Codex Token 续期。它使用现有 `background_refresh_interval_minutes` 巡检间隔和 AT 到期前 5 分钟的阈值，不改变额度冷却、不启用生成探针，也不影响 Claude、Grok 或 Antigravity 的刷新策略。普通模式本来就运行 Codex 续期，不依赖此开关。
 
-Codex 刷新新增 `codex_oauth_refresh_attempts` 保护表，启动时自动创建，兼容 PostgreSQL 与 SQLite。表内只保存旧 RT 的 SHA-256 指纹、刷新操作 ID 和开始时间，不保存明文 Token。成功保存全部相关凭据后删除记录；结果不确定的记录保留，防止跨实例或重启后重复消费旧 RT。已有凭据无需重新导入；已经失效的授权需重新登录恢复。
+Codex 刷新新增 `codex_oauth_refresh_attempts` 保护表，启动时自动创建，兼容 MySQL 与 PostgreSQL。表内只保存旧 RT 的 SHA-256 指纹、刷新操作 ID 和开始时间，不保存明文 Token。成功保存全部相关凭据后删除记录；结果不确定的记录保留，防止跨实例或重启后重复消费旧 RT。已有凭据无需重新导入；已经失效的授权需重新登录恢复。

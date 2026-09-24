@@ -9707,9 +9707,6 @@ func backgroundAssetDir() string {
 		}
 		return filepath.Join(clean, "backgrounds")
 	}
-	if dbPath := strings.TrimSpace(os.Getenv("AXISRELAY_DATABASE_PATH")); dbPath != "" {
-		return filepath.Join(filepath.Dir(dbPath), "backgrounds")
-	}
 	return defaultBackgroundAssetDir
 }
 

@@ -19,9 +19,9 @@
 
 | 模式 | 适用场景 | 数据库 | 缓存 |
 |------|----------|--------|------|
-| **标准 Docker** | 生产环境推荐 | PostgreSQL | Redis |
-| **SQLite 轻量** | 单机/测试环境 | SQLite | 内存 |
-| **本地源码** | 开发调试 | 可选 | 可选 |
+| **标准 Docker** | 生产环境推荐 | MySQL 8 | Redis |
+| **本地源码** | 开发调试 | MySQL 8 | Redis |
+| **PostgreSQL 兼容** | 外部数据库/既有环境 | PostgreSQL | Redis / Memory |
 
 ---
 
@@ -46,26 +46,16 @@ docker compose up -d
 docker compose logs -f axisrelay
 ```
 
-### 2. SQLite 轻量模式
-
-```bash
-cp .env.sqlite.example .env
-docker compose -f docker-compose.sqlite.yml pull
-docker compose -f docker-compose.sqlite.yml up -d
-```
-
----
-
 ## Docker 部署
 
-### 标准模式（PostgreSQL + Redis）
+### 标准模式（MySQL 8 + Redis）
 
 **docker-compose.yml 服务组成:**
 
 ```yaml
 services:
   axisrelay:    # 主应用服务
-  postgres:     # PostgreSQL 数据库
+  mysql:        # MySQL 8 数据库
   redis:        # Redis 缓存
 ```
 
@@ -73,7 +63,7 @@ services:
 
 | 卷名 | 用途 |
 |------|------|
-| axisrelay_pgdata | PostgreSQL 数据 |
+| axisrelay_mysql_data | MySQL 数据 |
 | axisrelay_redisdata | Redis 数据 |
 
 **完整部署流程:**
@@ -85,8 +75,8 @@ cp .env.example .env
 # 2. 修改 .env 配置
 # - AXISRELAY_PORT: 服务端口
 # - AXISRELAY_ADMIN_SECRET: 管理后台密码
-# - DATABASE_*: 数据库配置
-# - REDIS_*: Redis 配置
+# - AXISRELAY_DATABASE_*: 数据库配置
+# - AXISRELAY_REDIS_*: Redis 配置
 
 # 3. 启动服务
 docker compose pull
@@ -101,36 +91,6 @@ docker compose logs -f axisrelay
 # API 地址: http://localhost:8080/v1/
 ```
 
-### SQLite 轻量模式
-
-**docker-compose.sqlite.yml 服务组成:**
-
-```yaml
-services:
-  axisrelay:    # 主应用服务（单容器）
-```
-
-**数据持久化:**
-
-| 卷名 | 用途 |
-|------|------|
-| axisrelay-sqlite_sqlite-data | SQLite 数据库文件 |
-
-**部署流程:**
-
-```bash
-# 1. 准备环境文件
-cp .env.sqlite.example .env
-
-# 2. 修改 .env 配置
-# - AXISRELAY_PORT: 服务端口
-# - AXISRELAY_DATABASE_PATH: /data/axisrelay.db
-
-# 3. 启动服务
-docker compose -f docker-compose.sqlite.yml pull
-docker compose -f docker-compose.sqlite.yml up -d
-```
-
 ### 本地源码构建模式
 
 用于本地修改代码后验证:
@@ -138,9 +98,6 @@ docker compose -f docker-compose.sqlite.yml up -d
 ```bash
 # 标准模式本地构建
 docker compose -f docker-compose.local.yml up -d --build
-
-# SQLite 模式本地构建
-docker compose -f docker-compose.sqlite.local.yml up -d --build
 ```
 
 **注意:** 本地构建模式使用 `build: .` 而非预构建镜像。
@@ -172,14 +129,19 @@ ghcr.io/wuekevin/axisrelay:latest
 
 ### 2. 配置环境变量
 
-免费实例没有持久化磁盘，推荐 Demo 使用 SQLite + 内存缓存，并把可写目录放到 `/tmp`：
+AxisRelay 已不支持 SQLite。Render Demo 需要外部 MySQL 8（或 PostgreSQL）和 Redis；可写的图片/日志目录仍可放在 `/tmp`：
 
 ```env
 AXISRELAY_PORT=10000
 AXISRELAY_BIND=0.0.0.0
-AXISRELAY_DATABASE_DRIVER=sqlite
-AXISRELAY_DATABASE_PATH=/tmp/axisrelay.db
-AXISRELAY_CACHE_DRIVER=memory
+AXISRELAY_DATABASE_DRIVER=mysql
+AXISRELAY_DATABASE_HOST=your-mysql-host
+AXISRELAY_DATABASE_PORT=3306
+AXISRELAY_DATABASE_USER=axisrelay
+AXISRELAY_DATABASE_PASSWORD=your-mysql-password
+AXISRELAY_DATABASE_NAME=axisrelay
+AXISRELAY_CACHE_DRIVER=redis
+AXISRELAY_REDIS_ADDR=rediss://default:your-redis-password@your-redis-host:6379/0
 AXISRELAY_IMAGE_ASSET_DIR=/tmp/images
 AXISRELAY_LOG_DIR=/tmp/logs
 AXISRELAY_LOG_DISABLED=true
@@ -227,7 +189,7 @@ https://<your-service>.onrender.com/admin/
 https://<your-service>.onrender.com/health
 ```
 
-注意：Render 免费实例适合 Demo，不建议承载真实 Token 或生产流量；实例休眠、重启或重新部署后，`/tmp` 中的 SQLite 数据和图库可能丢失。
+注意：Render 免费实例适合 Demo，不建议承载真实 Token 或生产流量；实例休眠、重启或重新部署后，`/tmp` 中的图库和日志可能丢失，数据库数据必须放在外部持久化 MySQL/PostgreSQL。
 
 ---
 
@@ -237,8 +199,8 @@ https://<your-service>.onrender.com/health
 
 - Go 1.26.6+
 - Node.js 22.12+
-- PostgreSQL 14+ (可选，可用 SQLite)
-- Redis 7+ (可选，可用内存缓存)
+- MySQL 8.0+（默认）或 PostgreSQL 14+
+- Redis 7+（默认；测试场景可显式使用 Memory）
 
 ### 后端开发
 
@@ -302,9 +264,13 @@ AXISRELAY_PORT=8080
 # 管理后台密码（强密码推荐）
 AXISRELAY_ADMIN_SECRET=your-strong-password-here
 
-# 数据库配置（S0.3 过渡阶段；S0.4 将接入 MySQL）
-AXISRELAY_DATABASE_DRIVER=sqlite
-AXISRELAY_DATABASE_PATH=/data/axisrelay.db
+# 数据库配置（MySQL 8 默认）
+AXISRELAY_DATABASE_DRIVER=mysql
+AXISRELAY_DATABASE_HOST=mysql
+AXISRELAY_DATABASE_PORT=3306
+AXISRELAY_DATABASE_USER=axisrelay
+AXISRELAY_DATABASE_PASSWORD=your-mysql-password
+AXISRELAY_DATABASE_NAME=axisrelay
 
 # Redis 配置
 AXISRELAY_CACHE_DRIVER=redis
@@ -406,7 +372,7 @@ services:
     ports:
       - "127.0.0.1:8080:8080"  # 仅本地监听，通过 nginx 暴露
     depends_on:
-      postgres:
+      mysql:
         condition: service_healthy
       redis:
         condition: service_healthy
@@ -418,23 +384,24 @@ services:
         max-size: "100m"
         max-file: "3"
 
-  postgres:
-    image: postgres:15-alpine
-    container_name: axisrelay-postgres
+  mysql:
+    image: mysql:8.0
+    container_name: axisrelay-mysql
     restart: unless-stopped
     environment:
-      POSTGRES_USER: ${AXISRELAY_DATABASE_USER}
-      POSTGRES_PASSWORD: ${AXISRELAY_DATABASE_PASSWORD}
-      POSTGRES_DB: ${AXISRELAY_DATABASE_NAME}
+      MYSQL_DATABASE: ${AXISRELAY_DATABASE_NAME}
+      MYSQL_USER: ${AXISRELAY_DATABASE_USER}
+      MYSQL_PASSWORD: ${AXISRELAY_DATABASE_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - mysql-data:/var/lib/mysql
     networks:
       - axisrelay
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${AXISRELAY_DATABASE_USER} -d ${AXISRELAY_DATABASE_NAME}"]
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u${AXISRELAY_DATABASE_USER} -p${AXISRELAY_DATABASE_PASSWORD} --silent"]
       interval: 5s
       timeout: 5s
-      retries: 5
+      retries: 12
 
   redis:
     image: redis:7-alpine
@@ -452,7 +419,7 @@ services:
       retries: 5
 
 volumes:
-  pgdata:
+  mysql-data:
   redisdata:
 
 networks:
@@ -468,7 +435,7 @@ networks:
 
 ```bash
 # 1. 备份数据库（重要！）
-docker exec axisrelay-postgres pg_dump -U axisrelay axisrelay > backup_$(date +%Y%m%d_%H%M%S).sql
+docker exec axisrelay-mysql mysqldump -uaxisrelay -p"$AXISRELAY_DATABASE_PASSWORD" axisrelay > backup_$(date +%Y%m%d_%H%M%S).sql
 
 # 2. 拉取新版本
 git pull
@@ -492,29 +459,18 @@ curl http://localhost:8080/health
 docker compose down
 
 # 2. 恢复数据库
-docker exec -i axisrelay-postgres psql -U axisrelay axisrelay < backup_xxx.sql
+docker exec -i axisrelay-mysql mysql -uaxisrelay -p"$AXISRELAY_DATABASE_PASSWORD" axisrelay < backup_xxx.sql
 
 # 3. 指定旧版本启动
 # 编辑 docker-compose.yml，指定 image:tag
 docker compose up -d
 ```
 
-### SQLite 模式升级
-
-```bash
-# 备份 SQLite 数据库
-cp /path/to/axisrelay.db /path/to/axisrelay.db.backup_$(date +%Y%m%d_%H%M%S)
-
-# 升级
-docker compose -f docker-compose.sqlite.yml pull
-docker compose -f docker-compose.sqlite.yml up -d
-```
-
 ---
 
 ## 备份与恢复
 
-### PostgreSQL 备份
+### MySQL 备份
 
 **自动备份脚本:**
 
@@ -524,7 +480,7 @@ docker compose -f docker-compose.sqlite.yml up -d
 
 BACKUP_DIR="/backup/axisrelay"
 DATE=$(date +%Y%m%d_%H%M%S)
-CONTAINER="axisrelay-postgres"
+CONTAINER="axisrelay-mysql"
 DB_NAME="axisrelay"
 DB_USER="axisrelay"
 
@@ -532,7 +488,7 @@ DB_USER="axisrelay"
 mkdir -p $BACKUP_DIR
 
 # 执行备份
-docker exec $CONTAINER pg_dump -U $DB_USER $DB_NAME > $BACKUP_DIR/axisrelay_$DATE.sql
+docker exec $CONTAINER mysqldump -u$DB_USER -p"$AXISRELAY_DATABASE_PASSWORD" $DB_NAME > $BACKUP_DIR/axisrelay_$DATE.sql
 
 # 保留最近 30 天备份
 find $BACKUP_DIR -name "*.sql" -mtime +30 -delete
@@ -547,41 +503,23 @@ echo "Backup completed: $BACKUP_DIR/axisrelay_$DATE.sql"
 0 2 * * * /path/to/backup.sh >> /var/log/axisrelay-backup.log 2>&1
 ```
 
-### PostgreSQL 恢复
+### MySQL 恢复
 
 ```bash
 # 1. 停止应用
 docker compose stop axisrelay
 
 # 2. 恢复数据库
-docker exec -i axisrelay-postgres psql -U axisrelay -d axisrelay < backup_xxx.sql
+docker exec -i axisrelay-mysql mysql -uaxisrelay -p"$AXISRELAY_DATABASE_PASSWORD" axisrelay < backup_xxx.sql
 
 # 3. 重启服务
 docker compose start axisrelay
 ```
 
-### SQLite 备份
+### PostgreSQL 兼容部署
 
-```bash
-# 备份
-sqlite3 /data/axisrelay.db ".backup '/backup/axisrelay_$(date +%Y%m%d_%H%M%S).db'"
-
-# 或简单复制
-cp /data/axisrelay.db /backup/axisrelay_$(date +%Y%m%d_%H%M%S).db
-```
-
-### SQLite 恢复
-
-```bash
-# 停止服务
-docker compose -f docker-compose.sqlite.yml stop
-
-# 恢复数据
-cp /backup/axisrelay_xxx.db /data/axisrelay.db
-
-# 启动服务
-docker compose -f docker-compose.sqlite.yml start
-```
+使用外部 PostgreSQL 时，备份/恢复继续使用 `pg_dump` / `psql`；应用侧只需将
+`AXISRELAY_DATABASE_DRIVER=postgres` 并配置对应的 `AXISRELAY_DATABASE_*`。
 
 ---
 
@@ -589,10 +527,8 @@ docker compose -f docker-compose.sqlite.yml start
 
 | 部署模式 | 容器名 | 数据卷 |
 |----------|--------|--------|
-| 标准镜像 | axisrelay | axisrelay_pgdata, axisrelay_redisdata |
-| 标准本地 | axisrelay-local | axisrelay-local_pgdata, axisrelay-local_redisdata |
-| SQLite 镜像 | axisrelay-sqlite | axisrelay-sqlite_sqlite-data |
-| SQLite 本地 | axisrelay-sqlite-local | axisrelay-sqlite-local_sqlite-data-local |
+| 标准镜像 | axisrelay | axisrelay_mysql_data, axisrelay_redisdata |
+| 标准本地 | axisrelay | axisrelay-local_mysql_data, axisrelay-local_redisdata |
 
 **注意:** 不同模式的数据卷相互隔离，切换 compose 文件后看到空数据是正常现象。
 

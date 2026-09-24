@@ -34,7 +34,6 @@ docker compose logs -f axisrelay
 | `AXISRELAY_DATABASE_HOST is empty` | 未配置数据库主机 | 检查 `.env` 文件 |
 | `AXISRELAY_REDIS_ADDR is empty` | Redis 模式未配置地址 | 检查 `.env` 文件 |
 | `Redis 连接失败: EOF` | 云 Redis 要求 TLS，但当前按明文连接 | 使用 `rediss://...` 地址，或设置 `AXISRELAY_REDIS_TLS=true` |
-| `AXISRELAY_DATABASE_PATH is empty` | SQLite 未配置路径 | 检查 `.env` 文件 |
 | `connection refused` | 数据库未就绪 | 等待依赖服务启动 |
 
 **健康检查脚本:**
@@ -80,32 +79,25 @@ AXISRELAY_PORT=8081
 
 ### 症状: 数据库连接失败
 
-**PostgreSQL 模式:**
+**MySQL 8（默认）:**
 
 ```bash
-# 1. 检查 PostgreSQL 容器
-docker compose ps postgres
-docker compose logs postgres
+# 1. 检查 MySQL 容器
+docker compose ps mysql
+docker compose logs mysql
 
 # 2. 测试连接
-docker exec -it axisrelay-postgres psql -U axisrelay -d axisrelay -c "SELECT 1;"
+docker exec -it axisrelay-mysql mysql -uaxisrelay -p -D axisrelay -e "SELECT 1;"
 
 # 3. 检查网络
-docker compose exec axisrelay ping postgres
+docker compose exec axisrelay ping mysql
 ```
 
-**SQLite 模式:**
+**PostgreSQL 兼容模式:**
 
 ```bash
-# 1. 检查数据目录权限
-ls -la /path/to/sqlite/data/
-
-# 2. 检查数据库文件
-sqlite3 /data/axisrelay.db ".tables"
-
-# 3. 修复权限
-chmod 755 /data
-chmod 644 /data/axisrelay.db
+# 外部 PostgreSQL 示例
+psql "postgres://user:password@host:5432/axisrelay" -c "SELECT 1;"
 ```
 
 ### 症状: 数据库性能差
@@ -113,18 +105,11 @@ chmod 644 /data/axisrelay.db
 **排查:**
 
 ```bash
-# 查看慢查询（PostgreSQL）
-docker exec axisrelay-postgres psql -U axisrelay -c "
-SELECT query, calls, mean_time, total_time
-FROM pg_stat_statements
-ORDER BY mean_time DESC
-LIMIT 10;
-"
+# 查看当前 MySQL 查询
+docker exec axisrelay-mysql mysql -uaxisrelay -p -D axisrelay -e "SHOW FULL PROCESSLIST;"
 
 # 查看连接数
-docker exec axisrelay-postgres psql -U axisrelay -c "
-SELECT count(*) FROM pg_stat_activity;
-"
+docker exec axisrelay-mysql mysql -uaxisrelay -p -D axisrelay -e "SHOW STATUS LIKE 'Threads_connected';"
 ```
 
 **优化建议:**
@@ -135,8 +120,8 @@ SELECT count(*) FROM pg_stat_activity;
 
 ```sql
 -- 添加索引优化
-CREATE INDEX CONCURRENTLY idx_usage_logs_created_at ON usage_logs(created_at);
-CREATE INDEX CONCURRENTLY idx_usage_logs_account_id ON usage_logs(account_id);
+CREATE INDEX idx_usage_logs_created_at ON usage_logs(created_at);
+CREATE INDEX idx_usage_logs_account_id ON usage_logs(account_id);
 ```
 
 ---
@@ -425,7 +410,8 @@ DROP TABLE IF EXISTS scheduler_outbox;
 DROP TABLE IF EXISTS maintenance_jobs;
 ```
 
-SQLite 部署执行对应的 `DROP TRIGGER IF EXISTS <同名触发器>;` 与 `DROP TABLE IF EXISTS scheduler_outbox; DROP TABLE IF EXISTS maintenance_jobs;` 即可。
+MySQL 部署使用 `DROP TRIGGER IF EXISTS <同名触发器>;` 清理对应触发器，并可用
+`DROP TABLE IF EXISTS scheduler_outbox; DROP TABLE IF EXISTS maintenance_jobs;` 清理调度辅助表。
 
 ### 症状: 内存占用高
 
@@ -643,7 +629,7 @@ export AXISRELAY_ADMIN_SECRET=new-secret
 docker compose up -d
 
 # 方法2: 直接修改数据库
-docker exec -it axisrelay-postgres psql -U axisrelay -c "UPDATE system_settings SET admin_secret = 'new-secret';"
+docker exec -it axisrelay-mysql mysql -uaxisrelay -p -D axisrelay -e "UPDATE system_settings SET admin_secret = 'new-secret';"
 ```
 
 ### Q: 如何清理所有日志？
@@ -653,7 +639,7 @@ docker exec -it axisrelay-postgres psql -U axisrelay -c "UPDATE system_settings 
 curl -X DELETE -H "X-Admin-Key: your-secret" http://localhost:8080/api/admin/usage/logs
 
 # 或直接清理数据库
-docker exec axisrelay-postgres psql -U axisrelay -c "TRUNCATE usage_logs;"
+docker exec axisrelay-mysql mysql -uaxisrelay -p -D axisrelay -e "TRUNCATE usage_logs;"
 ```
 
 ### Q: 如何导出所有账号？

@@ -7,6 +7,15 @@ import (
 	"time"
 )
 
+func TestNormalizeDriverDefaultsToMySQL(t *testing.T) {
+	if got := normalizeDriver(""); got != "mysql" {
+		t.Fatalf("normalizeDriver(empty) = %q, want mysql", got)
+	}
+	if got := normalizeDriver("  MySQL  "); got != "mysql" {
+		t.Fatalf("normalizeDriver(mysql) = %q, want mysql", got)
+	}
+}
+
 func TestNewMySQLProductionPath(t *testing.T) {
 	dsn := os.Getenv("AXISRELAY_TEST_MYSQL_DSN")
 	if dsn == "" {

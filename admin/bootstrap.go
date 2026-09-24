@@ -130,9 +130,6 @@ func bootstrapPublicBaseURL(r *http.Request) string {
 }
 
 func bootstrapDatabaseLocation(driver string) string {
-	if strings.EqualFold(driver, "sqlite") {
-		return strings.TrimSpace(os.Getenv("AXISRELAY_DATABASE_PATH"))
-	}
 	host := strings.TrimSpace(os.Getenv("AXISRELAY_DATABASE_HOST"))
 	name := strings.TrimSpace(os.Getenv("AXISRELAY_DATABASE_NAME"))
 	port := strings.TrimSpace(os.Getenv("AXISRELAY_DATABASE_PORT"))

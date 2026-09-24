@@ -14,7 +14,6 @@ func TestLoadDefaultsToMySQLAndRedis(t *testing.T) {
 		"AXISRELAY_MAX_REQUEST_BODY_SIZE_MB",
 		"AXISRELAY_ADMIN_SECRET",
 		"AXISRELAY_DATABASE_DRIVER",
-		"AXISRELAY_DATABASE_PATH",
 		"AXISRELAY_DATABASE_HOST",
 		"AXISRELAY_DATABASE_PORT",
 		"AXISRELAY_DATABASE_USER",
@@ -98,7 +97,6 @@ func TestLoadReadsAdminSecretFromEnv(t *testing.T) {
 		"AXISRELAY_MAX_REQUEST_BODY_SIZE_MB",
 		"AXISRELAY_ADMIN_SECRET",
 		"AXISRELAY_DATABASE_DRIVER",
-		"AXISRELAY_DATABASE_PATH",
 		"AXISRELAY_DATABASE_HOST",
 		"AXISRELAY_DATABASE_PORT",
 		"AXISRELAY_DATABASE_USER",
@@ -136,7 +134,6 @@ func TestLoadReadsMaxRequestBodySizeFromEnv(t *testing.T) {
 		"AXISRELAY_MAX_REQUEST_BODY_SIZE_MB",
 		"AXISRELAY_ADMIN_SECRET",
 		"AXISRELAY_DATABASE_DRIVER",
-		"AXISRELAY_DATABASE_PATH",
 		"AXISRELAY_DATABASE_HOST",
 		"AXISRELAY_DATABASE_PORT",
 		"AXISRELAY_DATABASE_USER",
@@ -240,7 +237,6 @@ func TestLoadReadsRedisTLSSettings(t *testing.T) {
 		"AXISRELAY_MAX_REQUEST_BODY_SIZE_MB",
 		"AXISRELAY_ADMIN_SECRET",
 		"AXISRELAY_DATABASE_DRIVER",
-		"AXISRELAY_DATABASE_PATH",
 		"AXISRELAY_DATABASE_HOST",
 		"AXISRELAY_DATABASE_PORT",
 		"AXISRELAY_DATABASE_USER",
@@ -340,30 +336,78 @@ func TestApplyTimezoneKeepsLocalOnInvalidTZ(t *testing.T) {
 func TestLoadIgnoresLegacyEnvironmentAliases(t *testing.T) {
 	setTestMySQLConfig(t)
 	t.Setenv("AXISRELAY_REDIS_ADDR", "redis:6379")
-	t.Setenv("AXISRELAY_PORT", "")
-	t.Setenv("AXISRELAY_ADMIN_SECRET", "")
-	t.Setenv("AXISRELAY_UPSTREAM_TRANSPORT", "")
+	t.Setenv("AXISRELAY_PORT", "18080")
+	t.Setenv("AXISRELAY_BIND", "127.0.0.1")
+	t.Setenv("AXISRELAY_ADMIN_SECRET", "axisrelay-secret")
+	t.Setenv("AXISRELAY_UPSTREAM_TRANSPORT", "http")
 
-	legacyCodexPort := "CODE" + "X_PORT"
-	legacyPort := "PO" + "RT"
-	legacyAdminSecret := "ADMIN_" + "SECRET"
-	legacyUseWebsocket := "USE_" + "WEBSOCKET"
-	t.Setenv(legacyCodexPort, "19090")
-	t.Setenv(legacyPort, "19091")
-	t.Setenv(legacyAdminSecret, "legacy-secret")
-	t.Setenv(legacyUseWebsocket, "true")
+	legacy := map[string]string{
+		"CODEX_PORT":       "19090",
+		"CODEX_BIND":       "0.0.0.0",
+		"DATABASE_HOST":    "legacy-db.invalid",
+		"DATABASE_PORT":    "15432",
+		"DATABASE_SCHEMA":  "legacy_schema",
+		"DATABASE_SSLMODE": "require",
+		"REDIS_ADDR":       "legacy-redis.invalid:6380",
+		"ADMIN_SECRET":     "legacy-secret",
+		"USE_WEBSOCKET":    "true",
+	}
+	for key, value := range legacy {
+		t.Setenv(key, value)
+	}
 
 	cfg, err := Load("__not_exists__.env")
 	if err != nil {
 		t.Fatalf("Load() returned error: %v", err)
 	}
-	if cfg.Port != 8080 {
-		t.Fatalf("Port = %d, want default 8080 when legacy port aliases are set", cfg.Port)
+	if cfg.Port != 18080 {
+		t.Fatalf("Port = %d, want AXISRELAY_PORT value", cfg.Port)
 	}
-	if cfg.AdminSecret != "" {
-		t.Fatalf("AdminSecret = %q, want empty when only legacy ADMIN_SECRET is set", cfg.AdminSecret)
+	if cfg.BindAddress != "127.0.0.1" {
+		t.Fatalf("BindAddress = %q, want AXISRELAY_BIND value", cfg.BindAddress)
+	}
+	if cfg.AdminSecret != "axisrelay-secret" {
+		t.Fatalf("AdminSecret = %q, want AXISRELAY_ADMIN_SECRET value", cfg.AdminSecret)
+	}
+	if cfg.Database.Host != "127.0.0.1" || cfg.Database.Port != 3306 || cfg.Database.DBName != "axisrelay_config_test" {
+		t.Fatalf("database = %#v, legacy DATABASE_* aliases must be ignored", cfg.Database)
+	}
+	if cfg.Cache.Redis.Addr != "redis:6379" {
+		t.Fatalf("redis addr = %q, legacy REDIS_ADDR must be ignored", cfg.Cache.Redis.Addr)
 	}
 	if cfg.CodexUpstreamTransport != "http" || cfg.UseWebsocket {
-		t.Fatalf("transport = %q websocket=%v, want http/false when only legacy USE_WEBSOCKET is set", cfg.CodexUpstreamTransport, cfg.UseWebsocket)
+		t.Fatalf("transport = %q websocket=%v, legacy USE_WEBSOCKET must be ignored", cfg.CodexUpstreamTransport, cfg.UseWebsocket)
+	}
+}
+
+func TestLoadDoesNotAcceptLegacyDatabaseOrRedisAliasesAsRequiredConfig(t *testing.T) {
+	for _, key := range []string{
+		"AXISRELAY_DATABASE_DRIVER",
+		"AXISRELAY_DATABASE_HOST",
+		"AXISRELAY_DATABASE_PORT",
+		"AXISRELAY_DATABASE_USER",
+		"AXISRELAY_DATABASE_PASSWORD",
+		"AXISRELAY_DATABASE_NAME",
+		"AXISRELAY_CACHE_DRIVER",
+		"AXISRELAY_REDIS_ADDR",
+	} {
+		t.Setenv(key, "")
+	}
+	t.Setenv("DATABASE_HOST", "legacy-db.invalid")
+	t.Setenv("DATABASE_PORT", "3306")
+	t.Setenv("DATABASE_SCHEMA", "legacy")
+	t.Setenv("DATABASE_SSLMODE", "disable")
+	t.Setenv("REDIS_ADDR", "legacy-redis.invalid:6379")
+
+	_, err := Load("__not_exists__.env")
+	if err == nil || !strings.Contains(err.Error(), "AXISRELAY_DATABASE_HOST") {
+		t.Fatalf("Load() error = %v, want missing AXISRELAY_DATABASE_HOST; legacy DATABASE_* must not satisfy config", err)
+	}
+
+	setTestMySQLConfig(t)
+	t.Setenv("AXISRELAY_REDIS_ADDR", "")
+	_, err = Load("__not_exists__.env")
+	if err == nil || !strings.Contains(err.Error(), "AXISRELAY_REDIS_ADDR") {
+		t.Fatalf("Load() error = %v, want missing AXISRELAY_REDIS_ADDR; legacy REDIS_ADDR must not satisfy config", err)
 	}
 }

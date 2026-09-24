@@ -11,7 +11,7 @@
   <img src="https://img.shields.io/badge/Gin-1.12-00ACD7?style=for-the-badge" alt="Gin">
   <img src="https://img.shields.io/badge/React-19-61DAFB?style=for-the-badge&logo=react&logoColor=111827" alt="React">
   <img src="https://img.shields.io/badge/Vite-8-646CFF?style=for-the-badge&logo=vite&logoColor=white" alt="Vite">
-  <img src="https://img.shields.io/badge/DB-PostgreSQL%20%7C%20SQLite-4169E1?style=for-the-badge&logo=postgresql&logoColor=white" alt="Database">
+  <img src="https://img.shields.io/badge/DB-MySQL%208%20%7C%20PostgreSQL-4479A1?style=for-the-badge&logo=mysql&logoColor=white" alt="Database">
   <img src="https://img.shields.io/badge/Cache-Redis%20%7C%20Memory-DC382D?style=for-the-badge&logo=redis&logoColor=white" alt="Cache">
   <img src="https://img.shields.io/badge/API-OpenAI%20%7C%20Anthropic-10A37F?style=for-the-badge" alt="API">
   <img src="https://img.shields.io/badge/Docker-Ready-2496ED?style=for-the-badge&logo=docker&logoColor=white" alt="Docker">
@@ -19,13 +19,13 @@
 
 **把 Codex 账号池变成可观测、可调度、可运维的 OpenAI / Anthropic 兼容网关。** AxisRelay 不是一个薄转发层，而是一套面向长期运行的 Codex 接入中枢：对外提供 `/v1/chat/completions`、`/v1/responses`、`/v1/messages`、Images 和 Models 等接口，对内维护 Refresh Token / Access Token 账号池、健康度评分、动态并发、限流恢复、用量统计和后台运维。
 
-它可以跑在完整的 **PostgreSQL + Redis** 生产形态，也可以用 **SQLite + 内存缓存** 单容器轻量部署。你可以把它接到 Codex CLI、Claude Code、OpenAI SDK 或任何兼容客户端上，用一个统一 Base URL 管理多账号、代理池、API Key、Prompt 检查、生图工作台和运行时配置。
+默认使用 **MySQL 8 + Redis**，同时保留 PostgreSQL 兼容能力。你可以把它接到 Codex CLI、Claude Code、OpenAI SDK 或任何兼容客户端上，用一个统一 Base URL 管理多账号、代理池、API Key、Prompt 检查、生图工作台和运行时配置。
 
 <table>
 <tr><td width="210"><b>统一兼容入口</b></td><td>同时覆盖 OpenAI 风格 Chat Completions / Responses / Images、Anthropic Messages、无前缀兼容路由和 Codex 原生 Responses 转发，客户端侧少改配置即可接入。</td></tr>
 <tr><td><b>账号池调度核心</b></td><td>围绕账号状态、健康层级、调度分、动态并发、冷却恢复和近期用量做选择，自动避开不可用账号，减少单账号打满和反复失败。支持 <code>round_robin</code> 和 <code>remaining_quota</code> 两种调度模式，以及单账号信用计费标记。</td></tr>
 <tr><td><b>可视化管理后台</b></td><td>内置 React / Vite 管理台，提供账号导入测试、API Key、代理池、生图（文生图 + 图生图）、Prompt 检查、用量统计、运维概览、调度看板和系统设置。</td></tr>
-<tr><td><b>两种部署形态</b></td><td>生产环境用 PostgreSQL + Redis，单机测试用 SQLite + Memory；Docker 镜像、源码构建、本地开发和一键交互部署脚本都已准备好。SQLite 模式默认绑定 <code>127.0.0.1</code> 以提升安全性。</td></tr>
+<tr><td><b>生产数据层</b></td><td>MySQL 8 为主数据库，Redis 为默认缓存；PostgreSQL 保留兼容。Docker 镜像、源码构建、本地开发和一键交互部署脚本统一使用 <code>AXISRELAY_*</code> 配置命名空间。</td></tr>
 <tr><td><b>计费与可观测性</b></td><td>单账号 5h/7d 窗口化 USD 费用追踪、信用配额支持、API Key 用量追踪、OAuth PKCE 获取 Token、Prompt 过滤，以及含请求日志与趋势图表的用量仪表盘。</td></tr>
 </table>
 
@@ -144,10 +144,8 @@ bash deploy.sh
 
 | 模式 | 文件 | 适用场景 |
 | --- | --- | --- |
-| Docker 镜像部署 | `docker-compose.yml` | **推荐**，服务器 / 测试环境，直接拉取预构建镜像 |
-| 本地源码容器构建 | `docker-compose.local.yml` | 本地改代码后做完整容器验证 |
-| SQLite 轻量部署 | `docker-compose.sqlite.yml` | 单机轻量部署，不依赖 PostgreSQL / Redis |
-| SQLite 本地源码构建 | `docker-compose.sqlite.local.yml` | 本地改代码后验证 SQLite 轻量模式 |
+| Docker 镜像部署 | `docker-compose.yml` | **推荐**，MySQL 8 + Redis，直接拉取预构建镜像 |
+| 本地源码容器构建 | `docker-compose.local.yml` | MySQL 8 + Redis，本地改代码后做完整容器验证 |
 | 本地开发 | `go run .` + `npm run dev` | 前后端联调与调试 |
 
 ### 部署命令速查
@@ -171,37 +169,15 @@ docker compose -f docker-compose.local.yml up -d --build
 docker compose -f docker-compose.local.yml logs -f axisrelay
 ```
 
-SQLite 镜像版：
-
-```bash
-cp .env.sqlite.example .env
-docker compose -f docker-compose.sqlite.yml pull
-docker compose -f docker-compose.sqlite.yml up -d
-docker compose -f docker-compose.sqlite.yml logs -f axisrelay
-```
-
-SQLite 本地构建版：
-
-```bash
-cp .env.sqlite.example .env
-docker compose -f docker-compose.sqlite.local.yml up -d --build
-docker compose -f docker-compose.sqlite.local.yml logs -f axisrelay
-```
-
 补充说明：
 
-- 标准版和 SQLite 版都读取 `.env`
-- 切换部署模式前，需要先用对应的示例文件覆盖当前 `.env`
-- 标准镜像版项目名固定为 `axisrelay`，数据卷固定为 `axisrelay_pgdata`、`axisrelay_redisdata`
-- 标准本地构建版项目名固定为 `axisrelay-local`，数据卷固定为 `axisrelay-local_pgdata`、`axisrelay-local_redisdata`
-- SQLite 镜像版项目名固定为 `axisrelay-sqlite`，数据卷固定为 `axisrelay-sqlite_sqlite-data`
-- SQLite 本地构建版项目名固定为 `axisrelay-sqlite-local`，数据卷固定为 `axisrelay-sqlite-local_sqlite-data-local`
+- 两个标准 compose 都读取 `.env` 并启动 MySQL 8 + Redis
+- `AXISRELAY_DATABASE_DRIVER` 默认使用 `mysql`；手工/外部数据库部署可显式切换为 `postgres`
+- 标准镜像版项目名固定为 `axisrelay`，数据卷固定为 MySQL、Redis 与图片资源卷
+- 标准本地构建版项目名固定为 `axisrelay-local`，使用独立的 MySQL、Redis 与图片资源卷
 - 标准版容器名：`axisrelay`
-- SQLite 镜像版容器名：`axisrelay-sqlite`
-- SQLite 本地构建版容器名：`axisrelay-sqlite-local`
-- SQLite 轻量版只启动 `axisrelay` 单容器，数据保存在 `/data/axisrelay.db`
-- **SQLite compose 文件默认绑定 `127.0.0.1`，仅本机可访问。** 如需暴露给外部，请在 `.env` 中设置 `AXISRELAY_BIND_HOST=0.0.0.0` 或修改 compose 文件中的端口绑定。标准版 compose 文件默认绑定 `0.0.0.0`（所有网络接口）。
-- 生图工作台图库默认保存在 `/data/images`，上传的后台背景默认保存在 `/data/backgrounds`，标准版和 SQLite 版 Docker 配置都会持久化 `/data`
+- 标准 compose 默认绑定 `0.0.0.0`；仅允许本机反向代理访问时可设置 `AXISRELAY_BIND_HOST=127.0.0.1`
+- 生图工作台图库默认保存在 `/data/images`，上传的后台背景默认保存在 `/data/backgrounds`，Docker 配置会持久化 `/data`
 - `docker compose down` 默认不会删除命名卷；只有 `docker compose down -v`、`docker volume rm` 或 `docker volume prune` 才会删除持久化数据
 - 不同部署模式的数据卷彼此隔离；切换 compose 文件后看到空数据，通常是切到了另一组卷，而不是原卷被自动删除
 
@@ -243,13 +219,13 @@ git pull && docker compose pull && docker compose up -d && docker compose logs -
 > **⚠️ 重要：升级前请先备份数据库！**
 >
 > ```bash
-> docker exec axisrelay-postgres pg_dump -U axisrelay axisrelay > backup_$(date +%Y%m%d_%H%M%S).sql
+> docker exec axisrelay-mysql mysqldump -uaxisrelay -p"$AXISRELAY_DATABASE_PASSWORD" axisrelay > backup_$(date +%Y%m%d_%H%M%S).sql
 > ```
 >
 > 如果升级后数据异常，可通过以下命令恢复：
 >
 > ```bash
-> docker exec -i axisrelay-postgres psql -U axisrelay axisrelay < backup_xxx.sql
+> docker exec -i axisrelay-mysql mysql -uaxisrelay -p"$AXISRELAY_DATABASE_PASSWORD" axisrelay < backup_xxx.sql
 > ```
 
 如非必要，不建议在升级时执行 `docker compose down`；标准升级直接 `pull + up -d` 即可复用现有容器和命名卷。
@@ -287,8 +263,12 @@ Vite 会自动代理 `/api` 和 `/health` 到后端，开发时访问 `http://lo
 | `AXISRELAY_PORT` | HTTP 端口，默认 `8080` |
 | `AXISRELAY_MAX_REQUEST_BODY_SIZE_MB` | HTTP 请求体上限，单位 MB，默认 `48` |
 | `AXISRELAY_ADMIN_SECRET` | 管理后台登录密钥；设置后首次访问 `/admin` 会弹出密码输入框 |
-| `AXISRELAY_DATABASE_DRIVER` | S0.3 过渡阶段固定使用 `sqlite`；S0.4 接入 MySQL |
-| `AXISRELAY_DATABASE_PATH` | S0.3 过渡阶段使用的 SQLite 数据文件路径 |
+| `AXISRELAY_DATABASE_DRIVER` | 数据库驱动：`mysql`（默认）或 `postgres` |
+| `AXISRELAY_DATABASE_HOST` | 数据库主机 |
+| `AXISRELAY_DATABASE_PORT` | 数据库端口；MySQL 默认 `3306`，PostgreSQL 默认 `5432` |
+| `AXISRELAY_DATABASE_USER` | 数据库用户 |
+| `AXISRELAY_DATABASE_PASSWORD` | 数据库密码 |
+| `AXISRELAY_DATABASE_NAME` | 数据库名 |
 | `AXISRELAY_CACHE_DRIVER` | 缓存驱动，支持 `redis` / `memory` |
 | `AXISRELAY_REDIS_ADDR` | Redis 地址，例如 `redis:6379`、`redis://default:pass@host:6379/0`、`rediss://default:pass@host:6379/0`，`AXISRELAY_CACHE_DRIVER=redis` 时生效 |
 | `AXISRELAY_REDIS_USERNAME` | Redis ACL 用户名，可选；URL 中带用户名时可不填 |
@@ -300,7 +280,7 @@ Vite 会自动代理 `/api` 和 `/health` 到后端，开发时访问 `http://lo
 
 > Aiven、Upstash 等云 Redis 通常要求 TLS。推荐直接将 `AXISRELAY_REDIS_ADDR` 配置为平台提供的 `rediss://...` URL；如果只填写 `host:port`，请同时设置 `AXISRELAY_REDIS_TLS=true`。
 
-标准版 `.env.example` 已显式声明 `AXISRELAY_DATABASE_DRIVER=postgres` 与 `AXISRELAY_CACHE_DRIVER=redis`；SQLite 轻量版请改用 `.env.sqlite.example`。
+标准版 `.env.example` 已显式声明 `AXISRELAY_DATABASE_DRIVER=mysql` 与 `AXISRELAY_CACHE_DRIVER=redis`。
 
 ### 业务运行配置
 
@@ -464,7 +444,7 @@ curl -X POST http://localhost:8080/api/admin/oauth/exchange-code \
 
 - 对外提供统一的 OpenAI 风格入口，屏蔽上游多账号差异
 - 对内维护基于 `Refresh Token` 的账号池、`Access Token` 生命周期和运行时调度
-- 通过 PostgreSQL + Redis 或 SQLite + 内存缓存实现配置持久化与运行态协调
+- 通过 MySQL 8 + Redis 实现主配置持久化与运行态协调，同时保留 PostgreSQL 兼容
 - 通过 `/admin` 管理台提供全面的运维观测能力
 
 ### 架构概览

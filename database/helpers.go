@@ -21,7 +21,7 @@ var excludedColumnPattern = regexp.MustCompile(`EXCLUDED\.([A-Za-z0-9_]+)`)
 func normalizeDriver(driver string) string {
 	driver = strings.TrimSpace(strings.ToLower(driver))
 	if driver == "" {
-		return "sqlite"
+		return "mysql"
 	}
 	return driver
 }

@@ -128,7 +128,7 @@ env_default() {
 
 known_compose_service_exists() {
   local compose_file
-  for compose_file in docker-compose.yml docker-compose.sqlite.yml docker-compose.local.yml docker-compose.sqlite.local.yml; do
+  for compose_file in docker-compose.yml docker-compose.local.yml docker-compose.mysqlredis.yml; do
     [[ -f "$compose_file" ]] || continue
     if [[ -n "$($COMPOSE_CMD -f "$compose_file" ps -q axisrelay 2>/dev/null || true)" ]]; then
       EXISTING_COMPOSE_FILE="$compose_file"
@@ -324,20 +324,23 @@ step_bind() {
   esac
 }
 
-# ---------- 第三步：数据库模式 ----------
+# ---------- 第三步：数据库 ----------
 step_database() {
   echo ""
-  printf "${BOLD}${CYAN}━━━ 3/6 数据库模式 ━━━${NC}\n"
+  printf "${BOLD}${CYAN}━━━ 3/6 数据库配置 ━━━${NC}\n"
   echo ""
-  info "S0.3 已移除 PostgreSQL；当前部署脚本仅保留 SQLite 过渡模式，MySQL 将在后续阶段接入。"
-  DB_MODE="sqlite"
-  success "数据库模式: SQLite (过渡)"
-  step_sqlite_config
+  DB_MODE="mysql"
+  success "数据库模式: MySQL 8.0"
+  step_mysql_config
 }
 
-step_sqlite_config() {
+step_mysql_config() {
   echo ""
-  ask "SQLite 数据文件路径 (容器内)" "$(env_default AXISRELAY_DATABASE_PATH "/data/axisrelay.db")" SQLITE_PATH
+  ask "MySQL 主机" "$(env_default AXISRELAY_DATABASE_HOST "mysql")" DB_HOST
+  ask "MySQL 端口" "$(env_default AXISRELAY_DATABASE_PORT "3306")" DB_PORT
+  ask "MySQL 用户" "$(env_default AXISRELAY_DATABASE_USER "axisrelay")" DB_USER
+  ask_secret "MySQL 密码" "$(env_default AXISRELAY_DATABASE_PASSWORD "axisrelay")" DB_PASSWORD
+  ask "MySQL 数据库名" "$(env_default AXISRELAY_DATABASE_NAME "axisrelay")" DB_NAME
 }
 
 # ---------- 第四步：密钥 ----------
@@ -392,8 +395,9 @@ step_confirm() {
     echo "  监听范围:   0.0.0.0 (全部网络)"
   fi
   echo "  数据库:     $DB_MODE"
-  echo "  数据路径:   $SQLITE_PATH"
-  echo "  缓存:       memory"
+  echo "  数据库主机: $DB_HOST:$DB_PORT"
+  echo "  数据库名:   $DB_NAME"
+  echo "  缓存:       redis"
   echo "  构建方式:   $( [[ "$BUILD_MODE" == "image" ]] && echo "拉取镜像" || echo "本地构建" )"
   echo "  管理密钥:   ${AXISRELAY_ADMIN_SECRET}"
   echo ""
@@ -416,7 +420,7 @@ generate_env() {
 
   cat > .env << EOF
 # ============================
-#  axisrelay 配置 (SQLite 模式)
+#  AxisRelay 配置 (MySQL + Redis)
 #  由 deploy.sh 自动生成于 $(date '+%Y-%m-%d %H:%M:%S')
 # ============================
 
@@ -429,12 +433,17 @@ AXISRELAY_BIND_HOST=${AXISRELAY_BIND_HOST}
 # 管理后台密钥
 AXISRELAY_ADMIN_SECRET=${AXISRELAY_ADMIN_SECRET}
 
-# 数据库 — SQLite
-AXISRELAY_DATABASE_DRIVER=sqlite
-AXISRELAY_DATABASE_PATH=${SQLITE_PATH}
+# 数据库 — MySQL 8.0
+AXISRELAY_DATABASE_DRIVER=mysql
+AXISRELAY_DATABASE_HOST=${DB_HOST}
+AXISRELAY_DATABASE_PORT=${DB_PORT}
+AXISRELAY_DATABASE_USER=${DB_USER}
+AXISRELAY_DATABASE_PASSWORD=${DB_PASSWORD}
+AXISRELAY_DATABASE_NAME=${DB_NAME}
 
-# 缓存 — 内存
-AXISRELAY_CACHE_DRIVER=memory
+# 缓存 — Redis
+AXISRELAY_CACHE_DRIVER=redis
+AXISRELAY_REDIS_ADDR=redis:6379
 
 # 时区
 TZ=Asia/Shanghai
@@ -447,9 +456,9 @@ EOF
 # ---------- 选择 compose 文件 ----------
 resolve_compose_file() {
   if [[ "$BUILD_MODE" == "local" ]]; then
-    COMPOSE_FILE="docker-compose.sqlite.local.yml"
+    COMPOSE_FILE="docker-compose.local.yml"
   else
-    COMPOSE_FILE="docker-compose.sqlite.yml"
+    COMPOSE_FILE="docker-compose.yml"
   fi
 
   if [[ ! -f "$COMPOSE_FILE" ]]; then

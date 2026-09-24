@@ -11,7 +11,7 @@
   <img src="https://img.shields.io/badge/Gin-1.12-00ACD7?style=for-the-badge" alt="Gin">
   <img src="https://img.shields.io/badge/React-19-61DAFB?style=for-the-badge&logo=react&logoColor=111827" alt="React">
   <img src="https://img.shields.io/badge/Vite-8-646CFF?style=for-the-badge&logo=vite&logoColor=white" alt="Vite">
-  <img src="https://img.shields.io/badge/DB-PostgreSQL%20%7C%20SQLite-4169E1?style=for-the-badge&logo=postgresql&logoColor=white" alt="Database">
+  <img src="https://img.shields.io/badge/DB-MySQL%208%20%7C%20PostgreSQL-4479A1?style=for-the-badge&logo=mysql&logoColor=white" alt="Database">
   <img src="https://img.shields.io/badge/Cache-Redis%20%7C%20Memory-DC382D?style=for-the-badge&logo=redis&logoColor=white" alt="Cache">
   <img src="https://img.shields.io/badge/API-OpenAI%20%7C%20Anthropic-10A37F?style=for-the-badge" alt="API">
   <img src="https://img.shields.io/badge/Docker-Ready-2496ED?style=for-the-badge&logo=docker&logoColor=white" alt="Docker">
@@ -19,13 +19,13 @@
 
 **Turn a Codex account pool into an observable, schedulable, operations-ready OpenAI / Anthropic compatible gateway.** AxisRelay is not a thin forwarding proxy. It is a long-running Codex access hub: it exposes `/v1/chat/completions`, `/v1/responses`, `/v1/messages`, Images, Videos (Grok Imagine), and Models endpoints while managing Refresh Token / Access Token accounts, health scoring, dynamic concurrency, rate-limit recovery, usage tracking, and admin operations behind the scenes.
 
-Run it as a full **PostgreSQL + Redis** production stack or as a single-container **SQLite + in-memory cache** deployment. Point Codex CLI, Claude Code, the OpenAI SDK, or any compatible client at one Base URL, then manage accounts, proxies, API keys, prompt filtering, image workflows, and runtime settings from the built-in dashboard.
+Run it with **MySQL 8 + Redis** by default; PostgreSQL remains supported as a compatible database backend. Point Codex CLI, Claude Code, the OpenAI SDK, or any compatible client at one Base URL, then manage accounts, proxies, API keys, prompt filtering, image workflows, and runtime settings from the built-in dashboard.
 
 <table>
 <tr><td width="210"><b>One compatible gateway</b></td><td>OpenAI-style Chat Completions / Responses / Images, Anthropic Messages, prefixless compatibility routes, and native Codex Responses forwarding are all exposed through one service.</td></tr>
 <tr><td><b>Account-pool scheduler</b></td><td>Selection is driven by account status, health tier, scheduler score, dynamic concurrency, cooldown recovery, and recent usage so unhealthy accounts are avoided automatically. Supports <code>round_robin</code> and <code>remaining_quota</code> modes, with per-account credit billing flags.</td></tr>
 <tr><td><b>Visual admin console</b></td><td>The embedded React / Vite dashboard covers account import and testing, API keys, proxy pools, image studio (text-to-image + image-to-image), prompt filtering, usage analytics, operations, scheduler board, and system settings.</td></tr>
-<tr><td><b>Two deployment shapes</b></td><td>Use PostgreSQL + Redis for production or SQLite + Memory for lightweight single-node deployments; Docker images, source builds, local development, and the interactive deploy script are ready to use. SQLite mode binds to <code>127.0.0.1</code> by default for security.</td></tr>
+<tr><td><b>Production data plane</b></td><td>MySQL 8 is the primary database and Redis is the default cache. PostgreSQL remains compatible. Docker images, source builds, local development, and the interactive deploy script all use the <code>AXISRELAY_*</code> configuration namespace.</td></tr>
 <tr><td><b>Billing and observability</b></td><td>Per-account 5h/7d windowed USD cost tracking, credit quota support, API key usage tracking, OAuth PKCE token acquisition, prompt filtering, and a usage dashboard with request logs and trend charts.</td></tr>
 <tr><td><b>Quality check</b></td><td>Compare selected accounts, models, and reasoning effort with an editable pelican-on-a-bicycle HTML/SVG animation challenge. Run up to three background tests across accounts, keep persistent test history, and review isolated animation previews, source, timing/token metrics, and HTML downloads.</td></tr>
 </table>
@@ -101,10 +101,8 @@ Run it as a full **PostgreSQL + Redis** production stack or as a single-containe
 
 | Mode | File | Use Case |
 | --- | --- | --- |
-| Docker image deployment | `docker-compose.yml` | Recommended for servers and test environments using the prebuilt image |
-| Local source container build | `docker-compose.local.yml` | Full container verification after local source changes |
-| SQLite lightweight deployment | `docker-compose.sqlite.yml` | Single-node deployment without PostgreSQL or Redis |
-| SQLite local source build | `docker-compose.sqlite.local.yml` | Local source verification for the lightweight SQLite mode |
+| Docker image deployment | `docker-compose.yml` | Recommended MySQL 8 + Redis deployment using the prebuilt image |
+| Local source container build | `docker-compose.local.yml` | MySQL 8 + Redis container verification after local source changes |
 | Local development | `go run .` + `npm run dev` | Backend and frontend development |
 
 ### Commands
@@ -128,23 +126,6 @@ docker compose -f docker-compose.local.yml up -d --build
 docker compose -f docker-compose.local.yml logs -f axisrelay
 ```
 
-SQLite image mode:
-
-```bash
-cp .env.sqlite.example .env
-docker compose -f docker-compose.sqlite.yml pull
-docker compose -f docker-compose.sqlite.yml up -d
-docker compose -f docker-compose.sqlite.yml logs -f axisrelay
-```
-
-SQLite local build mode:
-
-```bash
-cp .env.sqlite.example .env
-docker compose -f docker-compose.sqlite.local.yml up -d --build
-docker compose -f docker-compose.sqlite.local.yml logs -f axisrelay
-```
-
 After startup:
 
 - Admin dashboard: `http://localhost:8080/admin/`
@@ -152,10 +133,9 @@ After startup:
 
 Notes:
 
-- Standard and SQLite modes both read `.env`.
-- Before switching deployment modes, replace `.env` with the matching example file.
-- The SQLite lightweight mode runs a single `axisrelay` container and stores data at `/data/axisrelay.db`.
-- **SQLite compose files bind to `127.0.0.1` by default for security.** To expose the SQLite service on all interfaces, set `AXISRELAY_BIND_HOST=0.0.0.0` in `.env` or override the port binding in the compose file. The standard compose files bind to `0.0.0.0` by default.
+- Both standard compose files read `.env` and launch MySQL 8 + Redis.
+- `AXISRELAY_DATABASE_DRIVER` defaults to `mysql`; PostgreSQL can be configured explicitly for external/manual deployments.
+- The standard compose files bind to `0.0.0.0` by default. Set `AXISRELAY_BIND_HOST=127.0.0.1` when the service should only be reachable through a local reverse proxy.
 - The image studio library is stored under `/data/images`; uploaded admin backgrounds are stored under `/data/backgrounds`; Docker configurations persist `/data`.
 - `docker compose down` does not delete named volumes by default. Data is removed only by commands such as `docker compose down -v`, `docker volume rm`, or `docker volume prune`.
 
@@ -192,13 +172,13 @@ git pull && docker compose pull && docker compose up -d && docker compose logs -
 Back up the database before upgrading:
 
 ```bash
-docker exec axisrelay-postgres pg_dump -U axisrelay axisrelay > backup_$(date +%Y%m%d_%H%M%S).sql
+docker exec axisrelay-mysql mysqldump -uaxisrelay -p"$AXISRELAY_DATABASE_PASSWORD" axisrelay > backup_$(date +%Y%m%d_%H%M%S).sql
 ```
 
 Restore from a backup if needed:
 
 ```bash
-docker exec -i axisrelay-postgres psql -U axisrelay axisrelay < backup_xxx.sql
+docker exec -i axisrelay-mysql mysql -uaxisrelay -p"$AXISRELAY_DATABASE_PASSWORD" axisrelay < backup_xxx.sql
 ```
 
 Unless you explicitly need to recreate resources, avoid `docker compose down` during upgrades. `pull + up -d` keeps existing containers and named volumes.
@@ -236,8 +216,12 @@ Vite proxies `/api` and `/health` to the backend. During development, open `http
 | `AXISRELAY_PORT` | HTTP port, default `8080` |
 | `AXISRELAY_MAX_REQUEST_BODY_SIZE_MB` | HTTP request body limit in MB, default `48` |
 | `AXISRELAY_ADMIN_SECRET` | Admin dashboard secret. When set, `/admin` prompts for authentication |
-| `AXISRELAY_DATABASE_DRIVER` | S0.3 transition driver: `sqlite`; MySQL support is introduced in S0.4 |
-| `AXISRELAY_DATABASE_PATH` | SQLite database file path used during the S0.3 transition |
+| `AXISRELAY_DATABASE_DRIVER` | Database driver: `mysql` (default) or `postgres` |
+| `AXISRELAY_DATABASE_HOST` | Database host |
+| `AXISRELAY_DATABASE_PORT` | Database port; defaults to `3306` for MySQL and `5432` for PostgreSQL |
+| `AXISRELAY_DATABASE_USER` | Database user |
+| `AXISRELAY_DATABASE_PASSWORD` | Database password |
+| `AXISRELAY_DATABASE_NAME` | Database name |
 | `AXISRELAY_CACHE_DRIVER` | Cache driver: `redis` or `memory` |
 | `AXISRELAY_REDIS_ADDR` | Redis address, for example `redis:6379`, `redis://default:pass@host:6379/0`, or `rediss://default:pass@host:6379/0` |
 | `AXISRELAY_REDIS_USERNAME` | Optional Redis ACL username |
@@ -249,7 +233,7 @@ Vite proxies `/api` and `/health` to the backend. During development, open `http
 
 Cloud Redis providers such as Aiven and Upstash often require TLS. Prefer a `rediss://...` URL when your provider gives one.
 
-The standard `.env.example` declares `AXISRELAY_DATABASE_DRIVER=postgres` and `AXISRELAY_CACHE_DRIVER=redis`. For the lightweight SQLite mode, use `.env.sqlite.example`.
+The standard `.env.example` declares `AXISRELAY_DATABASE_DRIVER=mysql` and `AXISRELAY_CACHE_DRIVER=redis`.
 
 ### Runtime Settings
 
@@ -417,7 +401,7 @@ AxisRelay is not just a forwarding proxy. It is a long-running Codex gateway wit
 
 - Exposes a unified OpenAI-style API surface.
 - Maintains a Refresh Token account pool and Access Token lifecycle.
-- Coordinates persistence and runtime state through PostgreSQL + Redis or SQLite + in-memory cache.
+- Coordinates persistence and runtime state through MySQL 8 + Redis, with PostgreSQL compatibility.
 - Provides operational observability through the `/admin` dashboard.
 
 ### Request Flow
