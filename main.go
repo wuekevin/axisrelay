@@ -40,10 +40,23 @@ func migrateOnlyEnabled() bool {
 	return value == "1" || strings.EqualFold(value, "true")
 }
 
+func logStartupConfig(cfg *config.Config) {
+	if cfg == nil {
+		return
+	}
+	log.Printf(
+		"startup config: port=%d database=%s cache=%s tz=%s",
+		cfg.Port,
+		strings.ToLower(strings.TrimSpace(cfg.Database.Driver)),
+		strings.ToLower(strings.TrimSpace(cfg.Cache.Driver)),
+		time.Local,
+	)
+}
+
 // main 加载配置、初始化存储与路由，并启动 AxisRelay HTTP 服务。
 func main() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
-	log.Println("AxisRelay v2 启动中...")
+	log.Println("AxisRelay starting...")
 
 	// 1. 加载配置 (.env)
 	cfg, err := config.Load(".env")
@@ -51,7 +64,7 @@ func main() {
 		log.Fatalf("加载核心环境配置失败 (请检查 .env 文件): %v", err)
 	}
 	proxy.ConfigureDownstreamKeepaliveFromEnv()
-	log.Printf("物理层配置加载成功: port=%d, database=%s, cache=%s, tz=%s", cfg.Port, cfg.Database.Label(), cfg.Cache.Label(), time.Local)
+	logStartupConfig(cfg)
 
 	// 2. 初始化数据库
 	db, err := database.New(cfg.Database.Driver, cfg.Database.DSN())
