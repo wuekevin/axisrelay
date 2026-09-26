@@ -5,9 +5,9 @@ import (
 	"errors"
 	"net/http"
 
+	"github.com/gin-gonic/gin"
 	"github.com/wuekevin/axisrelay/api"
 	"github.com/wuekevin/axisrelay/auth"
-	"github.com/gin-gonic/gin"
 )
 
 const schedulerQueueFullMessage = "Scheduler wait queue is full. Retry after 1 second."
@@ -43,6 +43,8 @@ func writeSchedulerQueueError(c *gin.Context, err error, protocol continuousRetr
 	}
 	message := apiErr.Message
 	switch protocol {
+	case continuousRetryProtocolGemini:
+		writeGeminiNativeError(c, http.StatusServiceUnavailable, message)
 	case continuousRetryProtocolAnthropic:
 		if !writeCommittedAnthropicRetryError(c, "overloaded_error", message) {
 			sendAnthropicError(c, http.StatusServiceUnavailable, "overloaded_error", message)
