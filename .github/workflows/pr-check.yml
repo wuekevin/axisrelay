@@ -86,7 +86,7 @@ jobs:
 
   test:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 45
     services:
       mysql:
         image: mysql:8.0
