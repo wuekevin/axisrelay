@@ -12,7 +12,7 @@ import (
 
 func newGrokStateTestDB(t *testing.T) *DB {
 	t.Helper()
-	db, err := New("sqlite", filepath.Join(t.TempDir(), "grok-state.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "grok-state.db"))
 	if err != nil {
 		t.Fatalf("New sqlite: %v", err)
 	}
@@ -158,26 +158,17 @@ func TestPurgedGrokIdentityCanBeImportedAgain(t *testing.T) {
 
 func TestUsageLogCredentialGenerationIndexExists(t *testing.T) {
 	db := newGrokStateTestDB(t)
-	rows, err := db.conn.Query(`PRAGMA index_list('usage_logs')`)
-	if err != nil {
+	var count int
+	if err := db.conn.QueryRow(`
+		SELECT COUNT(*)
+		FROM information_schema.statistics
+		WHERE table_schema = DATABASE()
+		  AND table_name = 'usage_logs'
+		  AND index_name = 'idx_usage_logs_account_generation_created_at'
+	`).Scan(&count); err != nil {
 		t.Fatal(err)
 	}
-	defer rows.Close()
-	found := false
-	for rows.Next() {
-		var sequence, unique, partial int
-		var name, origin string
-		if err := rows.Scan(&sequence, &name, &unique, &origin, &partial); err != nil {
-			t.Fatal(err)
-		}
-		if name == "idx_usage_logs_account_generation_created_at" {
-			found = true
-		}
-	}
-	if err := rows.Err(); err != nil {
-		t.Fatal(err)
-	}
-	if !found {
+	if count == 0 {
 		t.Fatal("credential-generation usage index is missing")
 	}
 }
@@ -630,7 +621,7 @@ func TestGrokStateBackfillMarkerSkipsHistoricalScan(t *testing.T) {
 	if _, err := db.conn.ExecContext(ctx, `
 		CREATE TRIGGER reject_historical_claim_scan
 		BEFORE INSERT ON grok_credential_identity_claims
-		BEGIN SELECT RAISE(ABORT, 'historical claims were scanned again'); END`); err != nil {
+		FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'historical claims were scanned again'`); err != nil {
 		t.Fatal(err)
 	}
 	if err := db.ensureGrokStateSchema(ctx); err != nil {
@@ -652,7 +643,13 @@ func TestGrokStateBackfillResumesPartialProgress(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := db.conn.ExecContext(ctx, `DELETE FROM grok_credential_identity_claims; DELETE FROM data_migrations WHERE version=$1; DELETE FROM grok_state_migration_progress WHERE version=$1`, dataMigrationGrokStateBackfillV1); err != nil {
+	if _, err := db.conn.ExecContext(ctx, `DELETE FROM grok_credential_identity_claims`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.conn.ExecContext(ctx, `DELETE FROM data_migrations WHERE version=$1`, dataMigrationGrokStateBackfillV1); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.conn.ExecContext(ctx, `DELETE FROM grok_state_migration_progress WHERE version=$1`, dataMigrationGrokStateBackfillV1); err != nil {
 		t.Fatal(err)
 	}
 	family, err := db.EnsureAccountCredentialFamilyID(ctx, first, "resume-family")

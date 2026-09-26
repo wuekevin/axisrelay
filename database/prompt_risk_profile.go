@@ -248,6 +248,9 @@ func (db *DB) ensurePromptRiskEventsTable(ctx context.Context) error {
 	if db == nil {
 		return errors.New("database is nil")
 	}
+	if db.isMySQL() {
+		return nil
+	}
 	boolType := "BOOLEAN"
 	idType := "BIGSERIAL PRIMARY KEY"
 	timeDefault := "TIMESTAMPTZ DEFAULT NOW()"
@@ -517,7 +520,7 @@ func promptRiskIdentityDisplay(identity promptRiskIdentity) string {
 	return ""
 }
 
-func upsertPromptRiskIdentity(ctx context.Context, exec promptRiskEventExecutor, identity promptRiskIdentity, source string) error {
+func (db *DB) upsertPromptRiskIdentity(ctx context.Context, exec promptRiskEventExecutor, identity promptRiskIdentity, source string) error {
 	if identity.SubjectKey == "" {
 		return nil
 	}
@@ -525,7 +528,7 @@ func upsertPromptRiskIdentity(ctx context.Context, exec promptRiskEventExecutor,
 	if source == "" {
 		source = "signed_metadata"
 	}
-	_, err := exec.ExecContext(ctx, `INSERT INTO prompt_risk_identities (
+	query := `INSERT INTO prompt_risk_identities (
 		subject_type, subject_key, platform, external_user_id, user_name, user_email, user_group, source, updated_at
 	) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
 	ON CONFLICT(subject_type, subject_key) DO UPDATE SET
@@ -535,8 +538,22 @@ func upsertPromptRiskIdentity(ctx context.Context, exec promptRiskEventExecutor,
 		user_email=CASE WHEN excluded.user_email<>'' THEN excluded.user_email ELSE prompt_risk_identities.user_email END,
 		user_group=CASE WHEN excluded.user_group<>'' THEN excluded.user_group ELSE prompt_risk_identities.user_group END,
 		source=excluded.source,
-		updated_at=excluded.updated_at`, identity.SubjectType, identity.SubjectKey, identity.Platform, identity.ExternalUserID,
-		identity.UserName, identity.UserEmail, identity.UserGroup, source, time.Now().UTC())
+		updated_at=excluded.updated_at`
+	if db.isMySQL() {
+		query = `INSERT INTO prompt_risk_identities (
+			subject_type, subject_key, platform, external_user_id, user_name, user_email, user_group, source, updated_at
+		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+		ON DUPLICATE KEY UPDATE
+			platform=VALUES(platform),
+			external_user_id=VALUES(external_user_id),
+			user_name=CASE WHEN VALUES(user_name)<>'' THEN VALUES(user_name) ELSE user_name END,
+			user_email=CASE WHEN VALUES(user_email)<>'' THEN VALUES(user_email) ELSE user_email END,
+			user_group=CASE WHEN VALUES(user_group)<>'' THEN VALUES(user_group) ELSE user_group END,
+			source=VALUES(source),
+			updated_at=VALUES(updated_at)`
+	}
+	_, err := exec.ExecContext(ctx, query, identity.SubjectType, identity.SubjectKey, identity.Platform, identity.ExternalUserID,
+		identity.UserName, identity.UserEmail, identity.UserGroup, source, db.timeArg(time.Now().UTC()))
 	return err
 }
 
@@ -557,7 +574,7 @@ func (db *DB) UpsertPromptRiskIdentities(ctx context.Context, inputs []PromptRis
 		if !ok {
 			continue
 		}
-		if err := upsertPromptRiskIdentity(ctx, tx, identity, input.Source); err != nil {
+		if err := db.upsertPromptRiskIdentity(ctx, tx, identity, input.Source); err != nil {
 			return err
 		}
 	}
@@ -614,7 +631,7 @@ type promptRiskEventExecutor interface {
 	ExecContext(context.Context, string, ...any) (sql.Result, error)
 }
 
-func insertPromptRiskSignal(ctx context.Context, exec promptRiskEventExecutor, signal promptRiskSignal) error {
+func (db *DB) insertPromptRiskSignal(ctx context.Context, exec promptRiskEventExecutor, signal promptRiskSignal) error {
 	if signal.SourceType == "" || signal.SourceID == "" {
 		return nil
 	}
@@ -622,7 +639,7 @@ func insertPromptRiskSignal(ctx context.Context, exec promptRiskEventExecutor, s
 		signal.CreatedAt = time.Now().UTC()
 	}
 	if identity, ok := promptRiskIdentityForSignal(signal); ok {
-		if err := upsertPromptRiskIdentity(ctx, exec, identity, "signed_metadata"); err != nil {
+		if err := db.upsertPromptRiskIdentity(ctx, exec, identity, "signed_metadata"); err != nil {
 			return err
 		}
 	}
@@ -630,14 +647,23 @@ func insertPromptRiskSignal(ctx context.Context, exec promptRiskEventExecutor, s
 		if subject.Key == "" {
 			continue
 		}
-		if _, err := exec.ExecContext(ctx, `INSERT INTO prompt_risk_events (
+		eventInsert := `INSERT INTO prompt_risk_events (
 			created_at, source_type, source_id, incident_id, prompt_filter_log_id, request_correlation_id,
 			subject_type, subject_key, subject_display, platform, is_person, identity_confidence,
 			event_kind, request_risk_score, evidence_confidence, reason_code, action, local_outcome, local_comparison,
 			endpoint, model, prompt_fingerprint, prompt_preview, api_key_id, api_key_name, api_key_masked, account_id, account_name
 		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28)
-		ON CONFLICT(source_type, source_id, subject_type, subject_key) DO NOTHING`,
-			signal.CreatedAt, signal.SourceType, signal.SourceID, signal.IncidentID, signal.PromptFilterLogID, signal.RequestCorrelationID,
+		ON CONFLICT(source_type, source_id, subject_type, subject_key) DO NOTHING`
+		if db.isMySQL() {
+			eventInsert = `INSERT IGNORE INTO prompt_risk_events (
+				created_at, source_type, source_id, incident_id, prompt_filter_log_id, request_correlation_id,
+				subject_type, subject_key, subject_display, platform, is_person, identity_confidence,
+				event_kind, request_risk_score, evidence_confidence, reason_code, action, local_outcome, local_comparison,
+				endpoint, model, prompt_fingerprint, prompt_preview, api_key_id, api_key_name, api_key_masked, account_id, account_name
+			) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28)`
+		}
+		if _, err := exec.ExecContext(ctx, eventInsert,
+			db.timeArg(signal.CreatedAt), signal.SourceType, signal.SourceID, signal.IncidentID, signal.PromptFilterLogID, signal.RequestCorrelationID,
 			subject.Type, subject.Key, truncateCandidateRunes(subject.Display, 255), truncateCandidateRunes(subject.Platform, 100),
 			subject.IsPerson, promptRiskClamp(subject.IdentityConfidence), signal.EventKind, promptRiskClamp(signal.RequestRiskScore),
 			promptRiskClamp(signal.EvidenceConfidence), truncateCandidateRunes(signal.ReasonCode, 100), truncateCandidateRunes(signal.Action, 32),
@@ -647,15 +673,19 @@ func insertPromptRiskSignal(ctx context.Context, exec promptRiskEventExecutor, s
 			truncateCandidateRunes(signal.APIKeyMasked, 64), signal.AccountID, truncateCandidateRunes(signal.AccountName, 255)); err != nil {
 			return err
 		}
-		if err := reconcilePromptRiskReviewForSubject(ctx, exec, signal, subject); err != nil {
+		if err := reconcilePromptRiskReviewForSubject(ctx, exec, signal, subject, db.isMySQL()); err != nil {
 			return err
 		}
 	}
-	_, err := exec.ExecContext(ctx, `INSERT INTO prompt_risk_event_sources(source_type, source_id) VALUES ($1,$2) ON CONFLICT(source_type, source_id) DO NOTHING`, signal.SourceType, signal.SourceID)
+	sourceInsert := `INSERT INTO prompt_risk_event_sources(source_type, source_id) VALUES ($1,$2) ON CONFLICT(source_type, source_id) DO NOTHING`
+	if db.isMySQL() {
+		sourceInsert = `INSERT IGNORE INTO prompt_risk_event_sources(source_type, source_id) VALUES ($1,$2)`
+	}
+	_, err := exec.ExecContext(ctx, sourceInsert, signal.SourceType, signal.SourceID)
 	return err
 }
 
-func reconcilePromptRiskReviewForSubject(ctx context.Context, exec promptRiskEventExecutor, signal promptRiskSignal, subject promptRiskSubject) error {
+func reconcilePromptRiskReviewForSubject(ctx context.Context, exec promptRiskEventExecutor, signal promptRiskSignal, subject promptRiskSubject, mysql bool) error {
 	if signal.EventKind != promptRiskEventReviewCleared && signal.EventKind != promptRiskEventLocalBlockUnverified {
 		return nil
 	}
@@ -684,20 +714,31 @@ func reconcilePromptRiskReviewForSubject(ctx context.Context, exec promptRiskEve
 		return err
 	}
 	if requestID != "" {
-		_, err := exec.ExecContext(ctx, `UPDATE prompt_risk_events SET
+		query := `UPDATE prompt_risk_events SET
 			event_kind=$1, request_risk_score=0, evidence_confidence=95
 			WHERE source_type=$2 AND source_id=$3 AND subject_type=$4 AND subject_key=$5
 			AND event_kind=$6 AND EXISTS (
 				SELECT 1 FROM prompt_risk_events cleared
 				WHERE cleared.subject_type=$4 AND cleared.subject_key=$5 AND cleared.event_kind=$7
 				AND cleared.request_correlation_id<>'' AND cleared.request_correlation_id=$8
-			)`, promptRiskEventLocalBlockCleared, signal.SourceType, signal.SourceID, subject.Type, subject.Key,
+			)`
+		if mysql {
+			query = `UPDATE prompt_risk_events SET
+				event_kind=$1, request_risk_score=0, evidence_confidence=95
+				WHERE source_type=$2 AND source_id=$3 AND subject_type=$4 AND subject_key=$5
+				AND event_kind=$6 AND EXISTS (
+					SELECT 1 FROM (SELECT subject_type, subject_key, event_kind, request_correlation_id FROM prompt_risk_events) cleared
+					WHERE cleared.subject_type=$4 AND cleared.subject_key=$5 AND cleared.event_kind=$7
+					AND cleared.request_correlation_id<>'' AND cleared.request_correlation_id=$8
+				)`
+		}
+		_, err := exec.ExecContext(ctx, query, promptRiskEventLocalBlockCleared, signal.SourceType, signal.SourceID, subject.Type, subject.Key,
 			promptRiskEventLocalBlockUnverified, promptRiskEventReviewCleared, requestID)
 		return err
 	}
 	windowStart := signal.CreatedAt.Add(-10 * time.Minute)
 	windowEnd := signal.CreatedAt.Add(10 * time.Minute)
-	_, err := exec.ExecContext(ctx, `UPDATE prompt_risk_events SET
+	query := `UPDATE prompt_risk_events SET
 		event_kind=$1, request_risk_score=0, evidence_confidence=95
 		WHERE source_type=$2 AND source_id=$3 AND subject_type=$4 AND subject_key=$5
 		AND event_kind=$6 AND EXISTS (
@@ -705,7 +746,19 @@ func reconcilePromptRiskReviewForSubject(ctx context.Context, exec promptRiskEve
 			WHERE cleared.subject_type=$4 AND cleared.subject_key=$5 AND cleared.event_kind=$7
 			AND cleared.request_correlation_id='' AND cleared.prompt_fingerprint<>'' AND cleared.prompt_fingerprint=$8
 			AND cleared.created_at >= $9 AND cleared.created_at <= $10
-		)`, promptRiskEventLocalBlockCleared, signal.SourceType, signal.SourceID, subject.Type, subject.Key,
+		)`
+	if mysql {
+		query = `UPDATE prompt_risk_events SET
+			event_kind=$1, request_risk_score=0, evidence_confidence=95
+			WHERE source_type=$2 AND source_id=$3 AND subject_type=$4 AND subject_key=$5
+			AND event_kind=$6 AND EXISTS (
+				SELECT 1 FROM (SELECT subject_type, subject_key, event_kind, request_correlation_id, prompt_fingerprint, created_at FROM prompt_risk_events) cleared
+				WHERE cleared.subject_type=$4 AND cleared.subject_key=$5 AND cleared.event_kind=$7
+				AND cleared.request_correlation_id='' AND cleared.prompt_fingerprint<>'' AND cleared.prompt_fingerprint=$8
+				AND cleared.created_at >= $9 AND cleared.created_at <= $10
+			)`
+	}
+	_, err := exec.ExecContext(ctx, query, promptRiskEventLocalBlockCleared, signal.SourceType, signal.SourceID, subject.Type, subject.Key,
 		promptRiskEventLocalBlockUnverified, promptRiskEventReviewCleared, fingerprint, windowStart, windowEnd)
 	return err
 }
@@ -720,6 +773,10 @@ func (db *DB) backfillPromptRiskEvents(ctx context.Context) error {
 
 func (db *DB) backfillPromptRiskLogs(ctx context.Context, cutoff time.Time) error {
 	for {
+		idCast := "CAST(l.id AS TEXT)"
+		if db.isMySQL() {
+			idCast = "CAST(l.id AS CHAR)"
+		}
 		rows, err := db.conn.QueryContext(ctx, `SELECT l.id, l.created_at, COALESCE(l.source,''), COALESCE(l.endpoint,''), COALESCE(l.model,''),
 			COALESCE(l.action,''), COALESCE(l.score,0), COALESCE(l.audit_score,0), COALESCE(l.reason_code,''), COALESCE(l.strike_eligible,false),
 			COALESCE(l.matched_patterns,'[]'), COALESCE(l.text_preview,''), COALESCE(l.api_key_id,0), COALESCE(l.api_key_name,''),
@@ -729,7 +786,7 @@ func (db *DB) backfillPromptRiskLogs(ctx context.Context, cutoff time.Time) erro
 			COALESCE(l.newapi_decision_id,''), COALESCE(l.session_hash,'')
 		FROM prompt_filter_logs l
 		WHERE l.created_at >= $1 AND NOT EXISTS (
-			SELECT 1 FROM prompt_risk_event_sources s WHERE s.source_type=$2 AND s.source_id=CAST(l.id AS TEXT)
+			SELECT 1 FROM prompt_risk_event_sources s WHERE s.source_type=$2 AND s.source_id=`+idCast+`
 		) ORDER BY l.id LIMIT 500`, cutoff, promptRiskSourceLog)
 		if err != nil {
 			return err
@@ -772,7 +829,7 @@ func (db *DB) backfillPromptRiskLogs(ctx context.Context, cutoff time.Time) erro
 				if !ok {
 					signal = promptRiskSignal{SourceType: promptRiskSourceLog, SourceID: strconv.FormatInt(item.ID, 10), CreatedAt: item.CreatedAt}
 				}
-				if err := insertPromptRiskSignal(ctx, tx, signal); err != nil {
+				if err := db.insertPromptRiskSignal(ctx, tx, signal); err != nil {
 					return err
 				}
 			}
@@ -813,7 +870,7 @@ func (db *DB) backfillPromptRiskIncidents(ctx context.Context, cutoff time.Time)
 			}
 			defer tx.Rollback()
 			for _, item := range items {
-				if err := insertPromptRiskSignal(ctx, tx, promptRiskSignalForIncident(*item)); err != nil {
+				if err := db.insertPromptRiskSignal(ctx, tx, promptRiskSignalForIncident(*item)); err != nil {
 					return err
 				}
 			}
@@ -1119,11 +1176,13 @@ func (db *DB) ListPromptRiskProfiles(ctx context.Context, query PromptRiskProfil
 			AND (LOWER(pri.external_user_id) LIKE $%d OR LOWER(pri.user_name) LIKE $%d OR LOWER(pri.user_email) LIKE $%d OR LOWER(pri.user_group) LIKE $%d)
 		))`, i, i, i, i, i, i, i, i, i, i))
 	}
-	// Keep the shared filter inline. Materializing the full 30-day event rows
-	// duplicates a large TEXT-heavy working set before both aggregate passes;
-	// SQLite production databases with dense clean-review history can exhaust
-	// the admin request budget even though the final profile set is small.
-	rows, err := db.conn.QueryContext(ctx, `WITH filtered_events AS NOT MATERIALIZED (
+	cteHead := "WITH filtered_events AS NOT MATERIALIZED ("
+	concatExpr := "source_type || ':' || source_id"
+	if db.isMySQL() {
+		cteHead = "WITH filtered_events AS ("
+		concatExpr = "CONCAT(source_type, ':', source_id)"
+	}
+	rows, err := db.conn.QueryContext(ctx, cteHead+`
 		SELECT * FROM prompt_risk_events WHERE `+strings.Join(clauses, " AND ")+`
 	), profile_aggregates AS (
 		SELECT subject_type, subject_key,
@@ -1149,7 +1208,7 @@ func (db *DB) ListPromptRiskProfiles(ctx context.Context, query PromptRiskProfil
 	), ranked_unverified AS (
 		SELECT subject_type, subject_key, identity_confidence, created_at, ROW_NUMBER() OVER (
 			PARTITION BY subject_type, subject_key,
-			CASE WHEN prompt_fingerprint<>'' THEN prompt_fingerprint WHEN prompt_preview<>'' THEN prompt_preview ELSE source_type || ':' || source_id END
+			CASE WHEN prompt_fingerprint<>'' THEN prompt_fingerprint WHEN prompt_preview<>'' THEN prompt_preview ELSE `+concatExpr+` END
 			ORDER BY created_at, id
 		) AS unverified_rank
 		FROM filtered_events WHERE event_kind IN ('local_block','local_block_unverified')
@@ -1488,6 +1547,20 @@ func (db *DB) ClearPromptRiskEvents(ctx context.Context) error {
 		}
 		_, err := db.conn.ExecContext(ctx, `DELETE FROM sqlite_sequence WHERE name='prompt_risk_events'`)
 		return err
+	}
+	if db.isMySQL() {
+		tx, err := db.conn.BeginTx(ctx, nil)
+		if err != nil {
+			return err
+		}
+		defer tx.Rollback()
+		if _, err := tx.ExecContext(ctx, `DELETE FROM prompt_risk_event_sources`); err != nil {
+			return err
+		}
+		if _, err := tx.ExecContext(ctx, `DELETE FROM prompt_risk_events`); err != nil {
+			return err
+		}
+		return tx.Commit()
 	}
 	_, err := db.conn.ExecContext(ctx, `TRUNCATE TABLE prompt_risk_events, prompt_risk_event_sources RESTART IDENTITY`)
 	return err

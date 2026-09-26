@@ -1,14 +1,14 @@
 // Package api provides OpenAPI/Swagger documentation
 package api
 
-// @title Codex2API
+// @title AxisRelay
 // @version 1.0.0
 // @description OpenAI-compatible API proxy for Codex with enhanced features including multi-account pooling,
 // automatic rotation, usage tracking, and administrative management.
 //
 // @contact.name API Support
-// @contact.url https://github.com/codex2api
-// @contact.email support@codex2api.local
+// @contact.url https://github.com/wuekevin/axisrelay
+// @contact.email support@axisrelay.local
 //
 // @license.name MIT
 // @license.url https://opensource.org/licenses/MIT
@@ -35,7 +35,7 @@ type SwaggerInfo struct {
 // GetSwaggerInfo returns the swagger information
 func GetSwaggerInfo() SwaggerInfo {
 	return SwaggerInfo{
-		Title:       "Codex2API",
+		Title:       "AxisRelay",
 		Version:     "1.0.0",
 		Description: "OpenAI-compatible API proxy for Codex",
 		Host:        "localhost:8080",

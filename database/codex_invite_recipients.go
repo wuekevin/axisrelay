@@ -74,7 +74,22 @@ var (
 	codexInviteRecipientReady  = make(map[*DB]bool)
 )
 
-const codexInviteRecipientSelectColumns = `email_key,email,sender_account_id,program_id,entrypoint,state,reservation_id,request_id,referral_id,invite_url,upstream_status,upstream_recipient_status,invited_at,created_at,updated_at`
+const codexInviteRecipientSelectColumns = `
+	email_key,
+	COALESCE(email, ''),
+	COALESCE(sender_account_id, 0),
+	COALESCE(program_id, ''),
+	COALESCE(entrypoint, ''),
+	COALESCE(state, ''),
+	COALESCE(reservation_id, ''),
+	COALESCE(request_id, ''),
+	COALESCE(referral_id, ''),
+	COALESCE(invite_url, ''),
+	COALESCE(upstream_status, 0),
+	COALESCE(upstream_recipient_status, ''),
+	invited_at,
+	created_at,
+	updated_at`
 
 type codexInviteRecipientEmail struct {
 	key     string
@@ -173,6 +188,10 @@ func (db *DB) ensureCodexInviteRecipientTable(ctx context.Context) error {
 	codexInviteRecipientInitMu.Lock()
 	defer codexInviteRecipientInitMu.Unlock()
 	if codexInviteRecipientReady[db] {
+		return nil
+	}
+	if db.isMySQL() {
+		codexInviteRecipientReady[db] = true
 		return nil
 	}
 	for _, statement := range codexInviteRecipientDDL(db.isSQLite()) {
@@ -282,10 +301,16 @@ func (db *DB) ReserveCodexInviteRecipients(ctx context.Context, reservationID st
 	err := db.withWriteTx(ctx, func(tx *sql.Tx) error {
 		conflicts := make([]string, 0)
 		for _, email := range normalized {
-			result, err := tx.ExecContext(ctx, `INSERT INTO codex_invite_recipients
+			query := `INSERT INTO codex_invite_recipients
 				(email_key,email,sender_account_id,program_id,entrypoint,state,reservation_id,created_at,updated_at)
 				VALUES($1,$2,$3,$4,$5,$6,$7,$8,$8)
-				ON CONFLICT(email_key) DO NOTHING`,
+				ON CONFLICT(email_key) DO NOTHING`
+			if db.isMySQL() {
+				query = `INSERT IGNORE INTO codex_invite_recipients
+					(email_key,email,sender_account_id,program_id,entrypoint,state,reservation_id,created_at,updated_at)
+					VALUES($1,$2,$3,$4,$5,$6,$7,$8,$8)`
+			}
+			result, err := tx.ExecContext(ctx, query,
 				email.key, email.display, senderAccountID, strings.TrimSpace(programID), strings.TrimSpace(entrypoint),
 				CodexInviteRecipientStateReserved, reservationID, db.timeArg(now))
 			if err != nil {
@@ -497,7 +522,7 @@ func (db *DB) UpsertCodexInviteRecipientsFromTracking(ctx context.Context, sende
 			if invitedAt.IsZero() {
 				invitedAt = now
 			}
-			_, err := tx.ExecContext(ctx, `INSERT INTO codex_invite_recipients
+			query := `INSERT INTO codex_invite_recipients
 				(email_key,email,sender_account_id,program_id,entrypoint,state,reservation_id,request_id,
 				 referral_id,invite_url,upstream_status,upstream_recipient_status,invited_at,created_at,updated_at)
 				VALUES($1,$2,$3,$4,$5,$6,'','',$7,$8,$9,$10,$11,$12,$12)
@@ -512,7 +537,26 @@ func (db *DB) UpsertCodexInviteRecipientsFromTracking(ctx context.Context, sende
 				upstream_status=CASE WHEN excluded.upstream_status<>0 THEN excluded.upstream_status ELSE codex_invite_recipients.upstream_status END,
 				upstream_recipient_status=CASE WHEN excluded.upstream_recipient_status<>'' THEN excluded.upstream_recipient_status ELSE codex_invite_recipients.upstream_recipient_status END,
 				invited_at=COALESCE(codex_invite_recipients.invited_at,excluded.invited_at),
-				updated_at=excluded.updated_at`,
+				updated_at=excluded.updated_at`
+			if db.isMySQL() {
+				query = `INSERT INTO codex_invite_recipients
+					(email_key,email,sender_account_id,program_id,entrypoint,state,reservation_id,request_id,
+					 referral_id,invite_url,upstream_status,upstream_recipient_status,invited_at,created_at,updated_at)
+					VALUES($1,$2,$3,$4,$5,$6,'','',$7,$8,$9,$10,$11,$12,$12)
+					ON DUPLICATE KEY UPDATE
+					email=VALUES(email),
+					sender_account_id=CASE WHEN sender_account_id=0 THEN VALUES(sender_account_id) ELSE sender_account_id END,
+					program_id=CASE WHEN COALESCE(program_id,'')='' THEN VALUES(program_id) ELSE program_id END,
+					entrypoint=CASE WHEN COALESCE(entrypoint,'')='' THEN VALUES(entrypoint) ELSE entrypoint END,
+					state=CASE WHEN state='sent' THEN 'sent' ELSE 'known_invited' END,
+					referral_id=CASE WHEN VALUES(referral_id)<>'' THEN VALUES(referral_id) ELSE referral_id END,
+					invite_url=CASE WHEN VALUES(invite_url)<>'' THEN VALUES(invite_url) ELSE invite_url END,
+					upstream_status=CASE WHEN VALUES(upstream_status)<>0 THEN VALUES(upstream_status) ELSE upstream_status END,
+					upstream_recipient_status=CASE WHEN VALUES(upstream_recipient_status)<>'' THEN VALUES(upstream_recipient_status) ELSE upstream_recipient_status END,
+					invited_at=COALESCE(invited_at,VALUES(invited_at)),
+					updated_at=VALUES(updated_at)`
+			}
+			_, err := tx.ExecContext(ctx, query,
 				key, item.Email, senderAccountID, strings.TrimSpace(programID), strings.TrimSpace(entrypoint),
 				CodexInviteRecipientStateKnownInvited, item.ReferralID, item.InviteURL, upstreamStatus,
 				item.UpstreamRecipientStatus, db.timeArg(invitedAt), db.timeArg(now))

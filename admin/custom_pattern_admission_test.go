@@ -6,14 +6,23 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"testing"
 
-	"github.com/codex2api/auth"
-	"github.com/codex2api/cache"
-	"github.com/codex2api/proxy"
-	"github.com/codex2api/security/promptfilter"
+	"github.com/wuekevin/axisrelay/auth"
+	"github.com/wuekevin/axisrelay/cache"
+	"github.com/wuekevin/axisrelay/proxy"
+	"github.com/wuekevin/axisrelay/security/promptfilter"
 	"github.com/gin-gonic/gin"
 )
+
+func customPatternJSONEqual(left, right string) bool {
+	var a, b any
+	if json.Unmarshal([]byte(left), &a) != nil || json.Unmarshal([]byte(right), &b) != nil {
+		return false
+	}
+	return reflect.DeepEqual(a, b)
+}
 
 func TestUpdateSettingsRejectsBroadCustomRuleWithoutChangingPersistenceOrStore(t *testing.T) {
 	gin.SetMode(gin.TestMode)
@@ -57,7 +66,7 @@ func TestUpdateSettingsRejectsBroadCustomRuleWithoutChangingPersistenceOrStore(t
 	if err != nil {
 		t.Fatal(err)
 	}
-	if persisted.PromptFilterCustomPatterns != settings.PromptFilterCustomPatterns {
+	if !customPatternJSONEqual(persisted.PromptFilterCustomPatterns, settings.PromptFilterCustomPatterns) {
 		t.Fatalf("persisted rules changed\nbefore=%s\nafter=%s", settings.PromptFilterCustomPatterns, persisted.PromptFilterCustomPatterns)
 	}
 }
@@ -138,7 +147,7 @@ func TestUpdateSettingsDeletesQuarantinedLegacyRuleFromRuntimeSnapshot(t *testin
 	if err != nil {
 		t.Fatal(err)
 	}
-	if persisted.PromptFilterCustomPatterns != replacementJSON {
+	if !customPatternJSONEqual(persisted.PromptFilterCustomPatterns, replacementJSON) {
 		t.Fatalf("quarantined rule was not deleted from persistence: %s", persisted.PromptFilterCustomPatterns)
 	}
 	runtimeAfter := store.GetPromptFilterConfig().CustomPatterns
@@ -184,7 +193,7 @@ func TestUpdateSettingsRejectsStaleCustomRuleSnapshot(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if persisted.PromptFilterCustomPatterns != concurrent {
+	if !customPatternJSONEqual(persisted.PromptFilterCustomPatterns, concurrent) {
 		t.Fatalf("stale request overwrote concurrent rules: %s", persisted.PromptFilterCustomPatterns)
 	}
 	runtime := store.GetPromptFilterConfig().CustomPatterns
@@ -222,7 +231,7 @@ func TestUpdateSettingsRequiresCustomRuleSnapshot(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if persisted.PromptFilterCustomPatterns != settings.PromptFilterCustomPatterns {
+	if !customPatternJSONEqual(persisted.PromptFilterCustomPatterns, settings.PromptFilterCustomPatterns) {
 		t.Fatalf("snapshot-less request changed rules: %s", persisted.PromptFilterCustomPatterns)
 	}
 }
@@ -304,7 +313,7 @@ func TestUpdateSettingsAcceptsSemanticallyEqualFormattedRuleSnapshot(t *testing.
 	if err != nil {
 		t.Fatal(err)
 	}
-	if persisted.PromptFilterCustomPatterns != promptfilter.MarshalCustomPatterns(submitted) {
+	if !customPatternJSONEqual(persisted.PromptFilterCustomPatterns, promptfilter.MarshalCustomPatterns(submitted)) {
 		t.Fatalf("formatted equivalent snapshot was not accepted: %s", persisted.PromptFilterCustomPatterns)
 	}
 }
@@ -354,7 +363,7 @@ func TestUpdateSettingsCustomRuleSaveDoesNotOverwriteUnrelatedConcurrentSettings
 	if persisted.SiteName != concurrent.SiteName || persisted.GlobalRPM != concurrent.GlobalRPM {
 		t.Fatalf("rule-only save overwrote unrelated settings: site=%q rpm=%d", persisted.SiteName, persisted.GlobalRPM)
 	}
-	if persisted.PromptFilterCustomPatterns != promptfilter.MarshalCustomPatterns(submitted) {
+	if !customPatternJSONEqual(persisted.PromptFilterCustomPatterns, promptfilter.MarshalCustomPatterns(submitted)) {
 		t.Fatalf("rule-only save did not update rules: %s", persisted.PromptFilterCustomPatterns)
 	}
 }
@@ -393,7 +402,7 @@ func TestUpdateSettingsCustomRuleSnapshotPreservesUnknownFutureFields(t *testing
 	if err != nil {
 		t.Fatal(err)
 	}
-	if persisted.PromptFilterCustomPatterns != settings.PromptFilterCustomPatterns {
+	if !customPatternJSONEqual(persisted.PromptFilterCustomPatterns, settings.PromptFilterCustomPatterns) {
 		t.Fatalf("unknown future rule field was lost: %s", persisted.PromptFilterCustomPatterns)
 	}
 }

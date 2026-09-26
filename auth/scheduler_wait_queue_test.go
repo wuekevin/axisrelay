@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/codex2api/cache"
+	"github.com/wuekevin/axisrelay/cache"
 )
 
 func parkTestWaiter(t *testing.T, h *availabilityHub, key, bound int64, exclude map[int64]bool) *availabilityWaiter {

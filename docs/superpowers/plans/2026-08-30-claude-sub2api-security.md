@@ -65,5 +65,5 @@
 
 - [ ] **Step 1: Run** `gofmt -w` on changed Go files and `git diff --check`.
 - [ ] **Step 2: Run** `go test ./... -count=1`, `go vet ./...`, `npm test`, `npm run typecheck`, `npm run build`, and `npm run audit:ci`.
-- [ ] **Step 3: Run** `npx gitnexus detect-changes --scope unstaged --repo codex2api` and review the affected flows.
+- [ ] **Step 3: Run** `npx gitnexus detect-changes --scope unstaged --repo axisrelay` and review the affected flows.
 - [ ] **Step 4: Verify** no production deployment, credential output, or Git commit occurs unless separately requested.

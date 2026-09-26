@@ -4,7 +4,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/codex2api/proxy"
+	"github.com/wuekevin/axisrelay/proxy"
 )
 
 // issue #413：一个逻辑 session 独占一条 WS 连接，同会话的并发请求会在 busy 轮询里

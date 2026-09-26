@@ -14,9 +14,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/codex2api/cache"
-	"github.com/codex2api/config"
-	"github.com/codex2api/database"
+	"github.com/wuekevin/axisrelay/cache"
+	"github.com/wuekevin/axisrelay/config"
+	"github.com/wuekevin/axisrelay/database"
 	"github.com/gin-gonic/gin"
 )
 

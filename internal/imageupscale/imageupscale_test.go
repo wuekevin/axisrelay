@@ -25,7 +25,7 @@ func strictTestPNG(t *testing.T, width, height int) []byte {
 }
 
 func TestBytesWithFitHonorsStrictSizeWithoutUpscaleTier(t *testing.T) {
-	t.Setenv("IMAGE_UPSCALER_ENDPOINT", "")
+	t.Setenv("AXISRELAY_IMAGE_UPSCALER_ENDPOINT", "")
 	data, contentType, method, err := BytesWithFit(context.Background(), strictTestPNG(t, 4, 4), "", "12x6", "pad", true)
 	if err != nil {
 		t.Fatalf("BytesWithFit returned error: %v", err)
@@ -39,7 +39,7 @@ func TestBytesWithFitHonorsStrictSizeWithoutUpscaleTier(t *testing.T) {
 }
 
 func TestEnsureSizeWithFitSeparatesPadAndCoverCacheEntries(t *testing.T) {
-	t.Setenv("IMAGE_UPSCALER_ENDPOINT", "")
+	t.Setenv("AXISRELAY_IMAGE_UPSCALER_ENDPOINT", "")
 	source := strictTestPNG(t, 4, 4)
 	pad, err := EnsureSizeWithFit(context.Background(), source, "2k", "12x6", "pad")
 	if err != nil {

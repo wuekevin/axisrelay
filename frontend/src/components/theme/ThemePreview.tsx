@@ -127,7 +127,7 @@ export function ThemeLivePreview({ item, mode }: { item: ColorThemeDef; mode: Th
       </div>
       <div className="appearance-preview-stage">
         <div className="appearance-preview-window">
-          <div className="appearance-window-chrome"><span aria-hidden="true"><i /><i /><i /></span><span>codex2api / {scene === 'workbench' ? 'workspace' : 'components'}</span><span>{t('themeSettings.demoLabel')}</span></div>
+          <div className="appearance-window-chrome"><span aria-hidden="true"><i /><i /><i /></span><span>axisrelay / {scene === 'workbench' ? 'workspace' : 'components'}</span><span>{t('themeSettings.demoLabel')}</span></div>
           <div role="img" aria-label={t('themeSettings.previewAccessible', { theme: t(item.nameKey), mode: t(mode === 'dark' ? 'themeSettings.modeDark' : 'themeSettings.modeLight'), scene: t(scene === 'workbench' ? 'themeSettings.sceneWorkbench' : 'themeSettings.sceneComponents') })}>
             {scene === 'workbench' ? <WorkbenchPreview /> : <ComponentsPreview />}
           </div>

@@ -13,7 +13,7 @@ body:
     attributes:
       label: Before I submit
       options:
-        - label: I read the deploy notes in [README](https://github.com/james-6-23/codex2api#documentation) and `docs/`
+        - label: I read the deploy notes in [README](https://github.com/wuekevin/axisrelay#documentation) and `docs/`
           required: true
         - label: I redacted secrets from the docker-compose / env / logs I'm pasting
           required: true
@@ -38,7 +38,7 @@ body:
       label: Where am I stuck / what error am I getting?
       description: Paste the error block from startup logs — much more accurate than describing it from memory.
       placeholder: |
-        e.g. After running docker compose up, the codex2api container keeps restarting,
+        e.g. After running docker compose up, the axisrelay container keeps restarting,
         and the log keeps showing "failed to connect to redis"…
     validations:
       required: true

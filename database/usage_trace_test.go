@@ -8,7 +8,7 @@ import (
 )
 
 func TestUsageTraceRoundTrip(t *testing.T) {
-	db, err := New("sqlite", filepath.Join(t.TempDir(), "trace.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "trace.db"))
 	if err != nil {
 		t.Fatal(err)
 	}

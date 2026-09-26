@@ -14,9 +14,9 @@ const accountRequestCountBreakdownMaxIDs = 500
 // appendAccountIDFilter 生成 account_id 的匹配子句并把绑定值追加进 args。
 // PostgreSQL 走单个数组参数 `= ANY($n)`:几万账号的全池统计刷新若逐个展开
 // 占位符,解析/规划开销随池规模线性放大,且触及扩展协议 65535 个参数的硬上限
-// (超过后查询直接报错,统计永久停在刷新中);SQLite 保持逐个占位符。
+// (超过后查询直接报错,统计永久停在刷新中);MySQL/SQLite 保持逐个占位符。
 func (db *DB) appendAccountIDFilter(args *[]interface{}, ids []int64) string {
-	if db.isSQLite() {
+	if db.isSQLite() || db.isMySQL() {
 		placeholders := make([]string, 0, len(ids))
 		for _, id := range ids {
 			*args = append(*args, id)

@@ -10,15 +10,12 @@ import (
 )
 
 func TestPromptIntelligenceAIEvidenceAndAdvancedConfigCAS(t *testing.T) {
-	db, err := New("sqlite", filepath.Join(t.TempDir(), "prompt-intelligence-ai.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "prompt-intelligence-ai.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = db.Close() })
 	ctx := context.Background()
-	if _, err := db.conn.ExecContext(ctx, `INSERT INTO system_settings (id, prompt_filter_advanced_config) VALUES (1, '{}') ON CONFLICT(id) DO NOTHING`); err != nil {
-		t.Fatal(err)
-	}
 	candidate, _, err := db.StagePromptRuleCandidate(ctx, PromptRuleCandidateInput{
 		Fingerprint: strings.Repeat("a", 64), Kind: PromptRuleCandidateKindEvidence,
 		Source: PromptRuleCandidateSourceUpstreamCyberPolicy, SamplePreview: "redacted CY evidence",
@@ -74,7 +71,7 @@ func TestPromptIntelligenceAIEvidenceAndAdvancedConfigCAS(t *testing.T) {
 }
 
 func TestListLatestPromptRuleCandidateAIAnalyses(t *testing.T) {
-	db, err := New("sqlite", filepath.Join(t.TempDir(), "prompt-intelligence-ai-latest.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "prompt-intelligence-ai-latest.db"))
 	if err != nil {
 		t.Fatal(err)
 	}

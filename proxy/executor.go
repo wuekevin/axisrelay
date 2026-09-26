@@ -18,10 +18,10 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/codex2api/auth"
 	"github.com/google/uuid"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
+	"github.com/wuekevin/axisrelay/auth"
 	"golang.org/x/net/http2"
 )
 
@@ -38,7 +38,7 @@ import (
 // relay 链路已有完整的 Ping/Pong 保活与复用前探活，不走这里。
 // 默认值对直连是合适的；经高延迟代理或弱网出口时 15s 偏激进——一次 PING 未按时
 // 应答就会拆掉整条连接及其上全部复用中的流（表现为 "http2: client connection
-// lost"）。故允许用 CODEX_HTTP2_READ_IDLE_TIMEOUT / CODEX_HTTP2_PING_TIMEOUT
+// lost"）。故允许用 AXISRELAY_HTTP2_READ_IDLE_TIMEOUT / AXISRELAY_HTTP2_PING_TIMEOUT
 // 覆盖（Go duration 写法，如 "45s"；填 0 关闭主动 PING，退回标准库默认）。
 const (
 	defaultCodexHTTP2ReadIdleTimeout = 15 * time.Second
@@ -46,8 +46,8 @@ const (
 )
 
 var (
-	codexHTTP2ReadIdleTimeout = durationFromEnv("CODEX_HTTP2_READ_IDLE_TIMEOUT", defaultCodexHTTP2ReadIdleTimeout)
-	codexHTTP2PingTimeout     = durationFromEnv("CODEX_HTTP2_PING_TIMEOUT", defaultCodexHTTP2PingTimeout)
+	codexHTTP2ReadIdleTimeout = durationFromEnv("AXISRELAY_HTTP2_READ_IDLE_TIMEOUT", defaultCodexHTTP2ReadIdleTimeout)
+	codexHTTP2PingTimeout     = durationFromEnv("AXISRELAY_HTTP2_PING_TIMEOUT", defaultCodexHTTP2PingTimeout)
 )
 
 // durationFromEnv 读取 Go duration 格式的环境变量；缺省或非法值回退默认值，
@@ -128,7 +128,7 @@ const clientPoolTTL = 5 * time.Minute
 // 有自己的回收策略，赶上回收窗口时在途流会被 RST。到点主动换新连接即可错开：
 // 轮转只是把 entry 移出池并关闭其空闲连接，新请求走新连接，在途请求不受影响。
 // WS 链路已有同类机制（50 分钟主动轮转，issue #346）。设为 0 关闭本机制。
-var clientPoolMaxAge = durationFromEnv("CODEX_HTTP_CLIENT_MAX_AGE", 30*time.Minute)
+var clientPoolMaxAge = durationFromEnv("AXISRELAY_HTTP_CLIENT_MAX_AGE", 30*time.Minute)
 
 // clientPoolCleanupInterval 清理协程执行间隔
 const clientPoolCleanupInterval = 60 * time.Second
@@ -191,7 +191,7 @@ const (
 )
 
 func codexTransportModeFromEnv() string {
-	switch strings.ToLower(strings.TrimSpace(os.Getenv("CODEX_TRANSPORT_MODE"))) {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("AXISRELAY_TRANSPORT_MODE"))) {
 	case "", "standard", "go", "default":
 		return codexTransportModeStandard
 	case "utls", "utls_chrome", "chrome":
@@ -272,7 +272,7 @@ func newCodexTransport(proxyURL string) http.RoundTripper {
 }
 
 func codexFingerprintDebugEnabled() bool {
-	switch strings.ToLower(strings.TrimSpace(os.Getenv("CODEX_FINGERPRINT_DEBUG"))) {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("AXISRELAY_FINGERPRINT_DEBUG"))) {
 	case "1", "true", "yes", "y", "on":
 		return true
 	default:
@@ -385,7 +385,7 @@ func codexResponsesLiteRequested(requestBody []byte, headers http.Header) bool {
 }
 
 // prepareCodexResponsesLiteTransport keeps the request-scoped Responses Lite
-// signal intact when codex2api changes the upstream transport. HTTP carries the
+// signal intact when axisrelay changes the upstream transport. HTTP carries the
 // signal in a header; WebSocket carries it on each response.create frame so a
 // pooled connection can safely serve both Lite and non-Lite requests.
 func prepareCodexResponsesLiteTransport(requestBody []byte, headers http.Header, useWebsocket, enabled bool) ([]byte, http.Header) {
@@ -889,7 +889,7 @@ func ensureCodexClientInstallationMetadata(requestBody []byte, account *auth.Acc
 	if seed == "" {
 		seed = "default"
 	}
-	installationID := uuid.NewSHA1(uuid.NameSpaceOID, []byte("codex2api:client-installation:"+seed)).String()
+	installationID := uuid.NewSHA1(uuid.NameSpaceOID, []byte("axisrelay:client-installation:"+seed)).String()
 	updatedBody, err := sjson.SetBytes(requestBody, "client_metadata.x-codex-installation-id", installationID)
 	if err != nil {
 		return requestBody, false
@@ -1271,7 +1271,7 @@ func applyCodexRequestHeaders(req *http.Request, account *auth.Account, accessTo
 		req.Header.Set("Chatgpt-Account-Id", accountID)
 	}
 	// 会话标识头按真实客户端形态写出（session-id / thread-id / x-client-request-id）；
-	// 收敛开启时与 turn metadata 报同一组身份。CODEX_SESSION_HEADER_MODE=legacy
+	// 收敛开启时与 turn metadata 报同一组身份。AXISRELAY_SESSION_HEADER_MODE=legacy
 	// 可整体退回旧的 Session_id 形态。
 	ApplyCodexSessionHeaders(req.Header, account, cacheKey, downstreamHeaders, false)
 	applyAccountCustomHeaders(req, account)
@@ -1372,7 +1372,7 @@ func codexIdentityPassthroughActive(account *auth.Account, headers http.Header) 
 	)
 }
 
-const downstreamAffinityHeader = "X-Codex2API-Affinity-Key"
+const downstreamAffinityHeader = "X-AxisRelay-Affinity-Key"
 
 // requestSessionIdentity keeps the local account-routing identity separate
 // from the seed used to derive an upstream Session_id/prompt_cache_key. The
@@ -1388,7 +1388,7 @@ type requestSessionIdentity struct {
 
 // ResolveSessionID 从下游请求提取或生成 session ID
 // 优先级：
-//  1. Header: X-Codex2API-Affinity-Key（仅本地使用，先哈希再参与绑定）
+//  1. Header: X-AxisRelay-Affinity-Key（仅本地使用，先哈希再参与绑定）
 //  2. Header: Session_id
 //  3. Header: Conversation_id
 //  4. Header: Idempotency-Key
@@ -1423,7 +1423,7 @@ func resolveRequestSessionIdentity(headers http.Header, body []byte) requestSess
 		if apiKey != "" {
 			// 必须与 deterministicPromptCacheKey 用同一条派生：两处共享种子字符串，
 			// 产出不同就会让 HTTP 与 WS 路径对同一个 API Key 算出两个上游身份。
-			upstreamSeed = DeriveStableSessionUUIDv7("codex2api:prompt-cache:" + apiKey)
+			upstreamSeed = DeriveStableSessionUUIDv7("axisrelay:prompt-cache:" + apiKey)
 		}
 	}
 	if upstreamSeed == "" {
@@ -1459,7 +1459,7 @@ func resolveDownstreamAffinityID(headers http.Header) string {
 	if raw == "" {
 		return ""
 	}
-	sum := sha256.Sum256([]byte("codex2api:downstream-affinity:" + raw))
+	sum := sha256.Sum256([]byte("axisrelay:downstream-affinity:" + raw))
 	return "affinity-" + hex.EncodeToString(sum[:16])
 }
 
@@ -1511,11 +1511,11 @@ func IsStatelessWebsocketSessionID(sessionID string) bool {
 func deterministicPromptCacheKey(apiKey string, account *auth.Account) string {
 	apiKey = strings.TrimSpace(apiKey)
 	if apiKey != "" {
-		return DeriveStableSessionUUIDv7("codex2api:prompt-cache:" + apiKey)
+		return DeriveStableSessionUUIDv7("axisrelay:prompt-cache:" + apiKey)
 	}
 	if account != nil {
 		if id := account.ID(); id > 0 {
-			return DeriveStableSessionUUIDv7(fmt.Sprintf("codex2api:prompt-cache:auth:%d", id))
+			return DeriveStableSessionUUIDv7(fmt.Sprintf("axisrelay:prompt-cache:auth:%d", id))
 		}
 	}
 	return ""

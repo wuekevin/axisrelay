@@ -147,7 +147,7 @@ func TestContinuousRetryPolicySelectQueryLocksPostgresRow(t *testing.T) {
 }
 
 func TestSQLiteContinuousRetryPolicyPersistsIndependently(t *testing.T) {
-	db, err := New("sqlite", filepath.Join(t.TempDir(), "continuous-retry.sqlite"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "continuous-retry.sqlite"))
 	if err != nil {
 		t.Fatalf("New sqlite: %v", err)
 	}
@@ -200,12 +200,12 @@ func TestSQLiteContinuousRetryPolicyPersistsIndependently(t *testing.T) {
 
 func TestSQLiteContinuousRetryPolicyConcurrentPartialUpdatesDoNotLoseFields(t *testing.T) {
 	dbPath := filepath.Join(t.TempDir(), "continuous-retry-concurrent.sqlite")
-	db1, err := New("sqlite", dbPath)
+	db1, err := newTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatalf("New sqlite db1: %v", err)
 	}
 	t.Cleanup(func() { _ = db1.Close() })
-	db2, err := New("sqlite", dbPath)
+	db2, err := newTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatalf("New sqlite db2: %v", err)
 	}

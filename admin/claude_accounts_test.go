@@ -3,8 +3,8 @@ package admin
 import (
 	"testing"
 
-	"github.com/codex2api/auth"
-	"github.com/codex2api/database"
+	"github.com/wuekevin/axisrelay/auth"
+	"github.com/wuekevin/axisrelay/database"
 )
 
 func TestValidateAccountModelsForClaude(t *testing.T) {

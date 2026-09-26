@@ -6,7 +6,7 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/codex2api/auth"
+	"github.com/wuekevin/axisrelay/auth"
 )
 
 // ==================== Codex 出口链路统一解析 ====================

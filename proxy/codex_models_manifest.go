@@ -15,9 +15,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/codex2api/api"
-	"github.com/codex2api/auth"
-	"github.com/codex2api/database"
+	"github.com/wuekevin/axisrelay/api"
+	"github.com/wuekevin/axisrelay/auth"
+	"github.com/wuekevin/axisrelay/database"
 	"github.com/gin-gonic/gin"
 )
 
@@ -357,8 +357,8 @@ func mergeCodexManifestModels(body []byte, extras []api.Model) ([]byte, error) {
 }
 
 func scopedCodexManifestETag(body []byte) string {
-	sum := sha256.Sum256(append([]byte("codex2api-scoped-manifest-v1\x00"), body...))
-	return `"codex2api-` + hex.EncodeToString(sum[:]) + `"`
+	sum := sha256.Sum256(append([]byte("axisrelay-scoped-manifest-v1\x00"), body...))
+	return `"axisrelay-` + hex.EncodeToString(sum[:]) + `"`
 }
 
 // manifestLearnKnown 缓存已确认在注册表里的模型 slug（小写），避免客户端每次

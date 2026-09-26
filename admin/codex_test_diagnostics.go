@@ -13,8 +13,8 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"github.com/codex2api/auth"
-	"github.com/codex2api/security/promptfilter"
+	"github.com/wuekevin/axisrelay/auth"
+	"github.com/wuekevin/axisrelay/security/promptfilter"
 	"github.com/tidwall/gjson"
 )
 

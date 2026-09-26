@@ -54,7 +54,7 @@
 - `proxy.StartClaudeCLIVersionSync(ctx, db, store, proxyResolver)` 在 `main.go` 中与 Codex 同步任务并列启动。
 - 启动时：无条件执行一次 `RefreshClaudeFingerprintVersions(EffectiveClaudeCLIVersion())`（不联网），随后若 `cli_version_sync_enabled` 则执行一次联网同步。
 - 之后按 `cli_version_sync_interval_hours` 循环，每轮重新读取开关与间隔，新间隔下一轮生效。
-- 环境变量 `CLAUDE_DISABLE_CLI_VERSION_SYNC=1|true|yes|on` 关闭启动与定时联网同步，不影响启动时的本地回写，也不影响管理端"立即同步"。
+- 环境变量 `AXISRELAY_CLAUDE_DISABLE_CLI_VERSION_SYNC=1|true|yes|on` 关闭启动与定时联网同步，不影响启动时的本地回写，也不影响管理端"立即同步"。
 
 ### 管理端接口
 

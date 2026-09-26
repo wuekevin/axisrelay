@@ -21,14 +21,13 @@ func TestRequestMemoryBudgetConfiguration(t *testing.T) {
 		{"invalid", "48", "wrong", 0, true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			t.Setenv("DATABASE_DRIVER", "sqlite")
-			t.Setenv("DATABASE_PATH", ":memory:")
-			t.Setenv("CACHE_DRIVER", "memory")
-			t.Setenv("CODEX_MAX_REQUEST_BODY_SIZE_MB", tc.maxBody)
-			t.Setenv("CODEX_REQUEST_MEMORY_BUDGET_MB", tc.budget)
+			setTestMySQLConfig(t)
+			t.Setenv("AXISRELAY_CACHE_DRIVER", "memory")
+			t.Setenv("AXISRELAY_MAX_REQUEST_BODY_SIZE_MB", tc.maxBody)
+			t.Setenv("AXISRELAY_REQUEST_MEMORY_BUDGET_MB", tc.budget)
 			cfg, err := Load("__not_exists__.env")
 			if tc.invalid {
-				if err == nil || !strings.Contains(err.Error(), "CODEX_REQUEST_MEMORY_BUDGET_MB") {
+				if err == nil || !strings.Contains(err.Error(), "AXISRELAY_REQUEST_MEMORY_BUDGET_MB") {
 					t.Fatalf("error=%v", err)
 				}
 				return

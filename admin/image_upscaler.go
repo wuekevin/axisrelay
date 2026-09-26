@@ -3,7 +3,7 @@ package admin
 import (
 	"context"
 
-	"github.com/codex2api/internal/imageupscale"
+	"github.com/wuekevin/axisrelay/internal/imageupscale"
 )
 
 // 超分实现已下沉到 internal/imageupscale,与公共 Images API 共享同一套

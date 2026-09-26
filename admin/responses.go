@@ -4,10 +4,10 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/codex2api/auth"
-	"github.com/codex2api/database"
-	"github.com/codex2api/proxy"
-	"github.com/codex2api/security"
+	"github.com/wuekevin/axisrelay/auth"
+	"github.com/wuekevin/axisrelay/database"
+	"github.com/wuekevin/axisrelay/proxy"
+	"github.com/wuekevin/axisrelay/security"
 	"github.com/gin-gonic/gin"
 )
 

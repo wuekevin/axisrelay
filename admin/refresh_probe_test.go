@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/codex2api/auth"
-	"github.com/codex2api/cache"
+	"github.com/wuekevin/axisrelay/auth"
+	"github.com/wuekevin/axisrelay/cache"
 )
 
 // TestRefreshAccountByIDTriggersUsageProbe 验证 issue #300：手动刷新账号后，

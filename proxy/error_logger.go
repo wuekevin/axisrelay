@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/codex2api/security"
+	"github.com/wuekevin/axisrelay/security"
 )
 
 // fileLogger 单个日志文件实例
@@ -47,7 +47,7 @@ func upstreamErrorLogBody(body []byte) string {
 }
 
 func errorLogDir() string {
-	if dir := strings.TrimSpace(os.Getenv("LOG_DIR")); dir != "" {
+	if dir := strings.TrimSpace(os.Getenv("AXISRELAY_LOG_DIR")); dir != "" {
 		return dir
 	}
 	return defaultLogDir

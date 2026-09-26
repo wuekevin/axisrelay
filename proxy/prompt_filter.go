@@ -6,9 +6,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/codex2api/api"
-	"github.com/codex2api/database"
-	"github.com/codex2api/security/promptfilter"
+	"github.com/wuekevin/axisrelay/api"
+	"github.com/wuekevin/axisrelay/database"
+	"github.com/wuekevin/axisrelay/security/promptfilter"
 	"github.com/gin-gonic/gin"
 	"github.com/tidwall/gjson"
 )
@@ -502,7 +502,7 @@ func (h *Handler) logUpstreamCyberPolicy(c *gin.Context, endpoint string, model 
 	}
 	incidentID, accepted := h.enqueueUpstreamCyberPolicyEvidence(c, endpoint, model, errorCode, body, attempt)
 	// NewAPI owns strike counting and account punishment. Emission intentionally
-	// does not depend on the local async audit queue: a temporary Codex2API audit
+	// does not depend on the local async audit queue: a temporary AxisRelay audit
 	// storage failure must not turn a verified upstream CYB into an untracked one.
 	metadata, delegated := h.emitNewAPIUpstreamCyberPolicyDecision(c, endpoint, model, body)
 	if delegated {

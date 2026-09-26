@@ -8,7 +8,7 @@ import (
 
 func TestTurnStateRenewalBudgetPersistsAndResetsOnlyForNewIssuance(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "renewal.db")
-	db, err := New("sqlite", path)
+	db, err := newTestDatabase(t, path)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -39,7 +39,7 @@ func TestTurnStateRenewalBudgetPersistsAndResetsOnlyForNewIssuance(t *testing.T)
 	if err := db.Close(); err != nil {
 		t.Fatal(err)
 	}
-	db, err = New("sqlite", path)
+	db, err = newTestDatabase(t, path)
 	if err != nil {
 		t.Fatal(err)
 	}

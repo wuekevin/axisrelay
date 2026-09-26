@@ -31,7 +31,7 @@ func TestNormalizeProxyRiskScoringProfileKeepsOperatorLimits(t *testing.T) {
 }
 
 func TestProxyRiskScoringProfilePersistenceDoesNotExposeSecrets(t *testing.T) {
-	db, err := New("sqlite", filepath.Join(t.TempDir(), "proxy-risk.sqlite"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "proxy-risk.sqlite"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -60,7 +60,7 @@ func TestProxyRiskScoringProfilePersistenceDoesNotExposeSecrets(t *testing.T) {
 }
 
 func TestProxyRiskScoreSnapshotRoundTripKeepsNullableScore(t *testing.T) {
-	db, err := New("sqlite", filepath.Join(t.TempDir(), "proxy-risk-snapshot.sqlite"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "proxy-risk-snapshot.sqlite"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -97,7 +97,7 @@ func TestProxyRiskScoreSnapshotRoundTripKeepsNullableScore(t *testing.T) {
 }
 
 func TestProxyRiskScoreSnapshotsConcurrentWritesAvoidSchemaLockChurn(t *testing.T) {
-	db, err := New("sqlite", filepath.Join(t.TempDir(), "proxy-risk-concurrent.sqlite"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "proxy-risk-concurrent.sqlite"))
 	if err != nil {
 		t.Fatal(err)
 	}

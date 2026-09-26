@@ -39,10 +39,10 @@ func GetAuditLogger() *AuditLogger {
 }
 
 func securityLogDir() string {
-	if dir := strings.TrimSpace(os.Getenv("SECURITY_LOG_DIR")); dir != "" {
+	if dir := strings.TrimSpace(os.Getenv("AXISRELAY_SECURITY_LOG_DIR")); dir != "" {
 		return dir
 	}
-	if dir := strings.TrimSpace(os.Getenv("LOG_DIR")); dir != "" {
+	if dir := strings.TrimSpace(os.Getenv("AXISRELAY_LOG_DIR")); dir != "" {
 		return filepath.Join(dir, "security")
 	}
 	return defaultAuditLogDir

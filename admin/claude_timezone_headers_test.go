@@ -3,7 +3,7 @@ package admin
 import (
 	"testing"
 
-	"github.com/codex2api/database"
+	"github.com/wuekevin/axisrelay/database"
 )
 
 // A Claude account whose stored identity headers use Go's canonical casing

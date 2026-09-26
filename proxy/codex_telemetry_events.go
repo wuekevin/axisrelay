@@ -48,7 +48,7 @@ func newCodexAnalyticsEvent(profile codexTelemetryProfile, eventType string, par
 func buildCodexTelemetryProfile(client codexTelemetryClient, input codexTelemetryRequest) codexTelemetryProfile {
 	metadata := codexTurnMetadata(input.body, input.headers)
 	convergedSession, convergedThread := ConvergedCodexSessionIdentity(client.account, input.headers)
-	// 不用 ResolveSessionID 的本地亲和键：它可能是下游 X-Codex2API-Affinity-Key 之类
+	// 不用 ResolveSessionID 的本地亲和键：它可能是下游 X-AxisRelay-Affinity-Key 之类
 	// 从不上行的私有标识；遥测里的 session_id 只能取真正发往上游的身份。
 	sessionID := firstNonEmptyString(convergedSession, gjson.GetBytes(input.body, "client_metadata.session_id").String(), metadata.Get("session_id").String(), input.sessionID)
 	threadID := firstNonEmptyString(convergedThread, gjson.GetBytes(input.body, "client_metadata.thread_id").String(), metadata.Get("thread_id").String(), sessionID)

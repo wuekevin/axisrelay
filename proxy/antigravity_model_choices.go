@@ -3,7 +3,7 @@ package proxy
 import (
 	"strings"
 
-	"github.com/codex2api/api"
+	"github.com/wuekevin/axisrelay/api"
 )
 
 // Group only the choices already admitted by account and key permissions.

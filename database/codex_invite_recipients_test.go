@@ -12,7 +12,7 @@ import (
 
 func newCodexInviteRecipientTestDB(t *testing.T) *DB {
 	t.Helper()
-	db, err := New("sqlite", filepath.Join(t.TempDir(), "invite-recipients.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "invite-recipients.db"))
 	if err != nil {
 		t.Fatalf("database.New: %v", err)
 	}
@@ -257,7 +257,7 @@ func TestUpsertCodexInviteRecipientsFromTracking(t *testing.T) {
 func TestCodexInviteRecipientLedgerSurvivesReopen(t *testing.T) {
 	ctx := context.Background()
 	path := filepath.Join(t.TempDir(), "durable-invite-recipients.db")
-	db, err := New("sqlite", path)
+	db, err := newTestDatabase(t, path)
 	if err != nil {
 		t.Fatalf("first database.New: %v", err)
 	}
@@ -271,7 +271,7 @@ func TestCodexInviteRecipientLedgerSurvivesReopen(t *testing.T) {
 		t.Fatalf("close first DB: %v", err)
 	}
 
-	reopened, err := New("sqlite", path)
+	reopened, err := newTestDatabase(t, path)
 	if err != nil {
 		t.Fatalf("reopen database.New: %v", err)
 	}

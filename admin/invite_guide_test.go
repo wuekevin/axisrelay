@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/codex2api/database"
-	"github.com/codex2api/proxy"
+	"github.com/wuekevin/axisrelay/database"
+	"github.com/wuekevin/axisrelay/proxy"
 )
 
 func intPtr(v int) *int { return &v }

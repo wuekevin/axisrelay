@@ -185,14 +185,24 @@ func (db *DB) AddPromptRuleCandidateEvidence(ctx context.Context, candidateID in
 		if exists == 0 {
 			return sql.ErrNoRows
 		}
-		result, execErr := tx.ExecContext(ctx, `
+		evidenceInsert := `
 			INSERT INTO prompt_rule_candidate_evidence (
 				candidate_id, source_kind, source_ref, source_ref_hash, sample_preview, metadata_json,
 				request_protocol, request_provider, model, api_key_id, api_key_name, prompt_policy_incident_id,
 				observed_at, created_at
 			) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,CURRENT_TIMESTAMP)
 			ON CONFLICT(candidate_id, source_kind, source_ref_hash) DO NOTHING
-		`, candidateID, evidence.SourceKind, evidence.SourceRef, evidence.SourceRefHash, evidence.SamplePreview,
+		`
+		if db.isMySQL() {
+			evidenceInsert = `
+				INSERT IGNORE INTO prompt_rule_candidate_evidence (
+					candidate_id, source_kind, source_ref, source_ref_hash, sample_preview, metadata_json,
+					request_protocol, request_provider, model, api_key_id, api_key_name, prompt_policy_incident_id,
+					observed_at, created_at
+				) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,CURRENT_TIMESTAMP)
+			`
+		}
+		result, execErr := tx.ExecContext(ctx, evidenceInsert, candidateID, evidence.SourceKind, evidence.SourceRef, evidence.SourceRefHash, evidence.SamplePreview,
 			evidence.MetadataJSON, evidence.Protocol, evidence.Provider, evidence.Model, evidence.APIKeyID,
 			evidence.APIKeyName, evidence.PromptPolicyIncidentID, evidence.ObservedAt)
 		if execErr != nil {
@@ -296,7 +306,11 @@ func (db *DB) CompareAndSwapPromptFilterAdvancedConfigWithEvidence(
 			return beginErr
 		}
 		defer tx.Rollback()
-		if _, insertErr := tx.ExecContext(ctx, `INSERT INTO system_settings (id, prompt_filter_advanced_config) VALUES (1, '{}') ON CONFLICT(id) DO NOTHING`); insertErr != nil {
+		settingsInsert := `INSERT INTO system_settings (id, prompt_filter_advanced_config) VALUES (1, '{}') ON CONFLICT(id) DO NOTHING`
+		if db.isMySQL() {
+			settingsInsert = `INSERT IGNORE INTO system_settings (id, prompt_filter_advanced_config) VALUES (1, '{}')`
+		}
+		if _, insertErr := tx.ExecContext(ctx, settingsInsert); insertErr != nil {
 			return insertErr
 		}
 		settingsQuery := `SELECT COALESCE(NULLIF(TRIM(prompt_filter_advanced_config), ''), '{}') FROM system_settings WHERE id=1`
@@ -324,14 +338,24 @@ func (db *DB) CompareAndSwapPromptFilterAdvancedConfigWithEvidence(
 		if affected == 0 {
 			return nil
 		}
-		result, execErr = tx.ExecContext(ctx, `
+		evidenceInsert := `
 			INSERT INTO prompt_rule_candidate_evidence (
 				candidate_id, source_kind, source_ref, source_ref_hash, sample_preview, metadata_json,
 				request_protocol, request_provider, model, api_key_id, api_key_name, prompt_policy_incident_id,
 				observed_at, created_at
 			) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,CURRENT_TIMESTAMP)
 			ON CONFLICT(candidate_id, source_kind, source_ref_hash) DO NOTHING
-		`, candidateID, evidence.SourceKind, evidence.SourceRef, evidence.SourceRefHash, evidence.SamplePreview,
+		`
+		if db.isMySQL() {
+			evidenceInsert = `
+				INSERT IGNORE INTO prompt_rule_candidate_evidence (
+					candidate_id, source_kind, source_ref, source_ref_hash, sample_preview, metadata_json,
+					request_protocol, request_provider, model, api_key_id, api_key_name, prompt_policy_incident_id,
+					observed_at, created_at
+				) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,CURRENT_TIMESTAMP)
+			`
+		}
+		result, execErr = tx.ExecContext(ctx, evidenceInsert, candidateID, evidence.SourceKind, evidence.SourceRef, evidence.SourceRefHash, evidence.SamplePreview,
 			evidence.MetadataJSON, evidence.Protocol, evidence.Provider, evidence.Model, evidence.APIKeyID,
 			evidence.APIKeyName, evidence.PromptPolicyIncidentID, evidence.ObservedAt)
 		if execErr != nil {

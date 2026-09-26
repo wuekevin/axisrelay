@@ -6,7 +6,7 @@
 
 **Architecture:** 版本同步逻辑镜像现有 `proxy/codex_cli_version_sync.go`：GitHub releases/latest 为主源、npm dist-tags 回退，同步值存 `system_settings.claude_synced_cli_version` 单列，运行时取"内置常量与同步值的较大者"。生效版本通过 `auth` 包级原子变量发布（`GenerateClaudeFingerprint` 是无 Store 的自由函数，包级访问器比 Store 方法更合适；这是对 spec "Store 访问器"措辞的实现细化，语义不变）。每次同步与服务启动时把生效版本回写到所有 Claude 账号的 `custom_headers.User-Agent` 版本段。`ExecuteClaudeMessagesRequestWithPolicy` 在指纹改写完成后再对最终出站 UA 做一次版本对齐。
 
-**Tech Stack:** Go 1.2x（gin、tidwall/gjson、modernc sqlite / pgx）、React + TypeScript（Vite、react-i18next、node:test 源码守卫测试）。
+**Tech Stack:** Go 1.2x（gin、tidwall/gjson、modernc sqlite / go-sql-driver/mysql）、React + TypeScript（Vite、react-i18next、node:test 源码守卫测试）。
 
 **Spec:** `docs/superpowers/specs/2026-09-02-claude-cli-version-sync-design.md`
 
@@ -14,7 +14,7 @@
 
 - 内置常量 `auth.BuiltinClaudeCLIVersion = "2.1.258"`；生效版本永不低于内置常量。
 - 版本源顺序固定：GitHub `https://api.github.com/repos/anthropics/claude-code/releases/latest` → npm `https://registry.npmjs.org/-/package/@anthropic-ai/claude-code/dist-tags`。
-- 环境变量硬开关 `CLAUDE_DISABLE_CLI_VERSION_SYNC=1|true|yes|on`。
+- 环境变量硬开关 `AXISRELAY_CLAUDE_DISABLE_CLI_VERSION_SYNC=1|true|yes|on`。
 - 同步间隔小时钳到 `[1, 720]`，缺失或 0 视为 12；`cli_version_sync_enabled` 缺失视为 true。
 - 指纹回写只改 UA 的版本号段；UA 缺失或不可识别为 CLI 的账号跳过。
 - 前端禁止手写 `<select>`，一律用 `components/ui/select.tsx` 的 `Select`。
@@ -856,7 +856,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/codex2api/auth"
+	"github.com/wuekevin/axisrelay/auth"
 )
 
 func withClaudeVersionSources(t *testing.T, github, npm string) {
@@ -980,8 +980,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/codex2api/auth"
-	"github.com/codex2api/database"
+	"github.com/wuekevin/axisrelay/auth"
+	"github.com/wuekevin/axisrelay/database"
 )
 
 const (
@@ -997,10 +997,10 @@ var (
 	claudeNpmDistTagsURLForTest    = ""
 )
 
-// ClaudeCLIVersionSyncDisabled 报告是否通过 CLAUDE_DISABLE_CLI_VERSION_SYNC 关闭了联网同步。
+// ClaudeCLIVersionSyncDisabled 报告是否通过 AXISRELAY_CLAUDE_DISABLE_CLI_VERSION_SYNC 关闭了联网同步。
 // 关闭后仍会在启动时用内置版本做一次本地指纹回写；管理端「立即同步」不受影响。
 func ClaudeCLIVersionSyncDisabled() bool {
-	switch strings.ToLower(strings.TrimSpace(os.Getenv("CLAUDE_DISABLE_CLI_VERSION_SYNC"))) {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("AXISRELAY_CLAUDE_DISABLE_CLI_VERSION_SYNC"))) {
 	case "1", "true", "yes", "on":
 		return true
 	}
@@ -1041,7 +1041,7 @@ func fetchClaudeJSON(ctx context.Context, endpoint string, transport http.RoundT
 		return err
 	}
 	req.Header.Set("Accept", "application/json")
-	req.Header.Set("User-Agent", "codex2api")
+	req.Header.Set("User-Agent", "axisrelay")
 	if github {
 		req.Header.Set("Accept", "application/vnd.github+json")
 		ApplyGithubAuth(req)
@@ -1466,7 +1466,7 @@ func newClaudeConfigTestDB(t *testing.T) *database.DB {
 }
 ```
 
-并 import `path/filepath` 与 `github.com/codex2api/database`。若 `Handler.db` 字段类型不是 `*database.DB`，按 `admin/handler.go` 中 `db` 字段的实际类型调整。
+并 import `path/filepath` 与 `github.com/wuekevin/axisrelay/database`。若 `Handler.db` 字段类型不是 `*database.DB`，按 `admin/handler.go` 中 `db` 字段的实际类型调整。
 
 - [ ] **Step 2: 运行确认失败**
 
@@ -1508,7 +1508,7 @@ Expected: FAIL，JSON 字段缺失。
 
 `cfg := auth.ClaudeConfig{...}` 增加 `CLIVersionSyncEnabled: boolPtr(syncEnabled), CLIVersionSyncIntervalHours: syncInterval,`；热更新段加 `h.store.SetClaudeCLIVersionSync(syncEnabled, syncInterval)`；响应 `gin.H` 增加 `"cli_version_sync_enabled": syncEnabled, "cli_version_sync_interval_hours": syncInterval`。
 
-新增 handler（同文件末尾，需 import `context`、`github.com/codex2api/proxy`）：
+新增 handler（同文件末尾，需 import `context`、`github.com/wuekevin/axisrelay/proxy`）：
 
 ```go
 // SyncClaudeCLIVersion 供设置页「立即同步」调用：拉取最新 Claude Code CLI 版本并回写账号指纹。
@@ -2128,12 +2128,12 @@ Expected: PASS。
 
 ```bash
 ssh fr-netcup-new bash <<'REMOTE'
-DB=/opt/ai-stack/apps/codex2api/data/codex2api.db
+DB=/opt/ai-stack/apps/axisrelay/data/axisrelay.db
 sqlite3 -readonly -header -column "$DB" "
 select id, name, json_extract(credentials,'$.custom_headers.User-Agent') as ua
 from accounts where lower(coalesce(json_extract(credentials,'$.upstream_type'),''))='claude' and status<>'deleted';"
 sqlite3 -readonly "$DB" "select claude_synced_cli_version from system_settings;"
-C=$(docker ps --format '{{.Names}}' | grep -i codex2api-v | head -1)
+C=$(docker ps --format '{{.Names}}' | grep -i axisrelay-v | head -1)
 docker logs --since 10m "$C" 2>&1 | grep claude-cli-version-sync
 REMOTE
 ```
@@ -2141,7 +2141,7 @@ REMOTE
 Expected：账号 250、251 的 UA 为 `claude-cli/2.1.258 (external, cli)`；日志出现"启动时已回写 2 个 Claude 账号指纹版本"。随后请用户用 Claude Code 2.1.258 请求一次 Fable 5.1，再查：
 
 ```bash
-ssh fr-netcup-new sqlite3 -readonly -header -column /opt/ai-stack/apps/codex2api/data/codex2api.db "
+ssh fr-netcup-new sqlite3 -readonly -header -column /opt/ai-stack/apps/axisrelay/data/axisrelay.db "
 select created_at, account_id, model, status_code, upstream_user_agent from usage_logs
 where model like 'claude-fable%' and created_at >= datetime('now','-30 minutes') order by created_at desc limit 5;"
 ```

@@ -124,22 +124,31 @@ func (f QualityTestFilter) where() (string, []any) {
 
 func (db *DB) ensureQualityTestSchema(ctx context.Context) error {
 	idType, timeType := "BIGSERIAL PRIMARY KEY", "TIMESTAMPTZ"
-	if db.isSQLite() {
+	if db.isMySQL() {
+		idType, timeType = "BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY", "TIMESTAMP"
+	} else if db.isSQLite() {
 		idType, timeType = "INTEGER PRIMARY KEY AUTOINCREMENT", "TIMESTAMP"
+	}
+	accountNameType, textDefaultType := "TEXT", "TEXT"
+	if db.isMySQL() {
+		accountNameType, textDefaultType = "VARCHAR(255)", "VARCHAR(255)"
 	}
 	statements := []string{
 		fmt.Sprintf(`CREATE TABLE IF NOT EXISTS quality_test_jobs (
 		 id %s, slot INTEGER UNIQUE CHECK(slot BETWEEN 1 AND 3),
-		 account_id BIGINT NOT NULL, account_name TEXT NOT NULL, plan_type TEXT NOT NULL,
-		 channel TEXT NOT NULL, model TEXT NOT NULL, reasoning_effort TEXT NOT NULL,
-		 prompt TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'running', output TEXT NOT NULL DEFAULT '',
-		 preset_kind TEXT NOT NULL DEFAULT '', preset_ref TEXT NOT NULL DEFAULT '', preset_name TEXT NOT NULL DEFAULT '',
-		 metrics_json TEXT NOT NULL DEFAULT '{}', error TEXT NOT NULL DEFAULT '',
+		 account_id BIGINT NOT NULL, account_name %s NOT NULL, plan_type %s NOT NULL,
+		 channel %s NOT NULL, model %s NOT NULL, reasoning_effort %s NOT NULL,
+		 prompt TEXT NOT NULL, status %s NOT NULL DEFAULT 'running', output TEXT NOT NULL,
+		 preset_kind %s NOT NULL DEFAULT '', preset_ref %s NOT NULL DEFAULT '', preset_name %s NOT NULL DEFAULT '',
+		 metrics_json TEXT NOT NULL, error TEXT NOT NULL,
 		 created_at %s NOT NULL, updated_at %s NOT NULL, deadline_at %s NOT NULL, completed_at %s,
 		 CHECK ((slot IS NOT NULL AND status IN ('running','cancelling')) OR (slot IS NULL AND status IN ('completed','error','stopped','interrupted')))
-		)`, idType, timeType, timeType, timeType, timeType),
+		)`, idType, accountNameType, textDefaultType, textDefaultType, textDefaultType, textDefaultType, textDefaultType, textDefaultType, textDefaultType, textDefaultType, timeType, timeType, timeType, timeType),
 		`CREATE UNIQUE INDEX IF NOT EXISTS idx_quality_test_active_account ON quality_test_jobs(account_id) WHERE slot IS NOT NULL`,
 		`CREATE INDEX IF NOT EXISTS idx_quality_test_created ON quality_test_jobs(id DESC)`,
+	}
+	if db.isMySQL() {
+		statements = []string{statements[0]}
 	}
 	for _, statement := range statements {
 		if _, err := db.conn.ExecContext(ctx, statement); err != nil {
@@ -148,6 +157,18 @@ func (db *DB) ensureQualityTestSchema(ctx context.Context) error {
 	}
 	// Tables created before preset tracking gain the provenance columns in place.
 	for _, column := range []string{"preset_kind", "preset_ref", "preset_name"} {
+		if db.isMySQL() {
+			var exists int
+			if err := db.conn.QueryRowContext(ctx, `SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='quality_test_jobs' AND COLUMN_NAME=$1`, column).Scan(&exists); err != nil {
+				return err
+			}
+			if exists == 0 {
+				if _, err := db.conn.ExecContext(ctx, `ALTER TABLE quality_test_jobs ADD COLUMN `+column+` VARCHAR(255) NOT NULL DEFAULT ''`); err != nil {
+					return err
+				}
+			}
+			continue
+		}
 		if db.isSQLite() {
 			if err := db.ensureSQLiteColumn(ctx, "quality_test_jobs", column, "TEXT NOT NULL DEFAULT ''"); err != nil {
 				return err
@@ -169,6 +190,10 @@ func (db *DB) CreateQualityTestJob(ctx context.Context, job QualityTestJob) (*Qu
 	}
 	query := `INSERT INTO quality_test_jobs(slot,account_id,account_name,plan_type,channel,model,reasoning_effort,prompt,created_at,updated_at,deadline_at,preset_kind,preset_ref,preset_name)
 	 VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$9,$10,$11,$12,$13) ON CONFLICT DO NOTHING`
+	if db.isMySQL() {
+		query = `INSERT IGNORE INTO quality_test_jobs(slot,account_id,account_name,plan_type,channel,model,reasoning_effort,prompt,created_at,updated_at,deadline_at,preset_kind,preset_ref,preset_name)
+		 VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$9,$10,$11,$12,$13)`
+	}
 	now := time.Now().UTC()
 	for slot := 1; slot <= QualityTestConcurrency; slot++ {
 		var id int64
@@ -202,7 +227,7 @@ func (db *DB) ExpireQualityTests(ctx context.Context, now time.Time) error {
 	return err
 }
 
-const qualityTestColumns = `id,account_id,account_name,plan_type,channel,model,reasoning_effort,status,metrics_json,error,created_at,updated_at,completed_at,deadline_at,preset_kind,preset_ref,preset_name`
+const qualityTestColumns = `id,account_id,account_name,plan_type,channel,model,reasoning_effort,status,COALESCE(metrics_json,'{}'),COALESCE(error,''),created_at,updated_at,completed_at,deadline_at,preset_kind,preset_ref,preset_name`
 
 func scanQualityTestJob(scanner interface{ Scan(...any) error }, detail bool) (*QualityTestJob, error) {
 	var job QualityTestJob
@@ -242,7 +267,7 @@ func scanQualityTestJob(scanner interface{ Scan(...any) error }, detail bool) (*
 }
 
 func (db *DB) GetQualityTestJob(ctx context.Context, id int64) (*QualityTestJob, error) {
-	return scanQualityTestJob(db.conn.QueryRowContext(ctx, `SELECT `+qualityTestColumns+`,prompt,output FROM quality_test_jobs WHERE id=$1`, id), true)
+	return scanQualityTestJob(db.conn.QueryRowContext(ctx, `SELECT `+qualityTestColumns+`,COALESCE(prompt,''),COALESCE(output,'') FROM quality_test_jobs WHERE id=$1`, id), true)
 }
 
 func (db *DB) ListQualityTests(ctx context.Context, page, pageSize int, filter QualityTestFilter) (*QualityTestPage, error) {

@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/codex2api/auth"
+	"github.com/wuekevin/axisrelay/auth"
 )
 
 // 2026-09-06 真实抓包裁剪：稠密行、目录里未用的模型 credits=0、speed 可能为空、

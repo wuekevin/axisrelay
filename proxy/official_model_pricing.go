@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/codex2api/database"
+	"github.com/wuekevin/axisrelay/database"
 	"golang.org/x/net/html"
 )
 
@@ -186,7 +186,7 @@ func fetchOfficialPricingMarkdown(ctx context.Context, client *http.Client, sour
 	// xAI's .md endpoint currently returns 404 when a custom Accept header is
 	// present, while the same URL without content negotiation returns Markdown.
 	// The .md suffix is sufficient for both official providers.
-	req.Header.Set("User-Agent", "codex2api-official-pricing-sync")
+	req.Header.Set("User-Agent", "axisrelay-official-pricing-sync")
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err

@@ -112,7 +112,7 @@ func TestDrainBackgroundTasksWaitsForCanceledTaskExit(t *testing.T) {
 
 func TestSQLiteCloseDrainsAsyncAccountEvents(t *testing.T) {
 	dbPath := filepath.Join(t.TempDir(), "background-events.sqlite")
-	db, err := New("sqlite", dbPath)
+	db, err := newTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatalf("New(sqlite): %v", err)
 	}
@@ -131,7 +131,7 @@ func TestSQLiteCloseDrainsAsyncAccountEvents(t *testing.T) {
 		t.Fatalf("Close: %v", err)
 	}
 
-	db, err = New("sqlite", dbPath)
+	db, err = newTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatalf("reopen New(sqlite): %v", err)
 	}

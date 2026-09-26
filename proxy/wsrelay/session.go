@@ -30,7 +30,7 @@ const (
 	// 活跃流业务帧静默上限：存活复核证明传输层活着,但证明不了上游还在处理
 	// 本请求;单轮响应两个业务帧之间的静默超过该值即按超时收尾,防止 worker
 	// 卡死但心跳仍通的连接把请求与租约无限钉死。
-	// env CODEX_WS_MAX_TURN_SILENCE 可调("0" 关闭)。
+	// env AXISRELAY_WS_MAX_TURN_SILENCE 可调("0" 关闭)。
 	ActiveReadMaxTurnSilence = 15 * time.Minute
 
 	// 写超时：30 秒

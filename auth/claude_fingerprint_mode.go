@@ -22,7 +22,7 @@ const ClaudeFingerprintModeCredentialKey = "claude_fingerprint_mode"
 
 // ClaudeSecurityConfig 是 ClaudeCode 出站请求的安全边界。
 // 布尔字段默认 false（默认过滤敏感字段）；数值字段为 0 时表示不设置
-// Codex2API 应用层上限，仍受请求体、整数和 Anthropic 上游能力约束。
+// AxisRelay 应用层上限，仍受请求体、整数和 Anthropic 上游能力约束。
 // AllowedBetaHeaders 只允许额外的 Beta token，OAuth 必需 token 由 proxy 始终注入。
 type ClaudeSecurityConfig struct {
 	AllowServiceTier      bool     `json:"allow_service_tier"`

@@ -3,7 +3,7 @@ package wsrelay
 import (
 	"time"
 
-	"github.com/codex2api/proxy"
+	"github.com/wuekevin/axisrelay/proxy"
 )
 
 const (

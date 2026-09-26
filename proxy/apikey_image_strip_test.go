@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/codex2api/database"
+	"github.com/wuekevin/axisrelay/database"
 	"github.com/tidwall/gjson"
 )
 

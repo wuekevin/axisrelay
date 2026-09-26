@@ -1,6 +1,6 @@
 # Codex Agent Identity 导入接口文档
 
-向 codex2api 网关导入 Codex **Agent Identity** 账号。这类账号**不保存** OAuth
+向 axisrelay 网关导入 Codex **Agent Identity** 账号。这类账号**不保存** OAuth
 access/refresh token,只保存 Ed25519 私钥 + `agent_runtime_id`,由网关对每一次上游请求
 动态签名(`Authorization: AgentAssertion <签名信封>`)。
 

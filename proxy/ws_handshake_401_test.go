@@ -14,8 +14,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/tidwall/gjson"
 
-	"github.com/codex2api/auth"
-	"github.com/codex2api/database"
+	"github.com/wuekevin/axisrelay/auth"
+	"github.com/wuekevin/axisrelay/database"
 )
 
 // WS 上游握手 401 经 wsrelay 还原成真实状态码响应后，Responses 主链路必须
@@ -44,8 +44,8 @@ func TestResponsesWebsocketHandshake401CoolsAccountAndLogs401(t *testing.T) {
 		}, nil
 	}
 
-	dbPath := filepath.Join(t.TempDir(), "codex2api.db")
-	db, err := database.New("sqlite", dbPath)
+	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
+	db, err := newTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatalf("database.New: %v", err)
 	}

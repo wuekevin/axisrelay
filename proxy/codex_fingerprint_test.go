@@ -12,7 +12,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/tidwall/gjson"
 
-	"github.com/codex2api/auth"
+	"github.com/wuekevin/axisrelay/auth"
 )
 
 func fingerprintAccount(t *testing.T, mode string) *auth.Account {
@@ -777,8 +777,8 @@ func TestCodexFingerprintLeavesNoOriginalIdentifierOutbound(t *testing.T) {
 	const (
 		clientSessionUUID = "01a00e75-8856-7542-89bf-35812620690f"
 		clientInstallUUID = "341596ee-ab98-43f8-82e2-08ecdfb56db4"
-		workspacePath     = "/Users/kyx/code_project/codex2api"
-		remoteURL         = "https://github.com/james-6-23/codex2api.git"
+		workspacePath     = "/Users/kyx/code_project/axisrelay"
+		remoteURL         = "https://github.com/wuekevin/axisrelay.git"
 		commitHash        = "3cd12a685fe3ea23b84a9097fd4563927857ea21"
 	)
 	rawMetadata := `{"installation_id":"` + clientInstallUUID + `","session_id":"` + clientSessionUUID +
@@ -831,8 +831,8 @@ func TestApplyCodexRequestHeadersConvergesForwardedClientRequestID(t *testing.T)
 	const (
 		clientUUID    = "01a00e75-8856-7542-89bf-35812620690f"
 		installUUID   = "341596ee-ab98-43f8-82e2-08ecdfb56db4"
-		workspacePath = "/Users/kyx/code_project/codex2api"
-		remoteURL     = "https://github.com/james-6-23/codex2api.git"
+		workspacePath = "/Users/kyx/code_project/axisrelay"
+		remoteURL     = "https://github.com/wuekevin/axisrelay.git"
 	)
 	rawMetadata := `{"installation_id":"` + installUUID + `","session_id":"` + clientUUID +
 		`","thread_id":"` + clientUUID + `","window_id":"` + clientUUID +
@@ -859,7 +859,7 @@ func TestApplyCodexRequestHeadersConvergesForwardedClientRequestID(t *testing.T)
 		t.Fatalf("X-Client-Request-Id = %q, want converged thread id %q", got, ids.threadID)
 	}
 	// 出站会话键仍归 resolveUpstreamSessionID 管，收敛默认不得介入
-	// （对齐需显式开 CODEX_SESSION_HEADER_ALIGN_CONVERGED）。头名改成真实形态，
+	// （对齐需显式开 AXISRELAY_SESSION_HEADER_ALIGN_CONVERGED）。头名改成真实形态，
 	// 但取值语义不变。
 	if got := req.Header.Get("Session-Id"); got != "upstream-cache-key" {
 		t.Fatalf("Session-Id = %q, want the cache key untouched", got)

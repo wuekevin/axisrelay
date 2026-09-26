@@ -12,9 +12,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/codex2api/auth"
-	"github.com/codex2api/proxy"
-	"github.com/codex2api/security"
+	"github.com/wuekevin/axisrelay/auth"
+	"github.com/wuekevin/axisrelay/proxy"
+	"github.com/wuekevin/axisrelay/security"
 	"github.com/gin-gonic/gin"
 	"github.com/tidwall/gjson"
 )

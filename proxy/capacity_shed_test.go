@@ -87,7 +87,7 @@ func TestClassifyResponseFailedOutcomeCapacityShed(t *testing.T) {
 	}
 
 	// 逃生阀:整体退回旧行为。
-	t.Setenv("CODEX_DISABLE_CAPACITY_SHED_HANDLING", "1")
+	t.Setenv("AXISRELAY_DISABLE_CAPACITY_SHED_HANDLING", "1")
 	if classifyResponseFailedOutcome(shed).capacityShed {
 		t.Fatalf("capacityShed = true when disabled by env, want false")
 	}

@@ -48,6 +48,10 @@ func (db *DB) ensureOfficialPricingSyncConfig(ctx context.Context) error {
 	if officialPricingConfigReady[db] {
 		return nil
 	}
+	if db.isMySQL() {
+		officialPricingConfigReady[db] = true
+		return nil
+	}
 	if _, err := db.conn.ExecContext(ctx, `CREATE TABLE IF NOT EXISTS official_pricing_sync_config (
 		singleton_id INTEGER PRIMARY KEY CHECK (singleton_id = 1),
 		enabled BOOLEAN NOT NULL DEFAULT FALSE,

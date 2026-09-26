@@ -8,8 +8,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/codex2api/auth"
-	"github.com/codex2api/database"
+	"github.com/wuekevin/axisrelay/auth"
+	"github.com/wuekevin/axisrelay/database"
 )
 
 const (
@@ -36,7 +36,7 @@ const (
 	//   isolated   —— 无显式会话的请求默认按"每请求"隔离上游身份（默认）；
 	//   per-api-key —— 无显式会话的请求按下游 API Key 共享上游身份（恢复 v2 旧行为，
 	//                  保留隐式 prompt cache 命中）。
-	// 用环境变量 CODEX_REQUEST_ISOLATION_MODE 覆盖默认值。
+	// 用环境变量 AXISRELAY_REQUEST_ISOLATION_MODE 覆盖默认值。
 	RequestIsolationModeIsolated  = "isolated"
 	RequestIsolationModePerAPIKey = "per-api-key"
 
@@ -154,7 +154,7 @@ type RuntimeSettings struct {
 	AutoResetCreditsBeforeExpiryMin int
 	// AutoActivate5hWindowEnabled 控制 5h 窗口重置后是否发送一次最小真实 /responses 启动下一轮窗口（默认 false，issue #581）。
 	AutoActivate5hWindowEnabled bool
-	// UTLSShutdownTimeoutMin 是 uTLS（CODEX_TRANSPORT_MODE=utls_chrome）连接被摘出
+	// UTLSShutdownTimeoutMin 是 uTLS（AXISRELAY_TRANSPORT_MODE=utls_chrome）连接被摘出
 	// 连接池后，等待其上在途 stream 收尾的上限（分钟，默认 30，范围 1-240）。
 	// 超时则强制关闭，保证异常挂死的 stream 不会把连接永久留住（issue #446）。
 	UTLSShutdownTimeoutMin int
@@ -217,10 +217,10 @@ func DefaultRuntimeSettings() RuntimeSettings {
 }
 
 // defaultRequestIsolationMode 从环境变量解析默认隔离模式；缺省为按每请求隔离。
-// CODEX_REQUEST_ISOLATION_MODE=per-api-key（或 per_api_key / shared / cache）可切回旧的
+// AXISRELAY_REQUEST_ISOLATION_MODE=per-api-key（或 per_api_key / shared / cache）可切回旧的
 // 按 API Key 共享缓存行为，作为依赖隐式缓存命中的部署的逃生阀。
 func defaultRequestIsolationMode() string {
-	return NormalizeRequestIsolationMode(os.Getenv("CODEX_REQUEST_ISOLATION_MODE"))
+	return NormalizeRequestIsolationMode(os.Getenv("AXISRELAY_REQUEST_ISOLATION_MODE"))
 }
 
 // NormalizeRequestIsolationMode 归一化隔离模式，空/未知值回落到 isolated。

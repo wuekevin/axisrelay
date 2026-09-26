@@ -9,13 +9,13 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/codex2api/database"
+	"github.com/wuekevin/axisrelay/database"
 	"github.com/gin-gonic/gin"
 )
 
 func newPromptRetentionTestHandler(t *testing.T) *Handler {
 	t.Helper()
-	db, err := database.New("sqlite", filepath.Join(t.TempDir(), "retention.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "retention.db"))
 	if err != nil {
 		t.Fatalf("New(sqlite): %v", err)
 	}

@@ -309,7 +309,7 @@ func (db *DB) StagePromptRuleCandidate(ctx context.Context, rawCandidate PromptR
 		}
 		defer tx.Rollback()
 		var evidenceID int64
-		candidateID, evidenceID, evidenceAdded, err = stagePromptRuleCandidateTx(ctx, tx, candidate, evidence)
+		candidateID, evidenceID, evidenceAdded, err = db.stagePromptRuleCandidateTx(ctx, tx, candidate, evidence)
 		_ = evidenceID
 		if err != nil {
 			return err
@@ -323,28 +323,42 @@ func (db *DB) StagePromptRuleCandidate(ctx context.Context, rawCandidate PromptR
 	return item, evidenceAdded, err
 }
 
-func stagePromptRuleCandidateTx(ctx context.Context, tx *sql.Tx, candidate PromptRuleCandidateInput, evidence PromptRuleCandidateEvidenceInput) (candidateID int64, evidenceID int64, evidenceAdded bool, err error) {
-	if _, err = tx.ExecContext(ctx, `
+func (db *DB) stagePromptRuleCandidateTx(ctx context.Context, tx *sql.Tx, candidate PromptRuleCandidateInput, evidence PromptRuleCandidateEvidenceInput) (candidateID int64, evidenceID int64, evidenceAdded bool, err error) {
+	candidateInsert := `
 		INSERT INTO prompt_rule_candidates (
 			fingerprint, kind, status, last_source, name, category, rule_json, rationale, source_url,
 			evidence_count, sample_preview, created_at, updated_at, last_seen_at
 		) VALUES ($1, $2, 'pending', $3, $4, $5, $6, $7, $8, 0, $9, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, $10)
-		ON CONFLICT(fingerprint) DO NOTHING
-	`, candidate.Fingerprint, candidate.Kind, candidate.Source, candidate.Name, candidate.Category, candidate.RuleJSON,
-		candidate.Rationale, candidate.SourceURL, candidate.SamplePreview, evidence.ObservedAt); err != nil {
+		ON CONFLICT(fingerprint) DO NOTHING`
+	if db.isMySQL() {
+		candidateInsert = `
+			INSERT IGNORE INTO prompt_rule_candidates (
+				fingerprint, kind, status, last_source, name, category, rule_json, rationale, source_url,
+				evidence_count, sample_preview, created_at, updated_at, last_seen_at
+			) VALUES ($1, $2, 'pending', $3, $4, $5, $6, $7, $8, 0, $9, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, $10)`
+	}
+	if _, err = tx.ExecContext(ctx, candidateInsert, candidate.Fingerprint, candidate.Kind, candidate.Source, candidate.Name, candidate.Category, candidate.RuleJSON,
+		candidate.Rationale, candidate.SourceURL, candidate.SamplePreview, db.timeArg(evidence.ObservedAt)); err != nil {
 		return 0, 0, false, err
 	}
 	if err = tx.QueryRowContext(ctx, `SELECT id FROM prompt_rule_candidates WHERE fingerprint=$1`, candidate.Fingerprint).Scan(&candidateID); err != nil {
 		return 0, 0, false, err
 	}
-	result, err := tx.ExecContext(ctx, `
+	evidenceInsert := `
 		INSERT INTO prompt_rule_candidate_evidence (
 			candidate_id, source_kind, source_ref, source_ref_hash, sample_preview, metadata_json,
 			request_protocol, request_provider, model, api_key_id, api_key_name, prompt_policy_incident_id, observed_at, created_at
 		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, CURRENT_TIMESTAMP)
-		ON CONFLICT(candidate_id, source_kind, source_ref_hash) DO NOTHING
-	`, candidateID, evidence.SourceKind, evidence.SourceRef, evidence.SourceRefHash, evidence.SamplePreview, evidence.MetadataJSON,
-		evidence.Protocol, evidence.Provider, evidence.Model, evidence.APIKeyID, evidence.APIKeyName, evidence.PromptPolicyIncidentID, evidence.ObservedAt)
+		ON CONFLICT(candidate_id, source_kind, source_ref_hash) DO NOTHING`
+	if db.isMySQL() {
+		evidenceInsert = `
+			INSERT IGNORE INTO prompt_rule_candidate_evidence (
+				candidate_id, source_kind, source_ref, source_ref_hash, sample_preview, metadata_json,
+				request_protocol, request_provider, model, api_key_id, api_key_name, prompt_policy_incident_id, observed_at, created_at
+			) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, CURRENT_TIMESTAMP)`
+	}
+	result, err := tx.ExecContext(ctx, evidenceInsert, candidateID, evidence.SourceKind, evidence.SourceRef, evidence.SourceRefHash, evidence.SamplePreview, evidence.MetadataJSON,
+		evidence.Protocol, evidence.Provider, evidence.Model, evidence.APIKeyID, evidence.APIKeyName, evidence.PromptPolicyIncidentID, db.timeArg(evidence.ObservedAt))
 	if err != nil {
 		return 0, 0, false, err
 	}
@@ -544,94 +558,100 @@ func (db *DB) PublishPromptRuleCandidate(
 	}
 	var publishedCandidate *PromptRuleCandidate
 	var publishedPatternsJSON string
-	err := db.withSQLiteWriteLock(ctx, func() error {
-		tx, err := db.conn.BeginTx(ctx, nil)
-		if err != nil {
-			return err
-		}
-		defer tx.Rollback()
-		// Every publish transaction locks the single runtime settings row before
-		// any candidate row. This consistent order prevents two same-name
-		// revisions from deadlocking while superseding one another on PostgreSQL.
-		if _, err := tx.ExecContext(ctx, `INSERT INTO system_settings (id, prompt_filter_custom_patterns) VALUES (1, '[]') ON CONFLICT(id) DO NOTHING`); err != nil {
-			return err
-		}
-		settingsQuery := `SELECT COALESCE(prompt_filter_custom_patterns, '[]') FROM system_settings WHERE id=1`
-		if !db.isSQLite() {
-			settingsQuery += ` FOR UPDATE`
-		}
-		var currentPatternsJSON string
-		if err := tx.QueryRowContext(ctx, settingsQuery).Scan(&currentPatternsJSON); err != nil {
-			return err
-		}
-		query := `SELECT kind, status, name, rule_json FROM prompt_rule_candidates WHERE id=$1`
-		if !db.isSQLite() {
-			query += ` FOR UPDATE`
-		}
-		var kind, status, storedName, storedRuleJSON string
-		if err := tx.QueryRowContext(ctx, query, id).Scan(&kind, &status, &storedName, &storedRuleJSON); err != nil {
-			return err
-		}
-		if kind != PromptRuleCandidateKindPattern {
-			return errors.New("only pattern candidates can be published")
-		}
-		if status == PromptRuleCandidateStatusDismissed || status == PromptRuleCandidateStatusSuperseded {
-			return fmt.Errorf("%w: candidate status %q cannot be published", ErrPromptRuleCandidateConflict, status)
-		}
-		if strings.TrimSpace(storedRuleJSON) != expectedRuleJSON || !strings.EqualFold(strings.TrimSpace(storedName), candidateName) {
-			return fmt.Errorf("%w: candidate changed during review; reload before publishing", ErrPromptRuleCandidateConflict)
-		}
-		if status == PromptRuleCandidateStatusPublished {
-			matches, matchErr := promptRuleSetContainsEquivalent(currentPatternsJSON, candidateName, newRuleJSON)
-			if matchErr != nil {
-				return matchErr
+	err := db.withMySQLTransactionRetry(ctx, func() error {
+		return db.withSQLiteWriteLock(ctx, func() error {
+			tx, err := db.conn.BeginTx(ctx, nil)
+			if err != nil {
+				return err
 			}
-			if !matches {
-				return fmt.Errorf("%w: published candidate no longer matches the runtime rule", ErrPromptRuleCandidateConflict)
+			defer tx.Rollback()
+			// Every publish transaction locks the single runtime settings row before
+			// any candidate row. This consistent order prevents two same-name
+			// revisions from deadlocking while superseding one another on PostgreSQL.
+			settingsInsert := `INSERT INTO system_settings (id, prompt_filter_custom_patterns) VALUES (1, '[]') ON CONFLICT(id) DO NOTHING`
+			if db.isMySQL() {
+				settingsInsert = `INSERT IGNORE INTO system_settings (id, prompt_filter_custom_patterns) VALUES (1, '[]')`
 			}
-			publishedPatternsJSON = currentPatternsJSON
+			if _, err := tx.ExecContext(ctx, settingsInsert); err != nil {
+				return err
+			}
+			settingsQuery := `SELECT COALESCE(prompt_filter_custom_patterns, '[]') FROM system_settings WHERE id=1`
+			if !db.isSQLite() {
+				settingsQuery += ` FOR UPDATE`
+			}
+			var currentPatternsJSON string
+			if err := tx.QueryRowContext(ctx, settingsQuery).Scan(&currentPatternsJSON); err != nil {
+				return err
+			}
+			query := `SELECT kind, status, name, rule_json FROM prompt_rule_candidates WHERE id=$1`
+			if !db.isSQLite() {
+				query += ` FOR UPDATE`
+			}
+			var kind, status, storedName, storedRuleJSON string
+			if err := tx.QueryRowContext(ctx, query, id).Scan(&kind, &status, &storedName, &storedRuleJSON); err != nil {
+				return err
+			}
+			if kind != PromptRuleCandidateKindPattern {
+				return errors.New("only pattern candidates can be published")
+			}
+			if status == PromptRuleCandidateStatusDismissed || status == PromptRuleCandidateStatusSuperseded {
+				return fmt.Errorf("%w: candidate status %q cannot be published", ErrPromptRuleCandidateConflict, status)
+			}
+			if !semanticJSONEqual([]byte(storedRuleJSON), []byte(expectedRuleJSON)) || !strings.EqualFold(strings.TrimSpace(storedName), candidateName) {
+				return fmt.Errorf("%w: candidate changed during review; reload before publishing", ErrPromptRuleCandidateConflict)
+			}
+			if status == PromptRuleCandidateStatusPublished {
+				matches, matchErr := promptRuleSetContainsEquivalent(currentPatternsJSON, candidateName, newRuleJSON)
+				if matchErr != nil {
+					return matchErr
+				}
+				if !matches {
+					return fmt.Errorf("%w: published candidate no longer matches the runtime rule", ErrPromptRuleCandidateConflict)
+				}
+				publishedPatternsJSON = currentPatternsJSON
+				if validateMerged != nil {
+					if err := validateMerged(publishedPatternsJSON); err != nil {
+						return err
+					}
+				}
+				publishedCandidate, err = scanPromptRuleCandidate(tx.QueryRowContext(ctx, promptRuleCandidateSelect+` WHERE id=$1`, id))
+				if err != nil {
+					return err
+				}
+				return tx.Commit()
+			}
+			publishedPatternsJSON, err = mergePromptRuleCandidateJSON(currentPatternsJSON, candidateName, expectedCurrentRuleJSON, newRuleJSON)
+			if err != nil {
+				return err
+			}
 			if validateMerged != nil {
 				if err := validateMerged(publishedPatternsJSON); err != nil {
 					return err
 				}
+			}
+			if _, err := tx.ExecContext(ctx, `UPDATE system_settings SET prompt_filter_custom_patterns=$1 WHERE id=1`, publishedPatternsJSON); err != nil {
+				return err
+			}
+			if candidateName != "" {
+				if _, err := tx.ExecContext(ctx, `
+				UPDATE prompt_rule_candidates SET status='superseded', updated_at=CURRENT_TIMESTAMP
+				WHERE id<>$1 AND kind='pattern' AND LOWER(name)=LOWER($2)
+				  AND (status='published' OR (status='pending' AND id<$1))
+			`, id, candidateName); err != nil {
+					return err
+				}
+			}
+			if _, err := tx.ExecContext(ctx, `
+			UPDATE prompt_rule_candidates SET status='published', published_at=COALESCE(published_at, CURRENT_TIMESTAMP), dismissed_at=NULL, updated_at=CURRENT_TIMESTAMP WHERE id=$1
+		`, id); err != nil {
+				return err
 			}
 			publishedCandidate, err = scanPromptRuleCandidate(tx.QueryRowContext(ctx, promptRuleCandidateSelect+` WHERE id=$1`, id))
 			if err != nil {
 				return err
 			}
 			return tx.Commit()
-		}
-		publishedPatternsJSON, err = mergePromptRuleCandidateJSON(currentPatternsJSON, candidateName, expectedCurrentRuleJSON, newRuleJSON)
-		if err != nil {
-			return err
-		}
-		if validateMerged != nil {
-			if err := validateMerged(publishedPatternsJSON); err != nil {
-				return err
-			}
-		}
-		if _, err := tx.ExecContext(ctx, `UPDATE system_settings SET prompt_filter_custom_patterns=$1 WHERE id=1`, publishedPatternsJSON); err != nil {
-			return err
-		}
-		if candidateName != "" {
-			if _, err := tx.ExecContext(ctx, `
-				UPDATE prompt_rule_candidates SET status='superseded', updated_at=CURRENT_TIMESTAMP
-				WHERE id<>$1 AND kind='pattern' AND LOWER(name)=LOWER($2)
-				  AND (status='published' OR (status='pending' AND id<$1))
-			`, id, candidateName); err != nil {
-				return err
-			}
-		}
-		if _, err := tx.ExecContext(ctx, `
-			UPDATE prompt_rule_candidates SET status='published', published_at=COALESCE(published_at, CURRENT_TIMESTAMP), dismissed_at=NULL, updated_at=CURRENT_TIMESTAMP WHERE id=$1
-		`, id); err != nil {
-			return err
-		}
-		publishedCandidate, err = scanPromptRuleCandidate(tx.QueryRowContext(ctx, promptRuleCandidateSelect+` WHERE id=$1`, id))
-		if err != nil {
-			return err
-		}
-		return tx.Commit()
+		})
 	})
 	return publishedCandidate, publishedPatternsJSON, err
 }
@@ -706,10 +726,17 @@ func (db *DB) ReplacePromptFilterCustomPatterns(ctx context.Context, customPatte
 		return errors.New("custom patterns JSON is invalid")
 	}
 	return db.withSQLiteWriteLock(ctx, func() error {
-		_, err := db.conn.ExecContext(ctx, `
+		query := `
 			INSERT INTO system_settings (id, prompt_filter_custom_patterns) VALUES (1, $1)
 			ON CONFLICT(id) DO UPDATE SET prompt_filter_custom_patterns=excluded.prompt_filter_custom_patterns
-		`, customPatternsJSON)
+		`
+		if db.isMySQL() {
+			query = `
+				INSERT INTO system_settings (id, prompt_filter_custom_patterns) VALUES (1, $1)
+				ON DUPLICATE KEY UPDATE prompt_filter_custom_patterns=VALUES(prompt_filter_custom_patterns)
+			`
+		}
+		_, err := db.conn.ExecContext(ctx, query, customPatternsJSON)
 		return err
 	})
 }
@@ -768,14 +795,23 @@ func (db *DB) CompareAndSwapPromptFilterCustomPatternsWithMigrationCompletions(
 			}
 			return err
 		}
-		if strings.TrimSpace(currentJSON) != expectedJSON {
+		if !semanticJSONEqual([]byte(currentJSON), []byte(expectedJSON)) {
 			return nil
 		}
 
-		result, err := tx.ExecContext(ctx, `
+		updateQuery := `
 			UPDATE system_settings SET prompt_filter_custom_patterns=$1
 			WHERE id=1 AND COALESCE(NULLIF(TRIM(prompt_filter_custom_patterns), ''), '[]')=$2
-		`, replacementJSON, expectedJSON)
+		`
+		updateArgs := []interface{}{replacementJSON, expectedJSON}
+		if db.isMySQL() {
+			// The row is locked above and JSON columns are canonicalized by MySQL,
+			// so the semantic comparison is the CAS guard; a textual predicate would
+			// reject equivalent JSON solely because of whitespace/key formatting.
+			updateQuery = `UPDATE system_settings SET prompt_filter_custom_patterns=$1 WHERE id=1`
+			updateArgs = []interface{}{replacementJSON}
+		}
+		result, err := tx.ExecContext(ctx, updateQuery, updateArgs...)
 		if err != nil {
 			return err
 		}
@@ -783,19 +819,36 @@ func (db *DB) CompareAndSwapPromptFilterCustomPatternsWithMigrationCompletions(
 		if err != nil {
 			return err
 		}
-		if affected == 0 {
+		if affected == 0 && !db.isMySQL() {
 			return nil
 		}
 
 		for _, completion := range completions {
 			evidence := completion.Evidence
-			result, err := tx.ExecContext(ctx, `
+			var lockedCandidateID int64
+			candidateQuery := `SELECT id FROM prompt_rule_candidates WHERE id=$1`
+			if !db.isSQLite() {
+				candidateQuery += ` FOR UPDATE`
+			}
+			if err := tx.QueryRowContext(ctx, candidateQuery, completion.CandidateID).Scan(&lockedCandidateID); err != nil {
+				return err
+			}
+			evidenceInsert := `
 				INSERT INTO prompt_rule_candidate_evidence (
 					candidate_id, source_kind, source_ref, source_ref_hash, sample_preview, metadata_json,
 					request_protocol, request_provider, model, api_key_id, api_key_name, observed_at, created_at
 				) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, CURRENT_TIMESTAMP)
 				ON CONFLICT(candidate_id, source_kind, source_ref_hash) DO NOTHING
-			`, completion.CandidateID, evidence.SourceKind, evidence.SourceRef, evidence.SourceRefHash,
+			`
+			if db.isMySQL() {
+				evidenceInsert = `
+					INSERT IGNORE INTO prompt_rule_candidate_evidence (
+						candidate_id, source_kind, source_ref, source_ref_hash, sample_preview, metadata_json,
+						request_protocol, request_provider, model, api_key_id, api_key_name, observed_at, created_at
+					) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, CURRENT_TIMESTAMP)
+				`
+			}
+			result, err := tx.ExecContext(ctx, evidenceInsert, completion.CandidateID, evidence.SourceKind, evidence.SourceRef, evidence.SourceRefHash,
 				evidence.SamplePreview, evidence.MetadataJSON, evidence.Protocol, evidence.Provider,
 				evidence.Model, evidence.APIKeyID, evidence.APIKeyName, evidence.ObservedAt)
 			if err != nil {

@@ -61,7 +61,7 @@ func (b *LocalBackend) Save(_ context.Context, key string, data []byte, _ string
 // validateLocalRef 做读/删侧的纵深防御：ref 由 Save 产出并保存在数据库里，正常数据
 // 不会含 ".." 段（Join/Abs 都会 Clean 掉）。这里只拦截遍历形式，不强制绝对路径也不
 // 强制落在当前 dir 内——LocalDir 是运行时设置，历史资源可能写在旧目录，且重构前的
-// 旧版本在 IMAGE_ASSET_DIR 为相对路径时会把相对 ref 存进数据库。
+// 旧版本在 AXISRELAY_IMAGE_ASSET_DIR 为相对路径时会把相对 ref 存进数据库。
 func validateLocalRef(ref string) error {
 	if slices.Contains(strings.Split(filepath.ToSlash(ref), "/"), "..") {
 		return fmt.Errorf("imagestore.local: 非法 ref: %q", ref)

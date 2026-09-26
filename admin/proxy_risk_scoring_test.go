@@ -12,13 +12,13 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/codex2api/database"
+	"github.com/wuekevin/axisrelay/database"
 	"github.com/gin-gonic/gin"
 )
 
 func TestProxyRiskScoringProfileAPIKeepsSecretsMaskedAndSupportsLifecycle(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	db, err := database.New("sqlite", filepath.Join(t.TempDir(), "proxy-risk-api.sqlite"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "proxy-risk-api.sqlite"))
 	if err != nil {
 		t.Fatal(err)
 	}

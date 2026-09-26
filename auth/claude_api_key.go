@@ -88,7 +88,7 @@ func (o *ClaudeAuth) FetchModelsWithCredentialsAndHeaders(ctx context.Context, t
 		}
 		req.Header.Set("x-api-key", token)
 		req.Header.Set("anthropic-version", "2023-06-01")
-		req.Header.Set("User-Agent", "Codex2API")
+		req.Header.Set("User-Agent", "AxisRelay")
 		ApplyClaudeAPIKeyIdentityHeaders(req.Header, nil, identityMode)
 		ApplyClaudeAPIKeyCustomHeaders(req.Header, customHeaders)
 		resp, err := client.Do(req)
@@ -252,7 +252,7 @@ func ApplyClaudeAPIKeyCustomHeaders(dst http.Header, headers map[string]string) 
 // ClaudeAPIKeyUpstreamUserAgent predicts the User-Agent an API Key account
 // presents upstream when the downstream client sends none: an explicit
 // custom header wins, then the emulated CLI identity, otherwise empty (the
-// neutral passthrough contract: inbound UA or "Codex2API").
+// neutral passthrough contract: inbound UA or "AxisRelay").
 func ClaudeAPIKeyUpstreamUserAgent(customHeaders map[string]string, mode string) string {
 	for name, value := range customHeaders {
 		if strings.EqualFold(strings.TrimSpace(name), "user-agent") && strings.TrimSpace(value) != "" {

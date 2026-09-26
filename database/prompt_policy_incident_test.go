@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"sync"
 	"testing"
@@ -45,7 +46,7 @@ func promptPolicyTestFingerprint(value string) string {
 
 func newPromptPolicySQLiteTestDB(t *testing.T) *DB {
 	t.Helper()
-	db, err := New("sqlite", filepath.Join(t.TempDir(), "prompt-policy.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "prompt-policy.db"))
 	if err != nil {
 		t.Fatalf("New(sqlite): %v", err)
 	}
@@ -129,7 +130,7 @@ func TestPromptPolicyIncidentPersistsNullableScoresAndExactEvidenceLink(t *testi
 func TestPromptPolicyIncidentCompositeTransactionRollsBack(t *testing.T) {
 	db := newPromptPolicySQLiteTestDB(t)
 	ctx := context.Background()
-	if _, err := db.conn.ExecContext(ctx, `CREATE TRIGGER fail_policy_evidence BEFORE INSERT ON prompt_rule_candidate_evidence BEGIN SELECT RAISE(ABORT, 'forced evidence failure'); END`); err != nil {
+	if _, err := db.conn.ExecContext(ctx, `CREATE TRIGGER fail_policy_evidence BEFORE INSERT ON prompt_rule_candidate_evidence FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'forced evidence failure'`); err != nil {
 		t.Fatalf("create trigger: %v", err)
 	}
 	incident, candidate, evidence := promptPolicyTestInputs("incident-rollback")
@@ -169,7 +170,14 @@ func TestPromptPolicyIncidentReconcilesAsyncShadowEvidenceInEitherWriteOrder(t *
 		if got.LocalComparison != PromptPolicyComparisonLocalDetected || got.LocalOutcome != PromptPolicyOutcomeAuditHit || got.LocalMiss {
 			t.Fatalf("async evidence comparison was not reconciled: %#v", got)
 		}
-		if got.LocalAuditScore == nil || *got.LocalAuditScore != 20 || got.LocalReasonCode != "prompt_policy_shadow_async" || got.LocalPrimaryOrigin != "tool_output" || got.LocalMatchedPatterns != patterns {
+		var gotPatterns, wantPatterns any
+		if err := json.Unmarshal([]byte(got.LocalMatchedPatterns), &gotPatterns); err != nil {
+			t.Fatalf("decode actual matched patterns: %v", err)
+		}
+		if err := json.Unmarshal([]byte(patterns), &wantPatterns); err != nil {
+			t.Fatalf("decode expected matched patterns: %v", err)
+		}
+		if got.LocalAuditScore == nil || *got.LocalAuditScore != 20 || got.LocalReasonCode != "prompt_policy_shadow_async" || got.LocalPrimaryOrigin != "tool_output" || !reflect.DeepEqual(gotPatterns, wantPatterns) {
 			t.Fatalf("async evidence fields were not reconciled: %#v", got)
 		}
 		var eventKind, comparison string
@@ -418,7 +426,7 @@ func TestLegacyPromptFilterLogMigratesWithoutInventingScores(t *testing.T) {
 	}
 }
 
-func TestPromptPolicyIncidentSQLiteSchemaAndIndexes(t *testing.T) {
+func TestPromptPolicyIncidentMySQLSchemaAndIndexes(t *testing.T) {
 	db := newPromptPolicySQLiteTestDB(t)
 	ctx := context.Background()
 	for table, expected := range map[string][]string{
@@ -427,7 +435,7 @@ func TestPromptPolicyIncidentSQLiteSchemaAndIndexes(t *testing.T) {
 		"prompt_filter_logs":             {"request_correlation_id", "newapi_policy_status", "newapi_platform", "newapi_user_id", "newapi_request_id", "newapi_decision_id"},
 		"prompt_policy_incidents":        {"incident_id", "request_correlation_id", "account_name", "account_group_ids", "api_key_allowed_group_ids", "prompt_available", "local_comparison", "local_score", "local_audit_score", "candidate_id", "candidate_evidence_id"},
 	} {
-		columns, err := db.sqliteTableColumns(ctx, table)
+		columns, err := db.testTableColumns(ctx, table)
 		if err != nil {
 			t.Fatalf("sqliteTableColumns(%s): %v", table, err)
 		}
@@ -437,18 +445,9 @@ func TestPromptPolicyIncidentSQLiteSchemaAndIndexes(t *testing.T) {
 			}
 		}
 	}
-	rows, err := db.conn.QueryContext(ctx, `SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='prompt_policy_incidents'`)
+	indexes, err := db.testTableIndexes(ctx, "prompt_policy_incidents")
 	if err != nil {
 		t.Fatalf("list incident indexes: %v", err)
-	}
-	defer rows.Close()
-	indexes := map[string]bool{}
-	for rows.Next() {
-		var name string
-		if err := rows.Scan(&name); err != nil {
-			t.Fatalf("scan incident index: %v", err)
-		}
-		indexes[name] = true
 	}
 	for _, name := range []string{
 		"idx_prompt_policy_incidents_request", "idx_prompt_policy_incidents_created", "idx_prompt_policy_incidents_api_key",

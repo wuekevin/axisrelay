@@ -15,9 +15,9 @@ import (
 	"time"
 	"unicode"
 
-	"github.com/codex2api/api"
-	"github.com/codex2api/database"
-	"github.com/codex2api/security/promptfilter"
+	"github.com/wuekevin/axisrelay/api"
+	"github.com/wuekevin/axisrelay/database"
+	"github.com/wuekevin/axisrelay/security/promptfilter"
 	"github.com/gin-gonic/gin"
 	"github.com/tidwall/sjson"
 )
@@ -537,13 +537,13 @@ func (h *Handler) requiredNewAPIIdentityError(c *gin.Context, cfg promptfilter.N
 		return nil
 	}
 	code := api.ErrorCode("newapi_signed_identity_invalid")
-	message := "NewAPI 身份签名校验失败，该 Codex2API Key 仅接受其绑定平台的签名请求"
+	message := "NewAPI 身份签名校验失败，该 AxisRelay Key 仅接受其绑定平台的签名请求"
 	if strings.TrimSpace(c.GetHeader("X-NewAPI-Signature")) == "" {
 		code = api.ErrorCode("newapi_signed_identity_required")
-		message = "该 Codex2API Key 要求绑定平台提供 NewAPI 身份签名"
+		message = "该 AxisRelay Key 要求绑定平台提供 NewAPI 身份签名"
 	} else if strings.TrimSpace(c.GetHeader("X-NewAPI-Policy-Meta")) == "" || strings.TrimSpace(c.GetHeader("X-NewAPI-Policy-Meta-Signature")) == "" {
 		code = api.ErrorCode("newapi_platform_identity_required")
-		message = "该 Codex2API Key 要求绑定平台提供已签名的平台身份元数据"
+		message = "该 AxisRelay Key 要求绑定平台提供已签名的平台身份元数据"
 	}
 	// This is an authentication boundary failure, not prompt-policy evidence.
 	// Do not emit violation/strike/ban headers and do not record an offense.
@@ -555,7 +555,7 @@ func (h *Handler) requiresNewAPISignedIdentity(c *gin.Context) bool {
 	return bound && binding.Enabled && binding.RequireSignedIdentity
 }
 
-// enforceRequiredNewAPIIdentityAtIngress runs after Codex2API API-key auth, so
+// enforceRequiredNewAPIIdentityAtIngress runs after AxisRelay API-key auth, so
 // the correct one-to-one binding is known.  Body-based V1 signatures are
 // verified against the exact ingress bytes and the body is restored/cached for
 // the downstream handler.  Authentication failures never enter prompt-policy
@@ -635,7 +635,7 @@ func (h *Handler) VerifyNewAPIPolicyHandshake(c *gin.Context) {
 }
 
 // sendNewAPIPolicyDecision returns a structured policy event to NewAPI. NewAPI
-// is the single authority for strikes and account/IP restrictions; Codex2API
+// is the single authority for strikes and account/IP restrictions; AxisRelay
 // only rejects the current request and supplies verifiable decision metadata.
 func (h *Handler) sendNewAPIPolicyDecision(c *gin.Context, cfg promptfilter.Config, decision promptfilter.Decision, verdict promptfilter.Verdict, body []byte, endpoint string, model string, signedBody []byte) bool {
 	policyContext, verified := h.verifyNewAPIPolicyContext(c, cfg.Advanced.NewAPI, signedBody)
@@ -657,7 +657,7 @@ func (h *Handler) sendNewAPIPolicyDecision(c *gin.Context, cfg promptfilter.Conf
 }
 
 // emitNewAPIUpstreamCyberPolicyDecision delegates punishment to NewAPI only
-// after Codex2API has observed an explicit cyber_policy response from the
+// after AxisRelay has observed an explicit cyber_policy response from the
 // upstream provider. Local prompt matches, external-review verdicts and other
 // upstream 4xx responses never use this path and therefore cannot add a strike.
 func (h *Handler) emitNewAPIUpstreamCyberPolicyDecision(c *gin.Context, endpoint string, model string, upstreamBody []byte) (newAPIPolicyDecisionMetadata, bool) {
@@ -788,7 +788,7 @@ func attachNewAPIPolicyDecisionToResponseFailed(body []byte, metadata newAPIPoli
 	if err != nil {
 		return body
 	}
-	updated, err := sjson.SetRawBytes(body, "response.error.details.codex2api_policy", details)
+	updated, err := sjson.SetRawBytes(body, "response.error.details.axisrelay_policy", details)
 	if err != nil {
 		return body
 	}
@@ -957,27 +957,27 @@ func writeNewAPIPolicyDecisionHeaders(c *gin.Context, metadata newAPIPolicyDecis
 	if c == nil {
 		return
 	}
-	c.Header("X-Codex2API-Policy-Violation", "true")
-	c.Header("X-Codex2API-Policy-Request-ID", metadata.RequestID)
-	c.Header("X-Codex2API-Policy-Reason", metadata.ReasonCode)
-	c.Header("X-Codex2API-Policy-Action", metadata.Action)
-	c.Header("X-Codex2API-Policy-Decision-ID", metadata.DecisionID)
+	c.Header("X-AxisRelay-Policy-Violation", "true")
+	c.Header("X-AxisRelay-Policy-Request-ID", metadata.RequestID)
+	c.Header("X-AxisRelay-Policy-Reason", metadata.ReasonCode)
+	c.Header("X-AxisRelay-Policy-Action", metadata.Action)
+	c.Header("X-AxisRelay-Policy-Decision-ID", metadata.DecisionID)
 	if metadata.EventID != "" {
-		c.Header("X-Codex2API-Policy-Event-ID", metadata.EventID)
-		c.Header("X-Codex2API-Policy-Event-Signature-Version", newAPIPolicyEventSignatureVersionV1)
-		c.Header("X-Codex2API-Policy-Event-Signature", metadata.EventSignature)
+		c.Header("X-AxisRelay-Policy-Event-ID", metadata.EventID)
+		c.Header("X-AxisRelay-Policy-Event-Signature-Version", newAPIPolicyEventSignatureVersionV1)
+		c.Header("X-AxisRelay-Policy-Event-Signature", metadata.EventSignature)
 	}
-	c.Header("X-Codex2API-Policy-Profile", metadata.Profile)
-	c.Header("X-Codex2API-Policy-Rule-Version", metadata.RuleVersion)
-	c.Header("X-Codex2API-Policy-Strike-Eligible", strconv.FormatBool(metadata.StrikeEligible))
-	c.Header("X-Codex2API-Policy-Evidence-SHA256", metadata.EvidenceSHA256)
-	c.Header("X-Codex2API-Policy-Severity", metadata.Severity)
-	c.Header("X-Codex2API-Policy-Signature-Version", newAPIPolicyDecisionSignatureVersionV1)
-	c.Header("X-Codex2API-Policy-Response-Signature", metadata.Signature)
+	c.Header("X-AxisRelay-Policy-Profile", metadata.Profile)
+	c.Header("X-AxisRelay-Policy-Rule-Version", metadata.RuleVersion)
+	c.Header("X-AxisRelay-Policy-Strike-Eligible", strconv.FormatBool(metadata.StrikeEligible))
+	c.Header("X-AxisRelay-Policy-Evidence-SHA256", metadata.EvidenceSHA256)
+	c.Header("X-AxisRelay-Policy-Severity", metadata.Severity)
+	c.Header("X-AxisRelay-Policy-Signature-Version", newAPIPolicyDecisionSignatureVersionV1)
+	c.Header("X-AxisRelay-Policy-Response-Signature", metadata.Signature)
 	// Legacy headers remain present but no longer carry enforcement state. They
 	// prevent old clients from mistaking absence of metadata for a transport error.
-	c.Header("X-Codex2API-Policy-Strike", "0")
-	c.Header("X-Codex2API-Policy-Ban", "false")
+	c.Header("X-AxisRelay-Policy-Strike", "0")
+	c.Header("X-AxisRelay-Policy-Ban", "false")
 }
 
 // clearNewAPIUpstreamCyberPolicyDecision removes only the client-facing state
@@ -994,23 +994,23 @@ func clearNewAPIUpstreamCyberPolicyDecision(c *gin.Context) {
 		return
 	}
 	for _, name := range []string{
-		"X-Codex2API-Policy-Violation",
-		"X-Codex2API-Policy-Request-ID",
-		"X-Codex2API-Policy-Reason",
-		"X-Codex2API-Policy-Action",
-		"X-Codex2API-Policy-Decision-ID",
-		"X-Codex2API-Policy-Event-ID",
-		"X-Codex2API-Policy-Event-Signature-Version",
-		"X-Codex2API-Policy-Event-Signature",
-		"X-Codex2API-Policy-Profile",
-		"X-Codex2API-Policy-Rule-Version",
-		"X-Codex2API-Policy-Strike-Eligible",
-		"X-Codex2API-Policy-Evidence-SHA256",
-		"X-Codex2API-Policy-Severity",
-		"X-Codex2API-Policy-Signature-Version",
-		"X-Codex2API-Policy-Response-Signature",
-		"X-Codex2API-Policy-Strike",
-		"X-Codex2API-Policy-Ban",
+		"X-AxisRelay-Policy-Violation",
+		"X-AxisRelay-Policy-Request-ID",
+		"X-AxisRelay-Policy-Reason",
+		"X-AxisRelay-Policy-Action",
+		"X-AxisRelay-Policy-Decision-ID",
+		"X-AxisRelay-Policy-Event-ID",
+		"X-AxisRelay-Policy-Event-Signature-Version",
+		"X-AxisRelay-Policy-Event-Signature",
+		"X-AxisRelay-Policy-Profile",
+		"X-AxisRelay-Policy-Rule-Version",
+		"X-AxisRelay-Policy-Strike-Eligible",
+		"X-AxisRelay-Policy-Evidence-SHA256",
+		"X-AxisRelay-Policy-Severity",
+		"X-AxisRelay-Policy-Signature-Version",
+		"X-AxisRelay-Policy-Response-Signature",
+		"X-AxisRelay-Policy-Strike",
+		"X-AxisRelay-Policy-Ban",
 	} {
 		c.Writer.Header().Del(name)
 	}

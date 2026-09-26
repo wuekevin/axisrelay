@@ -7,7 +7,7 @@ import (
 )
 
 func TestCompareAndSwapPromptFilterReviewAPIKeysRejectsStaleSnapshot(t *testing.T) {
-	db, err := New("sqlite", filepath.Join(t.TempDir(), "review-keys.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "review-keys.db"))
 	if err != nil {
 		t.Fatalf("New(sqlite): %v", err)
 	}
@@ -33,7 +33,7 @@ func TestCompareAndSwapPromptFilterReviewAPIKeysRejectsStaleSnapshot(t *testing.
 // SQL TRIM 只去空格,存量值带换行/制表符时曾导致 CAS 永远匹配不上;
 // 现按原值精确比较,调用方传入的 expected 必须是未 trim 的存储原值。
 func TestCompareAndSwapPromptFilterReviewAPIKeysMatchesPaddedStoredValue(t *testing.T) {
-	db, err := New("sqlite", filepath.Join(t.TempDir(), "review-keys.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "review-keys.db"))
 	if err != nil {
 		t.Fatalf("New(sqlite): %v", err)
 	}
@@ -56,7 +56,7 @@ func TestCompareAndSwapPromptFilterReviewAPIKeysMatchesPaddedStoredValue(t *test
 // 设置保存未携带审查 Key 字段时必须保留数据库现值,防止别的实例用
 // 过期内存快照把已删除的 Key 写回(PreservePromptFilterReviewAPIKey)。
 func TestUpdateSystemSettingsPreservesReviewAPIKeyWhenFlagged(t *testing.T) {
-	db, err := New("sqlite", filepath.Join(t.TempDir(), "review-keys.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "review-keys.db"))
 	if err != nil {
 		t.Fatalf("New(sqlite): %v", err)
 	}

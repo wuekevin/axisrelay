@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/codex2api/auth"
+	"github.com/wuekevin/axisrelay/auth"
 )
 
 func TestParseGrokPositiveHeader(t *testing.T) {
@@ -38,7 +38,7 @@ func TestParseGrokPositiveHeader(t *testing.T) {
 // 推导结果必须与硬编码默认值一致（行为不变）；只有上游改窗口才跟随变化。
 func TestGrokCompactionAtDerivation(t *testing.T) {
 	if grokCompactionAtOverride != "" {
-		t.Skip("GROK_COMPACTION_AT 已被环境变量覆盖")
+		t.Skip("AXISRELAY_GROK_COMPACTION_AT 已被环境变量覆盖")
 	}
 	account := &auth.Account{}
 

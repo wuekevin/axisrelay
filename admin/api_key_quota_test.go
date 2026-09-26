@@ -10,14 +10,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/codex2api/cache"
-	"github.com/codex2api/database"
+	"github.com/wuekevin/axisrelay/cache"
+	"github.com/wuekevin/axisrelay/database"
 	"github.com/gin-gonic/gin"
 )
 
 func TestResetAPIKeyQuotaHandler(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	db, err := database.New("sqlite", filepath.Join(t.TempDir(), "quota-handler.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "quota-handler.db"))
 	if err != nil {
 		t.Fatalf("database.New: %v", err)
 	}
@@ -82,7 +82,7 @@ func TestResetAPIKeyQuotaHandler(t *testing.T) {
 
 func TestResetAllAPIKeyQuotasHandlerReturnsAffectedCount(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	db, err := database.New("sqlite", filepath.Join(t.TempDir(), "quota-all-handler.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "quota-all-handler.db"))
 	if err != nil {
 		t.Fatalf("database.New: %v", err)
 	}

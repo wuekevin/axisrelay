@@ -4,7 +4,7 @@
 *.dll
 *.so
 *.dylib
-codex2api
+axisrelay
 
 # Go
 /vendor/
@@ -55,7 +55,7 @@ CLAUDE.md
 diagrams/
 # local run artifacts
 /data/
-/codex2api_local
+/axisrelay_local
 /server.log
 
 # local e2e test scaffolding (mock upstream + scripts, not for CI)

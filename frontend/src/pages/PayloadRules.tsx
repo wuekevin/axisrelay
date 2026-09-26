@@ -1348,8 +1348,8 @@ function PayloadRulesTabs({ activeView }: { activeView: PayloadRulesView }) {
       <SegmentedTabs
         className="w-full max-w-[420px] backdrop-blur-lg"
         tabs={[
-          { value: 'editor', label: t('payloadRules.views.editor'), to: '/payload-rules/editor' },
-          { value: 'docs', label: t('payloadRules.views.docs'), to: '/payload-rules/docs' },
+          { value: 'editor', label: t('payloadRules.views.editor'), to: '/admin/gateway/payload-rules/editor' },
+          { value: 'docs', label: t('payloadRules.views.docs'), to: '/admin/gateway/payload-rules/docs' },
         ]}
         value={activeView}
       />

@@ -1,6 +1,7 @@
 package database
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"encoding/json"
@@ -66,6 +67,10 @@ func (db *DB) ensureCodexInviteSnapshotTable(ctx context.Context) error {
 	if codexInviteSnapshotReady[db] {
 		return nil
 	}
+	if db.isMySQL() {
+		codexInviteSnapshotReady[db] = true
+		return nil
+	}
 
 	ddl := `CREATE TABLE IF NOT EXISTS codex_invite_snapshots (
 		account_id BIGINT NOT NULL,
@@ -127,7 +132,12 @@ func (db *DB) GetCodexInviteSnapshot(ctx context.Context, accountID int64, kind,
 		return nil, err
 	}
 
-	snap.Payload = json.RawMessage(bytesFromDBValue(payload))
+	rawPayload := bytesFromDBValue(payload)
+	var compactPayload bytes.Buffer
+	if json.Valid(rawPayload) && json.Compact(&compactPayload, rawPayload) == nil {
+		rawPayload = compactPayload.Bytes()
+	}
+	snap.Payload = json.RawMessage(rawPayload)
 	if snap.ObservedAt, err = parseDBTimeValue(observed); err != nil {
 		return nil, err
 	}
@@ -171,7 +181,18 @@ func (db *DB) UpsertCodexInviteSnapshot(ctx context.Context, snap *CodexInviteSn
 		payload_json=excluded.payload_json,observed_at=excluded.observed_at,
 		expires_at=excluded.expires_at,updated_at=CURRENT_TIMESTAMP
 		WHERE codex_invite_snapshots.credential_generation <= excluded.credential_generation`
-	if !db.isSQLite() {
+	if db.isMySQL() {
+		query = `INSERT INTO codex_invite_snapshots
+			(account_id,snapshot_kind,scope,credential_generation,http_status,payload_json,observed_at,expires_at,updated_at)
+			VALUES($1,$2,$3,$4,$5,$6,$7,$8,CURRENT_TIMESTAMP)
+			ON DUPLICATE KEY UPDATE
+			http_status=IF(credential_generation <= VALUES(credential_generation), VALUES(http_status), http_status),
+			payload_json=IF(credential_generation <= VALUES(credential_generation), VALUES(payload_json), payload_json),
+			observed_at=IF(credential_generation <= VALUES(credential_generation), VALUES(observed_at), observed_at),
+			expires_at=IF(credential_generation <= VALUES(credential_generation), VALUES(expires_at), expires_at),
+			updated_at=IF(credential_generation <= VALUES(credential_generation), CURRENT_TIMESTAMP, updated_at),
+			credential_generation=GREATEST(credential_generation, VALUES(credential_generation))`
+	} else if !db.isSQLite() {
 		query = strings.Replace(query, "$6,$7", "$6::jsonb,$7", 1)
 	}
 

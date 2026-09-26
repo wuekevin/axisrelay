@@ -12,8 +12,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/codex2api/api"
-	"github.com/codex2api/database"
+	"github.com/wuekevin/axisrelay/api"
+	"github.com/wuekevin/axisrelay/database"
 	"github.com/gin-gonic/gin"
 )
 

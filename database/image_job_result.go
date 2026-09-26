@@ -6,7 +6,7 @@ import "context"
 // expanded input images, or API key display metadata. The full job API is unchanged.
 func (db *DB) GetImageGenerationJobResult(ctx context.Context, id, apiKeyID int64) (*ImageGenerationJob, error) {
 	job, err := scanImageGenerationJob(db.conn.QueryRowContext(ctx, `
-		SELECT id, status, '', '', api_key_id, '', '', error_message,
+		SELECT id, status, '', '', api_key_id, '', '', COALESCE(error_message, ''),
 			duration_ms, created_at, started_at, completed_at
 		FROM image_generation_jobs WHERE id=$1 AND api_key_id=$2
 	`, id, apiKeyID))

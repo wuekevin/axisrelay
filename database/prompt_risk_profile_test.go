@@ -687,7 +687,7 @@ func TestPromptRiskHistoricalAuditOnlyEventsNoLongerInflateProfiles(t *testing.T
 	}
 }
 
-func TestPromptRiskSQLiteSchemaAndIndexes(t *testing.T) {
+func TestPromptRiskMySQLSchemaAndIndexes(t *testing.T) {
 	db := newPromptPolicySQLiteTestDB(t)
 	ctx := context.Background()
 	for table, expected := range map[string][]string{
@@ -697,7 +697,7 @@ func TestPromptRiskSQLiteSchemaAndIndexes(t *testing.T) {
 		"prompt_risk_event_sources": {"source_type", "source_id", "processed_at"},
 		"prompt_risk_identities":    {"subject_type", "subject_key", "platform", "external_user_id", "user_name", "user_email", "user_group", "source", "updated_at"},
 	} {
-		columns, err := db.sqliteTableColumns(ctx, table)
+		columns, err := db.testTableColumns(ctx, table)
 		if err != nil {
 			t.Fatalf("sqliteTableColumns(%s): %v", table, err)
 		}
@@ -707,18 +707,9 @@ func TestPromptRiskSQLiteSchemaAndIndexes(t *testing.T) {
 			}
 		}
 	}
-	rows, err := db.conn.QueryContext(ctx, `SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='prompt_risk_events'`)
+	indexes, err := db.testTableIndexes(ctx, "prompt_risk_events")
 	if err != nil {
 		t.Fatalf("list risk indexes: %v", err)
-	}
-	defer rows.Close()
-	indexes := map[string]bool{}
-	for rows.Next() {
-		var name string
-		if err := rows.Scan(&name); err != nil {
-			t.Fatalf("scan risk index: %v", err)
-		}
-		indexes[name] = true
 	}
 	for _, name := range []string{"idx_prompt_risk_events_subject", "idx_prompt_risk_events_created", "idx_prompt_risk_events_kind", "idx_prompt_risk_events_incident", "idx_prompt_risk_events_api_key", "idx_prompt_risk_events_account", "idx_prompt_risk_events_request_match", "idx_prompt_risk_events_fingerprint_match"} {
 		if !indexes[name] {
@@ -764,7 +755,7 @@ func TestPromptRiskPostgresMigrationDDL(t *testing.T) {
 }
 
 func TestPromptRiskReviewReconciliationUsesTargetedIndexes(t *testing.T) {
-	db, err := New("sqlite", ":memory:")
+	db, err := newTestDatabase(t, ":memory:")
 	if err != nil {
 		t.Fatalf("New sqlite: %v", err)
 	}
@@ -773,19 +764,29 @@ func TestPromptRiskReviewReconciliationUsesTargetedIndexes(t *testing.T) {
 
 	assertPlanUses := func(query string, args []interface{}, indexName string) {
 		t.Helper()
-		rows, err := db.conn.QueryContext(ctx, "EXPLAIN QUERY PLAN "+query, args...)
+		rows, err := db.conn.QueryContext(ctx, "EXPLAIN "+query, args...)
 		if err != nil {
-			t.Fatalf("explain query plan: %v", err)
+			t.Fatalf("explain: %v", err)
 		}
 		defer rows.Close()
+		columns, err := rows.Columns()
+		if err != nil {
+			t.Fatalf("explain columns: %v", err)
+		}
 		var plan strings.Builder
 		for rows.Next() {
-			var id, parent, unused int
-			var detail string
-			if err := rows.Scan(&id, &parent, &unused, &detail); err != nil {
-				t.Fatalf("scan query plan: %v", err)
+			values := make([]sql.RawBytes, len(columns))
+			dest := make([]interface{}, len(columns))
+			for i := range values {
+				dest[i] = &values[i]
 			}
-			plan.WriteString(detail)
+			if err := rows.Scan(dest...); err != nil {
+				t.Fatalf("scan explain: %v", err)
+			}
+			for _, value := range values {
+				plan.Write(value)
+				plan.WriteByte(' ')
+			}
 			plan.WriteByte('\n')
 		}
 		if !strings.Contains(plan.String(), indexName) {

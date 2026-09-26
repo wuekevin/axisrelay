@@ -8,7 +8,7 @@ import { useVisibleChannels } from "../visibleChannels";
 // 选择持久化到 localStorage，两页共享同一份状态键。
 export type UsageChannel = "" | "codex" | "grok" | "antigravity" | "claude";
 
-const USAGE_CHANNEL_KEY = "codex2api:usage:channel";
+const USAGE_CHANNEL_KEY = "axisrelay:usage:channel";
 
 export function useUsageChannel(): [UsageChannel, (next: UsageChannel) => void] {
   const [channel, setChannel] = useState<UsageChannel>(() => {

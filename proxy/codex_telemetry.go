@@ -14,8 +14,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/codex2api/auth"
 	"github.com/tidwall/gjson"
+	"github.com/wuekevin/axisrelay/auth"
 )
 
 const (
@@ -89,7 +89,7 @@ type codexTelemetryAttempt struct {
 	firstEvent time.Time
 	firstToken time.Time
 	done       sync.Once
-	// 临时计时探针：仅在 CODEX_TELEMETRY_TIMING_DEBUG=1 时采集，其余时候零开销。
+	// 临时计时探针：仅在 AXISRELAY_TELEMETRY_TIMING_DEBUG=1 时采集，其余时候零开销。
 	timing     bool
 	parseNanos atomic.Int64
 	eventCount atomic.Int64
@@ -182,21 +182,21 @@ func (m *codexTelemetryManager) markThread(accountID int64, threadID string, now
 
 // codexStatsigAPIKey 返回环境覆盖或官方公开 Statsig SDK key。
 func codexStatsigAPIKey() string {
-	if value := strings.TrimSpace(os.Getenv("CODEX_STATSIG_API_KEY")); value != "" {
+	if value := strings.TrimSpace(os.Getenv("AXISRELAY_STATSIG_API_KEY")); value != "" {
 		return value
 	}
 	return codexStatsigAPIKeyDefault
 }
 
 // codexTelemetryTimingDebug 是临时计时探针开关：管理后台「客户端遥测计时探针」
-// 或环境变量 CODEX_TELEMETRY_TIMING_DEBUG=1 任一开启即生效。关闭时不采集任何
+// 或环境变量 AXISRELAY_TELEMETRY_TIMING_DEBUG=1 任一开启即生效。关闭时不采集任何
 // 耗时，行为与不插桩完全一致；开启时只额外打印 [TELEMETRY-TIMING] 日志，用于
 // 对比开启/关闭遥测时的请求入口与流式解析开销。
 func codexTelemetryTimingDebug() bool {
 	if CurrentRuntimeSettings().CodexTelemetryTimingDebug {
 		return true
 	}
-	switch strings.ToLower(strings.TrimSpace(os.Getenv("CODEX_TELEMETRY_TIMING_DEBUG"))) {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("AXISRELAY_TELEMETRY_TIMING_DEBUG"))) {
 	case "1", "true", "yes", "on":
 		return true
 	default:
@@ -212,7 +212,7 @@ func codexTelemetryEnabled() bool {
 	if !CurrentRuntimeSettings().CodexTelemetryEnabled {
 		return false
 	}
-	switch strings.ToLower(strings.TrimSpace(os.Getenv("CODEX_TELEMETRY_ENABLED"))) {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("AXISRELAY_TELEMETRY_ENABLED"))) {
 	case "0", "false", "no", "off":
 		return false
 	default:

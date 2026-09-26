@@ -1,6 +1,6 @@
-# Codex2API 故障排查指南
+# AxisRelay 故障排查指南
 
-本文档提供 Codex2API 常见问题的排查方法和解决方案。
+本文档提供 AxisRelay 常见问题的排查方法和解决方案。
 
 ## 目录
 
@@ -24,17 +24,16 @@
 
 1. **查看容器日志**
 ```bash
-docker compose logs -f codex2api
+docker compose logs -f axisrelay
 ```
 
 2. **检查常见错误**
 
 | 错误信息 | 原因 | 解决方案 |
 |----------|------|----------|
-| `DATABASE_HOST is empty` | 未配置数据库主机 | 检查 `.env` 文件 |
-| `REDIS_ADDR is empty` | Redis 模式未配置地址 | 检查 `.env` 文件 |
-| `Redis 连接失败: EOF` | 云 Redis 要求 TLS，但当前按明文连接 | 使用 `rediss://...` 地址，或设置 `REDIS_TLS=true` |
-| `DATABASE_PATH is empty` | SQLite 未配置路径 | 检查 `.env` 文件 |
+| `AXISRELAY_DATABASE_HOST is empty` | 未配置数据库主机 | 检查 `.env` 文件 |
+| `AXISRELAY_REDIS_ADDR is empty` | Redis 模式未配置地址 | 检查 `.env` 文件 |
+| `Redis 连接失败: EOF` | 云 Redis 要求 TLS，但当前按明文连接 | 使用 `rediss://...` 地址，或设置 `AXISRELAY_REDIS_TLS=true` |
 | `connection refused` | 数据库未就绪 | 等待依赖服务启动 |
 
 **健康检查脚本:**
@@ -55,7 +54,7 @@ fi
 # 检查健康端点
 if ! curl -sf http://localhost:8080/health > /dev/null; then
     echo "ERROR: Health check failed"
-    docker compose logs --tail=50 codex2api
+    docker compose logs --tail=50 axisrelay
     exit 1
 fi
 
@@ -70,8 +69,8 @@ echo "All services healthy!"
 sudo lsof -i :8080
 sudo netstat -tlnp | grep 8080
 
-# 解决方案: 修改 .env 中的 CODEX_PORT
-CODEX_PORT=8081
+# 解决方案: 修改 .env 中的 AXISRELAY_PORT
+AXISRELAY_PORT=8081
 ```
 
 ---
@@ -80,32 +79,25 @@ CODEX_PORT=8081
 
 ### 症状: 数据库连接失败
 
-**PostgreSQL 模式:**
+**MySQL 8（默认）:**
 
 ```bash
-# 1. 检查 PostgreSQL 容器
-docker compose ps postgres
-docker compose logs postgres
+# 1. 检查 MySQL 容器
+docker compose ps mysql
+docker compose logs mysql
 
 # 2. 测试连接
-docker exec -it codex2api-postgres psql -U codex2api -d codex2api -c "SELECT 1;"
+docker exec -it axisrelay-mysql mysql -uaxisrelay -p -D axisrelay -e "SELECT 1;"
 
 # 3. 检查网络
-docker compose exec codex2api ping postgres
+docker compose exec axisrelay ping mysql
 ```
 
-**SQLite 模式:**
+**PostgreSQL 兼容模式:**
 
 ```bash
-# 1. 检查数据目录权限
-ls -la /path/to/sqlite/data/
-
-# 2. 检查数据库文件
-sqlite3 /data/codex2api.db ".tables"
-
-# 3. 修复权限
-chmod 755 /data
-chmod 644 /data/codex2api.db
+# 外部 PostgreSQL 示例
+psql "postgres://user:password@host:5432/axisrelay" -c "SELECT 1;"
 ```
 
 ### 症状: 数据库性能差
@@ -113,18 +105,11 @@ chmod 644 /data/codex2api.db
 **排查:**
 
 ```bash
-# 查看慢查询（PostgreSQL）
-docker exec codex2api-postgres psql -U codex2api -c "
-SELECT query, calls, mean_time, total_time
-FROM pg_stat_statements
-ORDER BY mean_time DESC
-LIMIT 10;
-"
+# 查看当前 MySQL 查询
+docker exec axisrelay-mysql mysql -uaxisrelay -p -D axisrelay -e "SHOW FULL PROCESSLIST;"
 
 # 查看连接数
-docker exec codex2api-postgres psql -U codex2api -c "
-SELECT count(*) FROM pg_stat_activity;
-"
+docker exec axisrelay-mysql mysql -uaxisrelay -p -D axisrelay -e "SHOW STATUS LIKE 'Threads_connected';"
 ```
 
 **优化建议:**
@@ -135,8 +120,8 @@ SELECT count(*) FROM pg_stat_activity;
 
 ```sql
 -- 添加索引优化
-CREATE INDEX CONCURRENTLY idx_usage_logs_created_at ON usage_logs(created_at);
-CREATE INDEX CONCURRENTLY idx_usage_logs_account_id ON usage_logs(account_id);
+CREATE INDEX idx_usage_logs_created_at ON usage_logs(created_at);
+CREATE INDEX idx_usage_logs_account_id ON usage_logs(account_id);
 ```
 
 ---
@@ -213,7 +198,7 @@ curl -s -H "X-Admin-Key: your-secret" http://localhost:8080/api/admin/accounts |
 # 1. 检查是否配置了 API Key
 curl -s -H "X-Admin-Key: your-secret" http://localhost:8080/api/admin/keys
 
-# 2. 默认仍要求认证；只有未配置任何 Key 且显式开启 CODEX_ALLOW_ANONYMOUS=true 才允许普通公共接口匿名访问
+# 2. 默认仍要求认证；只有未配置任何 Key 且显式开启 AXISRELAY_ALLOW_ANONYMOUS=true 才允许普通公共接口匿名访问
 # 3. 如果配置了，确认请求头格式
 curl -H "Authorization: Bearer sk-your-key" http://localhost:8080/v1/models
 ```
@@ -242,7 +227,7 @@ curl http://localhost:8080/health
 
 ```bash
 # 查看错误日志
-docker compose logs -f codex2api | grep -i "upstream\|error"
+docker compose logs -f axisrelay | grep -i "upstream\|error"
 
 # 检查账号 Token 是否过期
 curl -s -H "X-Admin-Key: your-secret" http://localhost:8080/api/admin/accounts | jq '.accounts[].status'
@@ -350,7 +335,7 @@ RedisPoolSize: 50
 
 2. **切换索引调度器**
 ```bash
-CODEX_SCHEDULER_ENGINE=indexed
+AXISRELAY_SCHEDULER_ENGINE=indexed
 ```
 
 3. **优化代理配置**
@@ -390,7 +375,7 @@ curl -s -H "X-Admin-Key: your-secret" \
 - `outbox_backlog` 持续增长、`outbox_lag_ms > 5000` 或错误数增加，说明跨实例内存投影落后，应先检查数据库连接、触发器和实例日志。
 - `waiters` 高但 `wait_wakeups` 不增长，检查是否所有账号都被永久禁用；正常的并发释放或冷却恢复应产生事件唤醒。
 
-生产切换建议先在管理后台设为 `shadow`，观察一段真实流量下 `shadow_mismatches` 是否保持为 0 或能由瞬时并发竞争解释，再切到 `indexed`。如出现选号异常，可立即切回 `legacy`；数据库 outbox 和维护任务表可以保留，不需要回滚 schema。环境变量 `CODEX_SCHEDULER_ENGINE` 的优先级高于管理后台，若页面切换不生效，请先检查容器环境。
+生产切换建议先在管理后台设为 `shadow`，观察一段真实流量下 `shadow_mismatches` 是否保持为 0 或能由瞬时并发竞争解释，再切到 `indexed`。如出现选号异常，可立即切回 `legacy`；数据库 outbox 和维护任务表可以保留，不需要回滚 schema。环境变量 `AXISRELAY_SCHEDULER_ENGINE` 的优先级高于管理后台，若页面切换不生效，请先检查容器环境。
 
 ### 调度 outbox 的版本要求与回滚
 
@@ -419,13 +404,14 @@ DROP TRIGGER IF EXISTS scheduler_outbox_settings_update ON system_settings;
 DROP TRIGGER IF EXISTS grok_maintenance_accounts_insert ON accounts;
 DROP TRIGGER IF EXISTS grok_maintenance_accounts_update ON accounts;
 DROP TRIGGER IF EXISTS grok_maintenance_accounts_delete ON accounts;
-DROP FUNCTION IF EXISTS codex2api_scheduler_outbox_row();
-DROP FUNCTION IF EXISTS codex2api_grok_maintenance_account();
+DROP FUNCTION IF EXISTS axisrelay_scheduler_outbox_row();
+DROP FUNCTION IF EXISTS axisrelay_grok_maintenance_account();
 DROP TABLE IF EXISTS scheduler_outbox;
 DROP TABLE IF EXISTS maintenance_jobs;
 ```
 
-SQLite 部署执行对应的 `DROP TRIGGER IF EXISTS <同名触发器>;` 与 `DROP TABLE IF EXISTS scheduler_outbox; DROP TABLE IF EXISTS maintenance_jobs;` 即可。
+MySQL 部署使用 `DROP TRIGGER IF EXISTS <同名触发器>;` 清理对应触发器，并可用
+`DROP TABLE IF EXISTS scheduler_outbox; DROP TABLE IF EXISTS maintenance_jobs;` 清理调度辅助表。
 
 ### 症状: 内存占用高
 
@@ -433,7 +419,7 @@ SQLite 部署执行对应的 `DROP TRIGGER IF EXISTS <同名触发器>;` 与 `DR
 
 ```bash
 # 查看容器内存
-docker stats codex2api --no-stream
+docker stats axisrelay --no-stream
 
 # 对照进程 RSS、Go heap/GC 和 response-context 逻辑字节
 curl -s -H "X-Admin-Key: your-secret" \
@@ -450,7 +436,7 @@ curl http://localhost:8080/debug/pprof/heap > heap.prof
 
 1. 限制日志保留时间
 2. 同时对照 L1 的 `current_bytes` 与 `shared_payload_bytes`。多个快照可共享正文，降低逻辑预算可能主要减少可回放的历史响应，并可能增加 Memory 模式的 409，不一定同比降低 RSS。
-3. 检查 `request_memory` 和 `response_cache_writer` 的在途字节、等待数与拒绝数。`CODEX_REQUEST_MEMORY_BUDGET_MB` 控制进程内正文准入；它不包含所有输出、JSON 工作副本或 Go 堆开销。调低会更早返回可重试的 503/1013，调高须结合实际可用内存。
+3. 检查 `request_memory` 和 `response_cache_writer` 的在途字节、等待数与拒绝数。`AXISRELAY_REQUEST_MEMORY_BUDGET_MB` 控制进程内正文准入；它不包含所有输出、JSON 工作副本或 Go 堆开销。调低会更早返回可重试的 503/1013，调高须结合实际可用内存。
 4. 区分每次累计分配和请求结束后的存活堆。合并流刷新主要降低 flush 频率，不能替代正文生命周期管理；慢 Redis 和慢客户端也可能放大在途内存。
 
 ---
@@ -469,7 +455,7 @@ curl -v https://api.openai.com/v1/models -H "Authorization: Bearer your-token"
 curl -x http://proxy:port https://api.openai.com/v1/models
 
 # 3. 在容器内测试
-docker compose exec codex2api wget -O- https://api.openai.com/v1/models
+docker compose exec axisrelay wget -O- https://api.openai.com/v1/models
 ```
 
 **解决方案:**
@@ -487,7 +473,7 @@ docker compose exec codex2api wget -O- https://api.openai.com/v1/models
 echo | openssl s_client -connect api.openai.com:443 2>/dev/null | openssl x509 -noout -dates
 
 # 更新 CA 证书
-docker compose exec codex2api apk add --no-cache ca-certificates
+docker compose exec axisrelay apk add --no-cache ca-certificates
 ```
 
 ### 代理测试脚本
@@ -532,16 +518,16 @@ fi
 
 ```bash
 # 实时监控错误
-docker compose logs -f codex2api | grep -i "error\|fail\|panic"
+docker compose logs -f axisrelay | grep -i "error\|fail\|panic"
 
 # 统计状态码分布（按日志示例，第 5 列为 HTTP 状态码）
-docker compose logs codex2api | awk '{print $5}' | sort | uniq -c | sort -rn
+docker compose logs axisrelay | awk '{print $5}' | sort | uniq -c | sort -rn
 
 # 查找慢请求（按日志示例，第 6 列为延迟，如 523ms；这里筛选 > 1000ms 的请求）
-docker compose logs codex2api | awk '{lat=$6; gsub(/ms/,"",lat); if (lat+0 > 1000) print $0}' | sort -k6,6n | tail -20
+docker compose logs axisrelay | awk '{lat=$6; gsub(/ms/,"",lat); if (lat+0 > 1000) print $0}' | sort -k6,6n | tail -20
 
 # 统计账号请求量（按日志示例，邮箱在方括号中，且包含 @）
-docker compose logs codex2api | awk '{for(i=1;i<=NF;i++){if($i ~ /@/){gsub(/[\[\]]/,"",$i); print $i}}}' | sort | uniq -c | sort -rn
+docker compose logs axisrelay | awk '{for(i=1;i<=NF;i++){if($i ~ /@/){gsub(/[\[\]]/,"",$i); print $i}}}' | sort | uniq -c | sort -rn
 ```
 
 ### 日志字段说明
@@ -562,7 +548,7 @@ docker compose logs codex2api | awk '{for(i=1;i<=NF;i++){if($i ~ /@/){gsub(/[\[\
 
 ### WS 1009 与首事件延迟
 
-上游 WebSocket 可能在等待较长时间后才返回 close 1009。若此时尚未向客户端输出内容，Codex2API 会保留同一账号和代理并降级一次 HTTP；已经输出内容后不会降级。
+上游 WebSocket 可能在等待较长时间后才返回 close 1009。若此时尚未向客户端输出内容，AxisRelay 会保留同一账号和代理并降级一次 HTTP；已经输出内容后不会降级。
 
 搜索包含 `WebSocket 1009 HTTP 降级尝试结束` 的日志，并按以下字段拆分耗时：
 
@@ -591,7 +577,7 @@ total_elapsed_ms
 BASE_URL="http://localhost:8080"
 ADMIN_KEY="${ADMIN_KEY:-default}"
 
-echo "========== Codex2API 诊断报告 =========="
+echo "========== AxisRelay 诊断报告 =========="
 echo "时间: $(date)"
 echo ""
 
@@ -624,7 +610,7 @@ curl -sf -H "X-Admin-Key: $ADMIN_KEY" "$BASE_URL/api/admin/ops/overview" 2>/dev/
 echo ""
 
 echo "[6/6] 最近错误..."
-docker compose logs --since=1h codex2api 2>/dev/null | grep -i "error" | tail -5 || echo "无近期错误"
+docker compose logs --since=1h axisrelay 2>/dev/null | grep -i "error" | tail -5 || echo "无近期错误"
 echo ""
 
 echo "========== 诊断完成 =========="
@@ -639,11 +625,11 @@ echo "========== 诊断完成 =========="
 ```bash
 # 方法1: 通过环境变量
 docker compose down
-export ADMIN_SECRET=new-secret
+export AXISRELAY_ADMIN_SECRET=new-secret
 docker compose up -d
 
 # 方法2: 直接修改数据库
-docker exec -it codex2api-postgres psql -U codex2api -c "UPDATE system_settings SET admin_secret = 'new-secret';"
+docker exec -it axisrelay-mysql mysql -uaxisrelay -p -D axisrelay -e "UPDATE system_settings SET admin_secret = 'new-secret';"
 ```
 
 ### Q: 如何清理所有日志？
@@ -653,7 +639,7 @@ docker exec -it codex2api-postgres psql -U codex2api -c "UPDATE system_settings 
 curl -X DELETE -H "X-Admin-Key: your-secret" http://localhost:8080/api/admin/usage/logs
 
 # 或直接清理数据库
-docker exec codex2api-postgres psql -U codex2api -c "TRUNCATE usage_logs;"
+docker exec axisrelay-mysql mysql -uaxisrelay -p -D axisrelay -e "TRUNCATE usage_logs;"
 ```
 
 ### Q: 如何导出所有账号？

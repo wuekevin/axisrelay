@@ -1,6 +1,6 @@
-# Codex2API 配置说明
+# AxisRelay 配置说明
 
-本文档详细说明 Codex2API 的所有配置项及其作用。
+本文档详细说明 AxisRelay 的所有配置项及其作用。
 
 ## 目录
 
@@ -15,7 +15,7 @@
 
 ## 配置层级
 
-Codex2API 采用三层配置架构：
+AxisRelay 采用三层配置架构：
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -51,91 +51,82 @@ Codex2API 采用三层配置架构：
 
 ### 核心服务配置
 
+> AxisRelay 应用级环境变量统一使用 `AXISRELAY_*`。旧 `CODEX_*`、无前缀兼容变量和 deprecated alias 不再读取；`TZ` 等操作系统标准变量除外。
+
 | 变量 | 必填 | 默认值 | 说明 |
 |------|------|--------|------|
-| `CODEX_PORT` | 否 | 8080 | HTTP 服务端口 |
-| `BIND_HOST` | 否 | `127.0.0.1`（SQLite）/ `0.0.0.0`（PostgreSQL） | Docker 端口发布绑定地址（非进程监听地址，由 `CODEX_BIND` 控制）。SQLite compose 默认 `127.0.0.1` 仅本机访问；标准 compose 默认 `0.0.0.0` 所有网络接口 |
-| `CODEX_MAX_REQUEST_BODY_SIZE_MB` | 否 | 48 | HTTP 请求体上限。后台 MP4 动态壁纸上传最大 40MB，默认值为 multipart 上传预留余量 |
-| `CODEX_REQUEST_MEMORY_BUDGET_MB` | 否 | 至少 128 | 单进程 HTTP/WS 逻辑正文总预算（MiB），包括读入/解压、排队和处理中正文及 Realtime 会话正文；默认取 128 与单请求上限的较大值，显式配置不能小于单请求上限，重启生效。预算不足时 HTTP 返回 503 和 `Retry-After: 1`，WS 关闭码为 1013。不是 RSS 硬上限，账号导入的流式 multipart 路径仍按独立导入上限处理 |
-| `ADMIN_SECRET` | 否 | - | 管理后台登录密钥 |
-| `CODEX_ALLOW_ANONYMOUS` | 否 | `false` | 设为 `true` 时，未配置任何对外 API Key 也允许 `/v1/*` 直接调用（仅限内网测试场景） |
-| `CODEX_SCHEDULER_ENGINE` | 否 | 空 | 调度引擎强制值：`legacy` / `shadow` / `indexed`。设置后优先于数据库配置，适合容器级灰度或紧急回退 |
-| `CODEX_SCHEDULER_MAX_WAITERS` | 否 | `4096` | 本实例账号调度等待请求总上限，正整数，重启生效。队列满立即返回可重试的 503 |
-| `CODEX_SCHEDULER_MAX_WAITERS_PER_KEY` | 否 | `256` | 本实例每个 API Key 的调度等待上限，正整数，重启生效；匿名请求共用一个计数 |
-| `FAST_SCHEDULER_ENABLED` | 否 | `false` | 旧版兼容开关；未设置 `CODEX_SCHEDULER_ENGINE` 且数据库没有 `SchedulerEngine` 时，`true` 映射为 `indexed` |
+| `AXISRELAY_PORT` | 否 | 8080 | HTTP 服务端口 |
+| `AXISRELAY_BIND_HOST` | 否 | `0.0.0.0` | Docker 端口发布绑定地址（非进程监听地址，由 `AXISRELAY_BIND` 控制）。仅允许本机反向代理访问时可设为 `127.0.0.1` |
+| `AXISRELAY_MAX_REQUEST_BODY_SIZE_MB` | 否 | 48 | HTTP 请求体上限。后台 MP4 动态壁纸上传最大 40MB，默认值为 multipart 上传预留余量 |
+| `AXISRELAY_REQUEST_MEMORY_BUDGET_MB` | 否 | 至少 128 | 单进程 HTTP/WS 逻辑正文总预算（MiB），包括读入/解压、排队和处理中正文及 Realtime 会话正文；默认取 128 与单请求上限的较大值，显式配置不能小于单请求上限，重启生效。预算不足时 HTTP 返回 503 和 `Retry-After: 1`，WS 关闭码为 1013。不是 RSS 硬上限，账号导入的流式 multipart 路径仍按独立导入上限处理 |
+| `AXISRELAY_ADMIN_SECRET` | 否 | - | 管理后台登录密钥 |
+| `AXISRELAY_ALLOW_ANONYMOUS` | 否 | `false` | 设为 `true` 时，未配置任何对外 API Key 也允许 `/v1/*` 直接调用（仅限内网测试场景） |
+| `AXISRELAY_SCHEDULER_ENGINE` | 否 | 空 | 调度引擎强制值：`legacy` / `shadow` / `indexed`。设置后优先于数据库配置，适合容器级灰度或紧急回退 |
+| `AXISRELAY_SCHEDULER_MAX_WAITERS` | 否 | `4096` | 本实例账号调度等待请求总上限，正整数，重启生效。队列满立即返回可重试的 503 |
+| `AXISRELAY_SCHEDULER_MAX_WAITERS_PER_KEY` | 否 | `256` | 本实例每个 API Key 的调度等待上限，正整数，重启生效；匿名请求共用一个计数 |
 | `TZ` | 否 | UTC | 时区，如 `Asia/Shanghai` |
 
 ### Codex 上游稳定性配置
 
 | 变量 | 必填 | 默认值 | 说明 |
 |------|------|--------|------|
-| `CODEX_UPSTREAM_TRANSPORT` | 否 | `http` | Codex 上游协议：`http` / `auto` / `ws`。HTTP 入站在 `auto` 下仍走 HTTP 上游 |
-| `CODEX_PROXY_URL` | 否 | - | 全局代理 URL，适用于需要为所有 Codex 上游请求统一配置代理的场景 |
-| `USE_WEBSOCKET` | 否 | `false` | 旧版开关；未设置 `CODEX_UPSTREAM_TRANSPORT` 时，`true` 等价于 `CODEX_UPSTREAM_TRANSPORT=ws` |
-| `CODEX_TRANSPORT_MODE` | 否 | `standard` | Codex HTTP transport：默认标准 Go TLS；`utls_chrome` 可回滚旧 Chrome uTLS 行为 |
-| `CODEX_WS_SEND_USER_AGENT` | 否 | `true` | WS 握手是否发送 Codex `User-Agent`/`Version`；设为 `false` 可关闭 |
-| `CODEX_SESSION_AFFINITY_TTL` | 否 | `1h` | Codex 会话到账号/代理的黏性 TTL，支持 `1h`、`90m` 或秒数 |
-| ~~`CODEX_TURN_STATE_TEMPLATE_CACHE`~~ | — | — | **已弃用**：主开关改到管理后台「Turn-State 模板缓存（实验性）」（`codex_turn_state_template_cache_enabled`，默认关闭）；账号规则 `codex_turn_state_account_mode`=`personal`\|`team`\|`auto`（默认 `auto`） |
-| `CODEX_TURN_STATE_TEMPLATE_LENGTH` | 否 | （由账号规则推导） | （可选调参）强制模板 Fernet 编码长度，须对应合法 blocks（个人 ~292 / Team ~332） |
-| `CODEX_TURN_STATE_REPLACE_LENGTH` | 否 | （由账号规则推导） | （可选调参）强制降质 Fernet 编码长度（个人 ~312 / Team ~356）；`replace-only` 按 **Blocks** 判定 |
-| `CODEX_TURN_STATE_INJECT_MODE` | 否 | `replace-only` | （可选调参）`replace-only`：仅当入站 Blocks=replace 时替换；`always`：有缓存模板时强制写入（含空头） |
-| `CODEX_TURN_STATE_TTL` | 否 | `1h` | （可选调参）Accept 窗口：`now < issued+(TTL-30s)`，且拒绝 issued 超前 >30s；无效信封永不存储 |
-| `CODEX_TURN_STATE_MAX_ENTRIES` | 否 | `256` | （可选调参）进程内缓存条目上限，超出按最旧 issuedAt 淘汰 |
-| `CODEX_TURN_STATE_LOG_DECISIONS` | 否 | `false` | （可选调参）记录 harvest/substitute/inject/pass/strike 决策（仅 account/model/len，从不记录 state 值） |
-| `CODEX_TURN_STATE_DRY_RUN` | 否 | `false` | （可选调参）只决策+打日志，不改写出站头 |
-| `CODEX_COMPACTION_AFFINITY_TTL` | 否 | `168h` | 加密压缩状态的来源亲和 TTL。缓存仅保存密文的 SHA-256 摘要、来源账号和兼容域；已知状态不会跨 Codex 官方、不同 Responses 中转或 Grok 上游流转 |
-| `CODEX_FINGERPRINT_DEBUG` | 否 | `false` | 输出脱敏指纹策略诊断日志，不记录 token |
-| `CODEX_REQUEST_COMPRESSION` | 否 | 跟随系统设置 | 覆盖系统设置「Codex HTTP 请求体压缩」。`zstd`/`on`/`true`/`1` 强制开启，`off`/`false`/`0` 强制关闭，未设置或取值无法识别时以系统设置为准。作为部署级逃生阀存在：DB 不可达或后台打不开时仍可整机切换 |
-| `CODEX_TELEMETRY_ENABLED` | 否 | 跟随系统设置 | 设为 `false` 时无视管理后台「客户端遥测」开关，部署层强制关闭模拟遥测外发 |
-| `CODEX_STATSIG_API_KEY` | 否 | 内置公开 key | 覆盖 Codex Desktop/CLI 共用的公开 Statsig SDK key，仅遥测开启时使用 |
-| `CODEX_SESSION_HEADER_MODE` | 否 | `native` | 出站会话头形态。`native` 发真实客户端的 `session-id` / `thread-id` / `x-client-request-id`；`legacy` 回退到旧的 `Session_id`（WS 另带 `Conversation_id`） |
-| `CODEX_SESSION_HEADER_ALIGN_CONVERGED` | 否 | `false` | 开启后 `session-id` 头改用指纹收敛后的会话身份，与 turn metadata 的 `session_id` 对齐。默认关：请求体 `prompt_cache_key` 始终独立隔离，但上游是否也拿该头参与缓存分组无法从客户端源码确认 |
-| `DOWNSTREAM_HTTP_KEEPALIVE_INTERVAL` | 否 | `30s` | 下游 HTTP/SSE 保活周期，使用 Go duration；`0` 关闭。流式端点从首个心跳起建立 SSE 200，发送注释或 Messages ping；非流式端点发送 HTTP 102 |
-| `DOWNSTREAM_WS_KEEPALIVE_INTERVAL` | 否 | `45s` | 下游 WebSocket Ping 周期，使用 Go duration；`0` 关闭。覆盖 Responses、Realtime 与 Live Sideband |
+| `AXISRELAY_UPSTREAM_TRANSPORT` | 否 | `http` | Codex 上游协议：`http` / `auto` / `ws`。HTTP 入站在 `auto` 下仍走 HTTP 上游 |
+| `AXISRELAY_TRANSPORT_MODE` | 否 | `standard` | Codex HTTP transport：默认标准 Go TLS；`utls_chrome` 可回滚旧 Chrome uTLS 行为 |
+| `AXISRELAY_WS_SEND_USER_AGENT` | 否 | `true` | WS 握手是否发送 Codex `User-Agent`/`Version`；设为 `false` 可关闭 |
+| `AXISRELAY_SESSION_AFFINITY_TTL` | 否 | `1h` | Codex 会话到账号/代理的黏性 TTL，支持 `1h`、`90m` 或秒数 |
+| `AXISRELAY_TURN_STATE_TEMPLATE_LENGTH` | 否 | （由账号规则推导） | （可选调参）强制模板 Fernet 编码长度，须对应合法 blocks（个人 ~292 / Team ~332） |
+| `AXISRELAY_TURN_STATE_REPLACE_LENGTH` | 否 | （由账号规则推导） | （可选调参）强制降质 Fernet 编码长度（个人 ~312 / Team ~356）；`replace-only` 按 **Blocks** 判定 |
+| `AXISRELAY_TURN_STATE_INJECT_MODE` | 否 | `replace-only` | （可选调参）`replace-only`：仅当入站 Blocks=replace 时替换；`always`：有缓存模板时强制写入（含空头） |
+| `AXISRELAY_TURN_STATE_TTL` | 否 | `1h` | （可选调参）Accept 窗口：`now < issued+(TTL-30s)`，且拒绝 issued 超前 >30s；无效信封永不存储 |
+| `AXISRELAY_TURN_STATE_MAX_ENTRIES` | 否 | `256` | （可选调参）进程内缓存条目上限，超出按最旧 issuedAt 淘汰 |
+| `AXISRELAY_TURN_STATE_LOG_DECISIONS` | 否 | `false` | （可选调参）记录 harvest/substitute/inject/pass/strike 决策（仅 account/model/len，从不记录 state 值） |
+| `AXISRELAY_TURN_STATE_DRY_RUN` | 否 | `false` | （可选调参）只决策+打日志，不改写出站头 |
+| `AXISRELAY_COMPACTION_AFFINITY_TTL` | 否 | `168h` | 加密压缩状态的来源亲和 TTL。缓存仅保存密文的 SHA-256 摘要、来源账号和兼容域；已知状态不会跨 Codex 官方、不同 Responses 中转或 Grok 上游流转 |
+| `AXISRELAY_FINGERPRINT_DEBUG` | 否 | `false` | 输出脱敏指纹策略诊断日志，不记录 token |
+| `AXISRELAY_REQUEST_COMPRESSION` | 否 | 跟随系统设置 | 覆盖系统设置「Codex HTTP 请求体压缩」。`zstd`/`on`/`true`/`1` 强制开启，`off`/`false`/`0` 强制关闭，未设置或取值无法识别时以系统设置为准。作为部署级逃生阀存在：DB 不可达或后台打不开时仍可整机切换 |
+| `AXISRELAY_TELEMETRY_ENABLED` | 否 | 跟随系统设置 | 设为 `false` 时无视管理后台「客户端遥测」开关，部署层强制关闭模拟遥测外发 |
+| `AXISRELAY_STATSIG_API_KEY` | 否 | 内置公开 key | 覆盖 Codex Desktop/CLI 共用的公开 Statsig SDK key，仅遥测开启时使用 |
+| `AXISRELAY_SESSION_HEADER_MODE` | 否 | `native` | 出站会话头形态。`native` 发真实客户端的 `session-id` / `thread-id` / `x-client-request-id`；`legacy` 回退到旧的 `Session_id`（WS 另带 `Conversation_id`） |
+| `AXISRELAY_SESSION_HEADER_ALIGN_CONVERGED` | 否 | `false` | 开启后 `session-id` 头改用指纹收敛后的会话身份，与 turn metadata 的 `session_id` 对齐。默认关：请求体 `prompt_cache_key` 始终独立隔离，但上游是否也拿该头参与缓存分组无法从客户端源码确认 |
+| `AXISRELAY_DOWNSTREAM_HTTP_KEEPALIVE_INTERVAL` | 否 | `30s` | 下游 HTTP/SSE 保活周期，使用 Go duration；`0` 关闭。流式端点从首个心跳起建立 SSE 200，发送注释或 Messages ping；非流式端点发送 HTTP 102 |
+| `AXISRELAY_DOWNSTREAM_WS_KEEPALIVE_INTERVAL` | 否 | `45s` | 下游 WebSocket Ping 周期，使用 Go duration；`0` 关闭。覆盖 Responses、Realtime 与 Live Sideband |
 
-> `CODEX_UPSTREAM_TRANSPORT` 只控制 HTTP 入站请求转发到 Codex 上游时使用 `http` 还是 `ws`。客户端侧 WebSocket 入口独立可用：使用 `GET ws://<host>/v1/responses` 建连，首帧发送 `response.create` JSON，服务端会通过 Codex 上游 WS 返回 Responses 事件帧。
+> `AXISRELAY_UPSTREAM_TRANSPORT` 只控制 HTTP 入站请求转发到 Codex 上游时使用 `http` 还是 `ws`。客户端侧 WebSocket 入口独立可用：使用 `GET ws://<host>/v1/responses` 建连，首帧发送 `response.create` JSON，服务端会通过 Codex 上游 WS 返回 Responses 事件帧。
 
 ### 数据库配置
 
-#### PostgreSQL 模式
+#### MySQL 8（默认）
 
 | 变量 | 必填 | 默认值 | 说明 |
 |------|------|--------|------|
-| `DATABASE_DRIVER` | 是 | postgres | 固定值: postgres |
-| `DATABASE_HOST` | 是 | - | PostgreSQL 主机地址 |
-| `DATABASE_PORT` | 否 | 5432 | PostgreSQL 端口 |
-| `DATABASE_USER` | 是 | - | PostgreSQL 用户名 |
-| `DATABASE_PASSWORD` | 是 | - | PostgreSQL 密码 |
-| `DATABASE_NAME` | 是 | - | PostgreSQL 数据库名 |
-| `DATABASE_SCHEMA` | 否 | - | PostgreSQL schema；适合 Supabase 等多项目共享 database 的场景。配置后启动时自动 `CREATE SCHEMA IF NOT EXISTS` 并将所有连接的 `search_path` 指向该 schema。仅允许字母/数字/下划线，长度 ≤63；留空保持默认（通常是 `public`）。|
-| `DATABASE_SSLMODE` | 否 | disable | SSL 模式: disable/require/verify-full |
+| `AXISRELAY_DATABASE_DRIVER` | 是 | `mysql` | MySQL 使用 `mysql`；PostgreSQL 兼容模式使用 `postgres` / `postgresql` |
+| `AXISRELAY_DATABASE_HOST` | 是 | - | 数据库主机；标准 compose 内为 `mysql` |
+| `AXISRELAY_DATABASE_PORT` | 否 | `3306` | MySQL 端口；PostgreSQL 未显式配置时默认 `5432` |
+| `AXISRELAY_DATABASE_USER` | 是 | - | 数据库用户 |
+| `AXISRELAY_DATABASE_PASSWORD` | 否 | - | 数据库密码 |
+| `AXISRELAY_DATABASE_NAME` | 是 | - | 数据库名 |
+
+> MySQL 8 是默认和主要验收数据库；PostgreSQL 保留兼容。SQLite 已不再是可启动的数据库驱动。
 
 ### 生图工作台
 
 | 变量 | 必填 | 默认值 | 说明 |
 |------|------|--------|------|
-| `CODEX_IMAGES_MAIN_MODEL` | 否 | `gpt-5.6-luna` | 生图文本驱动的部署默认值；后台「Codex → 生图设置」选择具体模型后优先使用后台配置 |
-| `IMAGE_ASSET_DIR` | 否 | `/data/images` | 管理台生图工作台保存图片文件的服务器目录；Docker 部署建议持久化 `/data` |
-| `IMAGE_ASSET_PUBLIC_BASE_URL` | 否 | 空 | 图片代理 URL 的公开基址，例如 `https://cdn.example.com`；仅改变返回地址，需由反向代理将 `/p/img/` 转发到 Codex2Api |
-| `IMAGE_ASSET_SIGNING_SECRET` | 否 | 随机值 | 图片代理 URL 的持久化签名密钥；生产环境应配置固定随机值，避免服务重启后历史图片链接失效 |
-| `IMAGE_UPSCALER_ENDPOINT` | 否 | 空 | RealESRGAN 服务地址，例如 `http://image-upscaler:8090`；配置后 `upscale=2k/4k` 必须由该服务成功处理，否则异步任务失败 |
-| `IMAGE_UPSCALER_FIT` | 否 | `inside` | RealESRGAN 目标尺寸适配方式，可选 `inside` 或 `cover` |
-| `BACKGROUND_ASSET_DIR` | 否 | `/data/backgrounds` | 管理台背景图/MP4 上传文件的服务器目录；未配置时优先保存到 `IMAGE_ASSET_DIR` 同级的 `backgrounds` 目录 |
+| `AXISRELAY_IMAGES_MAIN_MODEL` | 否 | `gpt-5.6-luna` | 生图文本驱动的部署默认值；后台「Codex → 生图设置」选择具体模型后优先使用后台配置 |
+| `AXISRELAY_IMAGE_ASSET_DIR` | 否 | `/data/images` | 管理台生图工作台保存图片文件的服务器目录；Docker 部署建议持久化 `/data` |
+| `AXISRELAY_IMAGE_ASSET_PUBLIC_BASE_URL` | 否 | 空 | 图片代理 URL 的公开基址，例如 `https://cdn.example.com`；仅改变返回地址，需由反向代理将 `/p/img/` 转发到 AxisRelay |
+| `AXISRELAY_IMAGE_ASSET_SIGNING_SECRET` | 否 | 随机值 | 图片代理 URL 的持久化签名密钥；生产环境应配置固定随机值，避免服务重启后历史图片链接失效 |
+| `AXISRELAY_IMAGE_UPSCALER_ENDPOINT` | 否 | 空 | RealESRGAN 服务地址，例如 `http://image-upscaler:8090`；配置后 `upscale=2k/4k` 必须由该服务成功处理，否则异步任务失败 |
+| `AXISRELAY_IMAGE_UPSCALER_FIT` | 否 | `inside` | RealESRGAN 目标尺寸适配方式，可选 `inside` 或 `cover` |
+| `AXISRELAY_BACKGROUND_ASSET_DIR` | 否 | `/data/backgrounds` | 管理台背景图/MP4 上传文件的服务器目录；未配置时优先保存到 `AXISRELAY_IMAGE_ASSET_DIR` 同级的 `backgrounds` 目录 |
 
 ### 日志目录
 
 | 变量 | 必填 | 默认值 | 说明 |
 |------|------|--------|------|
-| `LOG_DIR` | 否 | `logs` | 上游错误日志目录；只允许写临时盘的平台可设为 `/tmp/logs` |
-| `LOG_DISABLED` | 否 | `false` | 设为 `true` 时禁用文件型错误日志与安全审计日志 |
-| `SECURITY_LOG_DIR` | 否 | `${LOG_DIR}/security` | 安全审计日志目录；未设置时跟随 `LOG_DIR` |
-
-#### SQLite 模式
-
-| 变量 | 必填 | 默认值 | 说明 |
-|------|------|--------|------|
-| `DATABASE_DRIVER` | 是 | sqlite | 固定值: sqlite |
-| `DATABASE_PATH` | 是 | - | SQLite 数据库文件路径，如 `/data/codex2api.db` |
+| `AXISRELAY_LOG_DIR` | 否 | `logs` | 上游错误日志目录；只允许写临时盘的平台可设为 `/tmp/logs` |
+| `AXISRELAY_LOG_DISABLED` | 否 | `false` | 设为 `true` 时禁用文件型错误日志与安全审计日志 |
+| `AXISRELAY_SECURITY_LOG_DIR` | 否 | `${AXISRELAY_LOG_DIR}/security` | 安全审计日志目录；未设置时跟随 `AXISRELAY_LOG_DIR` |
 
 ### 缓存配置
 
@@ -143,27 +134,27 @@ Codex2API 采用三层配置架构：
 
 | 变量 | 必填 | 默认值 | 说明 |
 |------|------|--------|------|
-| `CACHE_DRIVER` | 是 | redis | 固定值: redis |
-| `REDIS_ADDR` | 是 | - | Redis 地址，支持 `redis:6379`、`redis://default:pass@host:6379/0`、`rediss://default:pass@host:6379/0` |
-| `REDIS_USERNAME` | 否 | - | Redis ACL 用户名；URL 中已包含用户名时可不填 |
-| `REDIS_PASSWORD` | 否 | - | Redis 密码；URL 中已包含密码时可不填 |
-| `REDIS_DB` | 否 | 0 | Redis 数据库编号 |
-| `REDIS_TLS` | 否 | false | 为 `host:port` 形式的 Redis 启用 TLS；`rediss://` 会自动启用 |
-| `REDIS_INSECURE_SKIP_VERIFY` | 否 | false | 跳过 TLS 证书校验，仅建议自签证书或排障时使用 |
+| `AXISRELAY_CACHE_DRIVER` | 是 | redis | 固定值: redis |
+| `AXISRELAY_REDIS_ADDR` | 是 | - | Redis 地址，支持 `redis:6379`、`redis://default:pass@host:6379/0`、`rediss://default:pass@host:6379/0` |
+| `AXISRELAY_REDIS_USERNAME` | 否 | - | Redis ACL 用户名；URL 中已包含用户名时可不填 |
+| `AXISRELAY_REDIS_PASSWORD` | 否 | - | Redis 密码；URL 中已包含密码时可不填 |
+| `AXISRELAY_REDIS_DB` | 否 | 0 | Redis 数据库编号 |
+| `AXISRELAY_REDIS_TLS` | 否 | false | 为 `host:port` 形式的 Redis 启用 TLS；`rediss://` 会自动启用 |
+| `AXISRELAY_REDIS_INSECURE_SKIP_VERIFY` | 否 | false | 跳过 TLS 证书校验，仅建议自签证书或排障时使用 |
 
-> Aiven、Upstash 等云 Redis 通常要求 TLS。优先使用平台提供的 `rediss://...` 连接串；如果只填写 `host:port`，请设置 `REDIS_TLS=true`，否则可能在启动时出现 `Redis 连接失败: EOF`。
+> Aiven、Upstash 等云 Redis 通常要求 TLS。优先使用平台提供的 `rediss://...` 连接串；如果只填写 `host:port`，请设置 `AXISRELAY_REDIS_TLS=true`，否则可能在启动时出现 `Redis 连接失败: EOF`。
 
 #### 内存缓存模式
 
 | 变量 | 必填 | 默认值 | 说明 |
 |------|------|--------|------|
-| `CACHE_DRIVER` | 是 | memory | 固定值: memory |
+| `AXISRELAY_CACHE_DRIVER` | 是 | memory | 固定值: memory |
 
 #### API Key 鉴权缓存
 
 | 变量 | 必填 | 默认值 | 说明 |
 | --- | --- | --- | --- |
-| `CODEX_API_KEY_AUTH_CACHE_ENABLED` | 否 | `true` | 启用鉴权 L1/L2；设置 `false` 并重启后恢复旧版鉴权缓存策略 |
+| `AXISRELAY_API_KEY_AUTH_CACHE_ENABLED` | 否 | `true` | 启用鉴权 L1/L2；设置 `false` 并重启后恢复旧版鉴权缓存策略 |
 
 启用后，带分组、模型权限、有效期和限额配置的 Key 也可缓存。读取顺序为本地 L1 → Redis L2 → 数据库；Memory 模式只有 L1。L1 绝对 TTL 为 15 秒，最多 4,096 条、16 MiB 逻辑 JSON 快照，单条上限 64 KiB；超大条目直接回源。Redis L2 TTL 为 5 分钟，按数据库作用域、鉴权修订号和 Key 摘要隔离。缓存不保存原始 Key 或已用额度；确认不存在的 Key 只进入有界 L1，TTL 为 2 秒。字节预算不包含 Go 对象、map 或 allocator 开销，不是进程 RSS 上限。
 
@@ -171,7 +162,7 @@ Codex2API 采用三层配置架构：
 
 设置了累计额度的 Key 每次鉴权仍查询数据库中的 `quota_used`；模型周预算仍在转发前执行数据库权威计数和请求幂等校验。窗口统计的原有 TTL、已建立长连接的校验策略不变。修订号变更会淘汰当前实例的全部鉴权条目；频繁修改 Key 配置会增加冷缓存回源。快照回填使用版本隔离和本地代际检查，延迟完成的旧查询不能恢复新版本的权限。
 
-启动自动创建修订表和 PostgreSQL/SQLite 触发器，无需手工迁移。关闭两级缓存后仍保留这些表和触发器，便于混合版本部署；旧版策略只对无访问约束的 Key 缓存元数据，并合并同一时刻的相同 Key 查询。
+启动自动创建修订表和 MySQL/PostgreSQL 触发器，无需手工迁移。关闭两级缓存后仍保留这些表和触发器，便于混合版本部署；旧版策略只对无访问约束的 Key 缓存元数据，并合并同一时刻的相同 Key 查询。
 
 `GET /api/admin/ops/overview` 的 `api_key_auth_cache` 提供开关、L1 条目/字节数、本地/远端命中、数据库配置加载次数、动态额度读取次数、修订号复核次数、失效、淘汰、超限旁路和错误计数。评估收益时应分开看配置回源与动态额度查询。
 
@@ -179,7 +170,7 @@ Codex2API 采用三层配置架构：
 
 **实验性功能，默认关闭。** 开启后，Codex OAuth 的普通 Responses 请求会按所选 Codex Desktop/CLI 指纹异步发送客户端遥测。分析事件发送到 `chatgpt.com/backend-api/codex/analytics-events/events`，OTLP metrics 发送到 `ab.chatgpt.com/otlp/v1/metrics`；失败不会影响代理响应，沿用账号的代理地址，Resin 启用时与 `/responses` 一样经反代发出。注意：工具调用、文件修改、hook 等事件是随机模拟生成的，并非对真实请求的观测，与上游侧可见的请求流可能不一致；是否开启由部署者自行评估。
 
-管理后台「系统设置 → Codex → 客户端遥测」可实时开关，字段为 `codex_telemetry_enabled`（新装与升级安装均默认关闭）。`CODEX_TELEMETRY_ENABLED=false` 是部署层强制关闭开关，无视后台设置。`CODEX_STATSIG_API_KEY` 可覆盖内置的公开 SDK key；当前 Codex Desktop 与 Codex CLI 使用同一个 key。
+管理后台「系统设置 → Codex → 客户端遥测」可实时开关，字段为 `codex_telemetry_enabled`（新装与升级安装均默认关闭）。`AXISRELAY_TELEMETRY_ENABLED=false` 是部署层强制关闭开关，无视后台设置。`AXISRELAY_STATSIG_API_KEY` 可覆盖内置的公开 SDK key；当前 Codex Desktop 与 Codex CLI 使用同一个 key。
 
 事件按 Codex CLI 的结构模拟：首次观察到的 thread 使用 `codex_thread_initialized`，每轮生成 `codex_turn_event`，结束时生成 4 个 `codex_hook_run`。`codex_dynamic_tool_call_event` 每轮随机 40%，命中后其中 50% 同时生成 `codex_command_execution_event`；`codex_file_change_event` 每轮随机 20%，并同时生成 `codex_accepted_line_fingerprints`，其 `repo_hash` 固定为 `null`。这些随机事件不解析请求中的命令、工具调用或 diff。
 
@@ -203,7 +194,7 @@ API Key 启用多个 RPM/RPD/费用/Token 窗口时，Redis 会通过一次 `MGE
 
 管理后台「系统设置 → Codex → 生图设置」可选择生图使用的文本驱动模型。选择后自动保存，对本实例之后构造的生图请求立即生效，重启后从数据库恢复。
 
-管理 API `PUT /api/admin/settings` 使用 `codex_images_main_model` 字段，空字符串表示「使用部署默认值」。优先级为：后台配置 → `CODEX_IMAGES_MAIN_MODEL` → 内置 `gpt-5.6-luna`。`GET /api/admin/settings` 同时返回只读的 `codex_images_default_main_model`，用于展示部署默认值。模型名称长度不超过 128 字节，不含空白或控制字符，不能填 `gpt-image-*` 图像模型。
+管理 API `PUT /api/admin/settings` 使用 `codex_images_main_model` 字段，空字符串表示「使用部署默认值」。优先级为：后台配置 → `AXISRELAY_IMAGES_MAIN_MODEL` → 内置 `gpt-5.6-luna`。`GET /api/admin/settings` 同时返回只读的 `codex_images_default_main_model`，用于展示部署默认值。模型名称长度不超过 128 字节，不含空白或控制字符，不能填 `gpt-image-*` 图像模型。
 
 设置覆盖管理与公开生图工作台、`/v1/images/generations`、`/v1/images/edits`，以及顶层 `model` 填写图像模型的 `/v1/responses` 请求。原生 Responses 请求若显式填写文本 `model`，则继续使用该模型。图像模型由工作台或 API 请求选择；Images 链路在上游明确拒绝文本驱动时仍会按现有候选顺序重试。
 
@@ -213,7 +204,7 @@ API Key 启用多个 RPM/RPD/费用/Token 窗口时，Redis 会通过一次 `MGE
 
 ### Turn-State 模板生命周期
 
-管理后台的实验性模板缓存开关默认关闭。开启后，上游铸造的有效模板按账号和精确模型存入 PostgreSQL/SQLite，重启后可用；只采集上游响应，不从客户端请求头收集模板。账号可关闭注入、限定模型范围，或设置独立模板签发代理。模板和代理配置保留在数据库，关闭注入不会删除它们。
+管理后台的实验性模板缓存开关默认关闭。开启后，上游铸造的有效模板按账号和精确模型存入 MySQL/PostgreSQL，重启后可用；只采集上游响应，不从客户端请求头收集模板。账号可关闭注入、限定模型范围，或设置独立模板签发代理。模板和代理配置保留在数据库，关闭注入不会删除它们。
 
 账号页的“重新获取模板”先获取候选，再发起验证请求，验证通过才保存。无显式范围时默认选择 `gpt-6-astra` 与 `gpt-5.6-*`。`codex-auto-review` 不参与缓存、获取、续签或账号形态状态汇总，也不会作为智力检测可选模型。状态标签是 Turn-State 形态启发式信号，不证明实际推理能力。
 
@@ -225,7 +216,7 @@ API Key 启用多个 RPM/RPD/费用/Token 窗口时，Redis 会通过一次 `MGE
 
 ### Responses 上下文缓存
 
-Responses 连续请求会按 `previous_response_id` 重建上下文。每个 Codex2API 进程都有一层有界 L1 缓存，三个字节预算保存在数据库中；管理台用整数 MiB 展示和修改，管理 API 使用原始字节数。
+Responses 连续请求会按 `previous_response_id` 重建上下文。每个 AxisRelay 进程都有一层有界 L1 缓存，三个字节预算保存在数据库中；管理台用整数 MiB 展示和修改，管理 API 使用原始字节数。
 
 | 管理 API 字段 | 默认值 | 设置页范围 | 说明 |
 |------|------|------|------|
@@ -269,7 +260,7 @@ Redis 模式会把 response context 保存到共享后端。后端值在重建�
 | `SchedulerMode` | string | `round_robin` | - | 调度模式：`round_robin`（轮询，按调度分权重排序）、`remaining_quota`（优先使用用量少的账号）或 `fill_first`（顺序耗尽：集中使用剩余额度最少的账号，耗尽/限流后切下一个）。索引引擎在同一优先级和健康档位内按最多 8 个可用候选的窗口比较实时占用；配额模式仍优先比较用量。窗口被过滤或并发占满时继续补选，不保证全池绝对最小占用。 |
 | `AffinityMode` | string | `bounded` | - | 会话亲和：`bounded`（账号不健康或绑定空闲超过 10 分钟时重新挑号，活跃会话不轮换以保住上游 prompt cache）、`off`（每次重选）、`strict`（长期粘连） |
 
-调度优先级先决定账号层级，同一优先级内再比较健康档位、调度分和当前负载；会话亲和只负责复用已绑定账号。多个最终用户共享同一个 API Key 时，下游可传 `X-Codex2API-Affinity-Key`，值会先哈希且仅用于本地账号绑定，不会转发给上游。
+调度优先级先决定账号层级，同一优先级内再比较健康档位、调度分和当前负载；会话亲和只负责复用已绑定账号。多个最终用户共享同一个 API Key 时，下游可传 `X-AxisRelay-Affinity-Key`，值会先哈希且仅用于本地账号绑定，不会转发给上游。
 
 调度引擎的推荐上线顺序是 `legacy → shadow → indexed`：
 
@@ -287,9 +278,9 @@ Codex 瞬时账号限流按 `15s → 30s → 60s → 120s → 240s → 300s` 退
 
 运维 API 的 `scheduler` 指标新增 `fast_scanned_accounts`（实际候选检查数）、`fast_filter_checks`、`fast_acquire_failures`、`fast_lock_wait_ns` 和 `model_cooldown_cache_reads`。这些是本进程累计计数，宜取时间差计算每次选号成本；快路径命中不再代表没有扫描。`selection_duration_buckets` 为 `10us/100us/1ms/10ms/100ms/1s/+Inf` 累积直方图，覆盖与 `selection_total` 相同的普通/新会话选号，已有绑定的直接复用不计入该直方图。跨实例共享冷却与 outbox 不提供账号全局并发限制，并发名额仍由每个实例独立计数。
 
-等待队列还暴露 `max_waiters`、`max_waiters_per_key`、`waiters`、`wait_rejected`（全部队列拒绝）、`wait_rejected_per_key`（其中因单 Key 上限被拒绝的子集）、`wait_granted`、`wait_duration_ns`，以及 `10ms/100ms/1s/10s/30s/+Inf` 的 `wait_duration_buckets` 累积直方图。等待耗时统计包含成功、取消和超时，拒绝入队不计入；`wait_wakeups / wait_granted` 的增量比可辅助观察无效唤醒，不能当作上游吞吐指标。Docker 部署应将两个新环境变量传给应用容器；项目标准/SQLite compose 的 `env_file` 会读取 `.env`，2004 专用 compose 可用 `environment` 覆盖。
+等待队列还暴露 `max_waiters`、`max_waiters_per_key`、`waiters`、`wait_rejected`（全部队列拒绝）、`wait_rejected_per_key`（其中因单 Key 上限被拒绝的子集）、`wait_granted`、`wait_duration_ns`，以及 `10ms/100ms/1s/10s/30s/+Inf` 的 `wait_duration_buckets` 累积直方图。等待耗时统计包含成功、取消和超时，拒绝入队不计入；`wait_wakeups / wait_granted` 的增量比可辅助观察无效唤醒，不能当作上游吞吐指标。Docker 部署应将两个新环境变量传给应用容器；项目标准 compose 的 `env_file` 会读取 `.env`，2004 专用 compose 可用 `environment` 覆盖。
 
-启动会自动创建 `scheduler_outbox` 和 `maintenance_jobs` 及相应索引/触发器，PostgreSQL 与 SQLite 均无需手工迁移。多实例对账号、API Key、分组、代理和调度设置的变化按 outbox 水位增量重放；高频用量计数不会产生调度事件。环境变量 `CODEX_SCHEDULER_ENGINE` 一旦设置，会固定本实例引擎并覆盖管理后台值。
+启动会自动创建 `scheduler_outbox` 和 `maintenance_jobs` 及相应索引/触发器，MySQL 与 PostgreSQL 均无需手工迁移。多实例对账号、API Key、分组、代理和调度设置的变化按 outbox 水位增量重放；高频用量计数不会产生调度事件。环境变量 `AXISRELAY_SCHEDULER_ENGINE` 一旦设置，会固定本实例引擎并覆盖管理后台值。
 
 `ContinuousRetryPolicy` 是默认关闭的独立持续重试策略，持久化为 JSON：
 
@@ -444,7 +435,7 @@ Claude / Grok / Antigravity 等中继型账号不经 Resin，始终按第 2、3 
 
 规则的 `id` 与模型匹配条件、时区及重置安排共同标识一个预算。已有规则只允许修改 `max_requests` 或列表顺序，保留已用次数；模型或重置安排需要变化时，删除旧规则并新增规则，新规则从零计数。提高次数上限立即提供更多余额；将上限调低到已用次数以下会停止放行该规则。更新请求不带 `limits` 时保留全部限制；传入 `limits` 时按完整限制对象替换，`model_request_limits: []` 移除模型周预算。
 
-计数与请求幂等记录保存在 PostgreSQL / SQLite 的独立表中，启动时自动创建。PostgreSQL 多实例共享同一权威计数；SQLite 轻量模式使用相同语义。重启服务、清理 Redis/内存缓存、删除用量日志或重置金额额度不会清零模型周预算，到下一窗口自然获得新额度。扣额数据库不可用时，有模型周预算的相关请求返回服务不可用，避免并发超发。
+计数与请求幂等记录保存在 MySQL / PostgreSQL 的独立表中，启动时自动创建。多实例共享同一权威计数。重启服务、清理 Redis/内存缓存、删除用量日志或重置金额额度不会清零模型周预算，到下一窗口自然获得新额度。扣额数据库不可用时，有模型周预算的相关请求返回服务不可用，避免并发超发。
 
 后台 Key 编辑窗口和公开 `/key-usage` 页面展示本周已用、剩余、上限及下次重置时间。展示不受用量图表的 `today` / `7d` / `30d` / `all` 筛选影响，始终显示规则当前周窗口。该预算用于分配网关调用次数，不保证与上游套餐的计量口径相同；超额响应与查询接口见 [API 文档](API.md#api-key-模型周请求次数预算)。
 
@@ -454,84 +445,60 @@ Claude / Grok / Antigravity 等中继型账号不经 Resin，始终按第 2、3 
 
 ```bash
 # ============================================================
-# Codex2API 生产环境配置
+# AxisRelay 生产环境配置
 # ============================================================
 
 # 服务配置
-CODEX_PORT=8080
-ADMIN_SECRET=your-secure-admin-password-here
+AXISRELAY_PORT=8080
+AXISRELAY_ADMIN_SECRET=your-secure-admin-password-here
 TZ=Asia/Shanghai
 
-# 数据库配置 (PostgreSQL)
-DATABASE_DRIVER=postgres
-DATABASE_HOST=postgres
-DATABASE_PORT=5432
-DATABASE_USER=codex2api
-DATABASE_PASSWORD=your-strong-db-password
-DATABASE_NAME=codex2api
-DATABASE_SSLMODE=disable
-IMAGE_ASSET_DIR=/data/images
-LOG_DIR=logs
-LOG_DISABLED=false
+# 数据库配置（MySQL 8 默认）
+AXISRELAY_DATABASE_DRIVER=mysql
+AXISRELAY_DATABASE_HOST=mysql
+AXISRELAY_DATABASE_PORT=3306
+AXISRELAY_DATABASE_USER=axisrelay
+AXISRELAY_DATABASE_PASSWORD=your-mysql-password
+AXISRELAY_DATABASE_NAME=axisrelay
+AXISRELAY_IMAGE_ASSET_DIR=/data/images
+AXISRELAY_LOG_DIR=logs
+AXISRELAY_LOG_DISABLED=false
 
 # 缓存配置 (Redis)
-CACHE_DRIVER=redis
-REDIS_ADDR=redis:6379
-REDIS_USERNAME=
-REDIS_PASSWORD=your-redis-password
-REDIS_DB=0
-REDIS_TLS=false
-REDIS_INSECURE_SKIP_VERIFY=false
-```
-
-### SQLite 轻量环境 (.env)
-
-```bash
-# ============================================================
-# Codex2API SQLite 轻量版配置
-# ============================================================
-
-# 服务配置
-CODEX_PORT=8080
-ADMIN_SECRET=your-admin-password
-TZ=Asia/Shanghai
-
-# 数据库配置 (SQLite)
-DATABASE_DRIVER=sqlite
-DATABASE_PATH=/data/codex2api.db
-IMAGE_ASSET_DIR=/data/images
-LOG_DIR=logs
-LOG_DISABLED=false
-
-# 缓存配置 (内存)
-CACHE_DRIVER=memory
+AXISRELAY_CACHE_DRIVER=redis
+AXISRELAY_REDIS_ADDR=redis:6379
+AXISRELAY_REDIS_USERNAME=
+AXISRELAY_REDIS_PASSWORD=your-redis-password
+AXISRELAY_REDIS_DB=0
+AXISRELAY_REDIS_TLS=false
+AXISRELAY_REDIS_INSECURE_SKIP_VERIFY=false
 ```
 
 ### 开发环境 (.env)
 
 ```bash
 # ============================================================
-# Codex2API 开发环境配置
+# AxisRelay 开发环境配置
 # ============================================================
 
-CODEX_PORT=8080
-# ADMIN_SECRET=dev  # 开发环境可不设置
+AXISRELAY_PORT=8080
+# AXISRELAY_ADMIN_SECRET=dev  # 开发环境可不设置
 
-# 本地 PostgreSQL
-DATABASE_DRIVER=postgres
-DATABASE_HOST=localhost
-DATABASE_PORT=5432
-DATABASE_USER=codex2api
-DATABASE_PASSWORD=codex2api
-DATABASE_NAME=codex2api
+# 本地 MySQL
+AXISRELAY_DATABASE_DRIVER=mysql
+AXISRELAY_DATABASE_HOST=127.0.0.1
+AXISRELAY_DATABASE_PORT=3306
+AXISRELAY_DATABASE_USER=root
+AXISRELAY_DATABASE_PASSWORD=
+AXISRELAY_DATABASE_NAME=axisrelay
 
 # 本地 Redis
-CACHE_DRIVER=redis
-REDIS_ADDR=localhost:6379
-REDIS_USERNAME=
-REDIS_PASSWORD=
-REDIS_DB=0
-REDIS_TLS=false
+AXISRELAY_CACHE_DRIVER=redis
+AXISRELAY_REDIS_ADDR=localhost:6379
+AXISRELAY_REDIS_USERNAME=
+AXISRELAY_REDIS_PASSWORD=
+AXISRELAY_REDIS_DB=0
+AXISRELAY_REDIS_TLS=false
 
 TZ=Asia/Shanghai
 ```
@@ -557,7 +524,7 @@ TZ=Asia/Shanghai
 **Admin Secret 优先级:**
 
 ```
-1. 环境变量 ADMIN_SECRET
+1. 环境变量 AXISRELAY_ADMIN_SECRET
    ↓
 2. 数据库 SystemSettings.AdminSecret
    ↓
@@ -583,7 +550,7 @@ TZ=Asia/Shanghai
 程序启动时会自动验证配置：
 
 ```
-✓ 数据库连接成功: PostgreSQL
+✓ 数据库连接成功: MySQL
 ✓ 缓存连接成功: Redis
 ✓ 账号池初始化完成: 10/10 可用
 ✓ 系统设置加载完成
@@ -612,11 +579,11 @@ curl -H "X-Admin-Key: your-secret" http://localhost:8080/api/admin/ops/overview
 
 **A:** 通过管理后台 `/admin/settings` 修改的业务配置（如 MaxConcurrency、GlobalRPM）会立即生效。
 
-### Q: SQLite 和 PostgreSQL 可以切换吗？
+### Q: MySQL 和 PostgreSQL 可以切换吗？
 
 **A:** 可以，但需要：
 1. 停止服务
-2. 修改 DATABASE_DRIVER 和相关配置
+2. 修改 AXISRELAY_DATABASE_DRIVER 和相关配置
 3. 启动服务（新数据库会重新初始化）
 4. 重新导入账号数据
 
@@ -627,12 +594,11 @@ curl -H "X-Admin-Key: your-secret" http://localhost:8080/api/admin/ops/overview
 ### Q: 配置错误导致无法启动怎么办？
 
 **A:** 检查日志输出，常见错误：
-- `DATABASE_HOST is empty` - 未配置数据库主机
-- `REDIS_ADDR is empty` - Redis 模式下未配置 Redis 地址
-- `DATABASE_PATH is empty` - SQLite 模式下未配置数据路径
+- `AXISRELAY_DATABASE_HOST is empty` - 未配置数据库主机
+- `AXISRELAY_REDIS_ADDR is empty` - Redis 模式下未配置 Redis 地址
 
 ### 惰性模式下的 Codex 授权保活
 
 管理设置 `codex_oauth_keepalive_enabled`（默认 `false`）允许惰性模式单独运行 Codex Token 续期。它使用现有 `background_refresh_interval_minutes` 巡检间隔和 AT 到期前 5 分钟的阈值，不改变额度冷却、不启用生成探针，也不影响 Claude、Grok 或 Antigravity 的刷新策略。普通模式本来就运行 Codex 续期，不依赖此开关。
 
-Codex 刷新新增 `codex_oauth_refresh_attempts` 保护表，启动时自动创建，兼容 PostgreSQL 与 SQLite。表内只保存旧 RT 的 SHA-256 指纹、刷新操作 ID 和开始时间，不保存明文 Token。成功保存全部相关凭据后删除记录；结果不确定的记录保留，防止跨实例或重启后重复消费旧 RT。已有凭据无需重新导入；已经失效的授权需重新登录恢复。
+Codex 刷新新增 `codex_oauth_refresh_attempts` 保护表，启动时自动创建，兼容 MySQL 与 PostgreSQL。表内只保存旧 RT 的 SHA-256 指纹、刷新操作 ID 和开始时间，不保存明文 Token。成功保存全部相关凭据后删除记录；结果不确定的记录保留，防止跨实例或重启后重复消费旧 RT。已有凭据无需重新导入；已经失效的授权需重新登录恢复。

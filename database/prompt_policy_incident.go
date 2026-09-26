@@ -1,6 +1,7 @@
 package database
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"encoding/json"
@@ -183,7 +184,9 @@ func (db *DB) ensurePromptPolicyIncidentsTable(ctx context.Context) error {
 	if db == nil {
 		return errors.New("database is nil")
 	}
-	if db.isSQLite() {
+	if db.isMySQL() {
+		// MySQL schema is owned by the versioned migrations.
+	} else if db.isSQLite() {
 		if _, err := db.conn.ExecContext(ctx, `CREATE TABLE IF NOT EXISTS prompt_policy_incidents (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			incident_id TEXT NOT NULL UNIQUE,
@@ -290,19 +293,21 @@ func (db *DB) ensurePromptPolicyIncidentsTable(ctx context.Context) error {
 		ELSE 'evidence_unavailable' END WHERE COALESCE(local_comparison, '') = ''`); err != nil {
 		return err
 	}
-	for _, stmt := range []string{
-		`CREATE INDEX IF NOT EXISTS idx_prompt_policy_incidents_request ON prompt_policy_incidents(request_correlation_id, created_at)`,
-		`CREATE INDEX IF NOT EXISTS idx_prompt_policy_incidents_created ON prompt_policy_incidents(created_at)`,
-		`CREATE INDEX IF NOT EXISTS idx_prompt_policy_incidents_api_key ON prompt_policy_incidents(api_key_id, created_at)`,
-		`CREATE INDEX IF NOT EXISTS idx_prompt_policy_incidents_account ON prompt_policy_incidents(account_id, created_at)`,
-		`CREATE INDEX IF NOT EXISTS idx_prompt_policy_incidents_endpoint ON prompt_policy_incidents(endpoint, created_at)`,
-		`CREATE INDEX IF NOT EXISTS idx_prompt_policy_incidents_outcome ON prompt_policy_incidents(local_outcome, created_at)`,
-		`CREATE INDEX IF NOT EXISTS idx_prompt_policy_incidents_comparison ON prompt_policy_incidents(local_comparison, created_at)`,
-		`CREATE INDEX IF NOT EXISTS idx_usage_logs_policy_incident ON usage_logs(prompt_policy_incident_id)`,
-		`CREATE INDEX IF NOT EXISTS idx_prompt_rule_evidence_incident ON prompt_rule_candidate_evidence(prompt_policy_incident_id)`,
-	} {
-		if _, err := db.conn.ExecContext(ctx, stmt); err != nil {
-			return err
+	if !db.isMySQL() {
+		for _, stmt := range []string{
+			`CREATE INDEX IF NOT EXISTS idx_prompt_policy_incidents_request ON prompt_policy_incidents(request_correlation_id, created_at)`,
+			`CREATE INDEX IF NOT EXISTS idx_prompt_policy_incidents_created ON prompt_policy_incidents(created_at)`,
+			`CREATE INDEX IF NOT EXISTS idx_prompt_policy_incidents_api_key ON prompt_policy_incidents(api_key_id, created_at)`,
+			`CREATE INDEX IF NOT EXISTS idx_prompt_policy_incidents_account ON prompt_policy_incidents(account_id, created_at)`,
+			`CREATE INDEX IF NOT EXISTS idx_prompt_policy_incidents_endpoint ON prompt_policy_incidents(endpoint, created_at)`,
+			`CREATE INDEX IF NOT EXISTS idx_prompt_policy_incidents_outcome ON prompt_policy_incidents(local_outcome, created_at)`,
+			`CREATE INDEX IF NOT EXISTS idx_prompt_policy_incidents_comparison ON prompt_policy_incidents(local_comparison, created_at)`,
+			`CREATE INDEX IF NOT EXISTS idx_usage_logs_policy_incident ON usage_logs(prompt_policy_incident_id)`,
+			`CREATE INDEX IF NOT EXISTS idx_prompt_rule_evidence_incident ON prompt_rule_candidate_evidence(prompt_policy_incident_id)`,
+		} {
+			if _, err := db.conn.ExecContext(ctx, stmt); err != nil {
+				return err
+			}
 		}
 	}
 	if err := db.migrateLegacyPromptPolicyIncidents(ctx); err != nil {
@@ -318,6 +323,13 @@ func (db *DB) migrateLegacyPromptPolicyIncidents(ctx context.Context) error {
 	) SELECT 'legacy-' || CAST(id AS TEXT), created_at, endpoint, request_protocol, request_provider, model, api_key_id, api_key_name, api_key_masked,
 		error_code, full_text, $1, '[]' FROM prompt_filter_logs WHERE source='upstream_cyber_policy'
 	ON CONFLICT(incident_id) DO NOTHING`
+	if db.isMySQL() {
+		query = `INSERT IGNORE INTO prompt_policy_incidents (
+			incident_id, created_at, endpoint, request_protocol, request_provider, model, api_key_id, api_key_name, api_key_masked,
+			upstream_error_code, upstream_error, local_evaluation_state, local_matched_patterns
+		) SELECT CONCAT('legacy-', CAST(id AS CHAR)), created_at, endpoint, request_protocol, request_provider, model, api_key_id, api_key_name, api_key_masked,
+			error_code, full_text, $1, JSON_ARRAY() FROM prompt_filter_logs WHERE source='upstream_cyber_policy'`
+	}
 	_, err := db.conn.ExecContext(ctx, query, PromptPolicyEvaluationLegacyUnknown)
 	return err
 }
@@ -532,6 +544,45 @@ func reconcileStoredPromptPolicyIncidentFromShadowTx(ctx context.Context, tx *sq
 	return err
 }
 
+func (db *DB) reconcilePromptPolicyIncidentAfterCommit(ctx context.Context, correlationID string) error {
+	correlationID = strings.TrimSpace(correlationID)
+	if db == nil || correlationID == "" {
+		return nil
+	}
+	return db.withMySQLTransactionRetry(ctx, func() error {
+		return db.withSQLiteWriteLock(ctx, func() error {
+			var txOptions *sql.TxOptions
+			if db.isMySQL() {
+				txOptions = &sql.TxOptions{Isolation: sql.LevelReadCommitted}
+			}
+			tx, err := db.conn.BeginTx(ctx, txOptions)
+			if err != nil {
+				return err
+			}
+			defer tx.Rollback()
+
+			shadow, err := loadPromptPolicyShadowEvidenceTx(ctx, tx, correlationID)
+			if err != nil {
+				return err
+			}
+			if shadow == nil {
+				return tx.Commit()
+			}
+			input := &PromptFilterLogInput{
+				RequestCorrelationID: correlationID,
+				ReasonCode:           "prompt_policy_shadow_async",
+				AuditScore:           shadow.AuditScore,
+				PrimaryOrigin:        shadow.PrimaryOrigin,
+				MatchedPatterns:      shadow.MatchedPatterns,
+			}
+			if err := reconcileStoredPromptPolicyIncidentFromShadowTx(ctx, tx, input); err != nil {
+				return err
+			}
+			return tx.Commit()
+		})
+	})
+}
+
 func mergePromptPolicyCandidateEvidenceMetadata(raw, outcome, comparison string, auditScore int, reasonCode, primaryOrigin, matchedPatterns string) (string, error) {
 	metadata := map[string]any{}
 	if strings.TrimSpace(raw) != "" {
@@ -662,13 +713,17 @@ func (db *DB) PersistPromptPolicyIncident(ctx context.Context, rawIncident Promp
 		return err
 	}
 	evidence.PromptPolicyIncidentID = incident.IncidentID
-	return db.withSQLiteWriteLock(ctx, func() error {
-		tx, beginErr := db.conn.BeginTx(ctx, nil)
+	persistErr := db.withSQLiteWriteLock(ctx, func() error {
+		var txOptions *sql.TxOptions
+		if db.isMySQL() {
+			txOptions = &sql.TxOptions{Isolation: sql.LevelReadCommitted}
+		}
+		tx, beginErr := db.conn.BeginTx(ctx, txOptions)
 		if beginErr != nil {
 			return beginErr
 		}
 		defer tx.Rollback()
-		if _, execErr := tx.ExecContext(ctx, `INSERT INTO prompt_policy_incidents (
+		incidentInsert := `INSERT INTO prompt_policy_incidents (
 			incident_id, request_correlation_id, created_at, attempt_index, transport, endpoint, request_protocol, request_provider, model,
 			status_code, account_id, account_name, account_platform, account_group_ids, account_group_names,
 			api_key_id, api_key_name, api_key_masked, api_key_allowed_group_ids, api_key_allowed_group_names, platform,
@@ -677,7 +732,16 @@ func (db *DB) PersistPromptPolicyIncident(ctx context.Context, rawIncident Promp
 			local_threshold, local_mode, local_policy_profile, local_reason_code, local_reason, local_primary_origin, local_strike_eligible,
 			local_review_model, local_review_flagged, local_review_error, local_matched_patterns, prompt_fingerprint, prompt_preview, prompt_text, prompt_available, local_comparison
 		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37,$38,$39,$40,$41,$42,$43,$44,$45,$46,$47,$48,$49,$50,$51,$52,$53)
-		ON CONFLICT(incident_id) DO NOTHING`, incident.IncidentID, incident.RequestCorrelationID, incident.ObservedAt, incident.AttemptIndex,
+		ON CONFLICT(incident_id) DO NOTHING`
+		if db.isMySQL() {
+			incidentInsert = strings.Replace(incidentInsert, "INSERT INTO prompt_policy_incidents", "INSERT IGNORE INTO prompt_policy_incidents", 1)
+			incidentInsert = strings.Replace(incidentInsert, "\n\t\tON CONFLICT(incident_id) DO NOTHING", "", 1)
+		}
+		localMatchedArg := any(incident.LocalMatchedPatterns)
+		if db.isMySQL() && strings.TrimSpace(incident.LocalMatchedPatterns) == "" {
+			localMatchedArg = nil
+		}
+		if _, execErr := tx.ExecContext(ctx, incidentInsert, incident.IncidentID, incident.RequestCorrelationID, db.timeArg(incident.ObservedAt), incident.AttemptIndex,
 			incident.Transport, incident.Endpoint, incident.Protocol, incident.Provider, incident.Model, incident.StatusCode, incident.AccountID,
 			incident.AccountName, incident.AccountPlatform, encodeInt64SliceJSON(incident.AccountGroupIDs), encodePromptPolicyStringSlice(incident.AccountGroupNames),
 			incident.APIKeyID, incident.APIKeyName, incident.APIKeyMasked, encodeInt64SliceJSON(incident.APIKeyAllowedGroupIDs), encodePromptPolicyStringSlice(incident.APIKeyAllowedGroupNames), incident.Platform,
@@ -685,7 +749,7 @@ func (db *DB) PersistPromptPolicyIncident(ctx context.Context, rawIncident Promp
 			incident.UpstreamError, incident.LocalEvaluationState, incident.LocalOutcome, incident.LocalAction, incident.LocalScore,
 			incident.LocalRawScore, incident.LocalAuditScore, incident.LocalAuditRawScore, incident.LocalThreshold, incident.LocalMode,
 			incident.LocalPolicyProfile, incident.LocalReasonCode, incident.LocalReason, incident.LocalPrimaryOrigin, incident.LocalStrikeEligible,
-			incident.LocalReviewModel, incident.LocalReviewFlagged, incident.LocalReviewError, incident.LocalMatchedPatterns,
+			incident.LocalReviewModel, incident.LocalReviewFlagged, incident.LocalReviewError, localMatchedArg,
 			incident.PromptFingerprint, incident.PromptPreview, incident.PromptText, incident.PromptAvailable, incident.LocalComparison); execErr != nil {
 			return execErr
 		}
@@ -709,7 +773,7 @@ func (db *DB) PersistPromptPolicyIncident(ctx context.Context, rawIncident Promp
 				return execErr
 			}
 		}
-		candidateID, evidenceID, _, stageErr := stagePromptRuleCandidateTx(ctx, tx, candidate, evidence)
+		candidateID, evidenceID, _, stageErr := db.stagePromptRuleCandidateTx(ctx, tx, candidate, evidence)
 		if stageErr != nil {
 			return stageErr
 		}
@@ -729,11 +793,15 @@ func (db *DB) PersistPromptPolicyIncident(ctx context.Context, rawIncident Promp
 		riskSignal.NewAPIUserName = incident.NewAPIUserName
 		riskSignal.NewAPIUserEmail = incident.NewAPIUserEmail
 		riskSignal.NewAPIUserGroup = incident.NewAPIUserGroup
-		if err := insertPromptRiskSignal(ctx, tx, riskSignal); err != nil {
+		if err := db.insertPromptRiskSignal(ctx, tx, riskSignal); err != nil {
 			return err
 		}
 		return tx.Commit()
 	})
+	if persistErr != nil {
+		return persistErr
+	}
+	return db.reconcilePromptPolicyIncidentAfterCommit(ctx, incident.RequestCorrelationID)
 }
 
 func (db *DB) GetPromptPolicyIncident(ctx context.Context, incidentID string) (*PromptPolicyIncident, error) {
@@ -881,6 +949,12 @@ func scanPromptPolicyIncident(scanner promptPolicyIncidentScanner) (*PromptPolic
 	item.AccountGroupNames = decodePromptPolicyStringSlice(accountGroupNamesRaw)
 	item.APIKeyAllowedGroupIDs = decodeInt64SliceValue(apiKeyAllowedGroupIDsRaw)
 	item.APIKeyAllowedGroupNames = decodePromptPolicyStringSlice(apiKeyAllowedGroupNamesRaw)
+	if raw := []byte(strings.TrimSpace(item.LocalMatchedPatterns)); len(raw) > 0 && json.Valid(raw) {
+		var compact bytes.Buffer
+		if json.Compact(&compact, raw) == nil {
+			item.LocalMatchedPatterns = compact.String()
+		}
+	}
 	if score.Valid {
 		v := int(score.Int64)
 		item.LocalScore = &v

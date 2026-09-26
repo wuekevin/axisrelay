@@ -2,6 +2,7 @@ package database
 
 import (
 	"context"
+	"crypto/sha256"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -16,11 +17,11 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/codex2api/internal/openaiidentity"
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgconn"
 	_ "github.com/jackc/pgx/v5/stdlib"
-	_ "modernc.org/sqlite"
+	"github.com/wuekevin/axisrelay/internal/openaiidentity"
+	platformmysql "github.com/wuekevin/axisrelay/internal/platform/mysql"
+	migrationassets "github.com/wuekevin/axisrelay/migrations"
 )
 
 const usageStatsRollupInitTimeout = 5 * time.Minute
@@ -298,31 +299,31 @@ func NormalizeUsageLogFlushIntervalSeconds(n int) int {
 // usageLogEntry 日志缓冲条目
 type usageLogEntry struct {
 	UserBilling
-	RequestID              string
-	UpstreamRequestID      string
-	UpstreamProxyID        int64
-	UpstreamProxyName      string
-	InjectedTurnState      string
-	UpstreamTurnState      string
-	StoreUsageLog          bool
-	AccountID              int64
-	CredentialGeneration   int64
-	Channel                string
-	ClientIP               string
-	ClientUserAgent        string
-	UpstreamUserAgent      string
-	UserAgentOverridden    bool
-	TurnStateOverridden    bool
-	TurnStateRewriteNote   string
-	InternalReason         string
-	ParentRequestID        string
-	Endpoint               string
-	Model                  string
-	EffectiveModel         string
+	RequestID            string
+	UpstreamRequestID    string
+	UpstreamProxyID      int64
+	UpstreamProxyName    string
+	InjectedTurnState    string
+	UpstreamTurnState    string
+	StoreUsageLog        bool
+	AccountID            int64
+	CredentialGeneration int64
+	Channel              string
+	ClientIP             string
+	ClientUserAgent      string
+	UpstreamUserAgent    string
+	UserAgentOverridden  bool
+	TurnStateOverridden  bool
+	TurnStateRewriteNote string
+	InternalReason       string
+	ParentRequestID      string
+	Endpoint             string
+	Model                string
+	EffectiveModel       string
 	// UpstreamResponseModel 是上游响应自报的模型名（观测值，未自报为空串）。
 	UpstreamResponseModel string
 	// UpstreamModelMismatch 三态：nil=上游未自报；true/false=自报与实发是否一致。
-	UpstreamModelMismatch *bool
+	UpstreamModelMismatch  *bool
 	PromptTokens           int
 	CompletionTokens       int
 	TotalTokens            int
@@ -370,31 +371,31 @@ type usageLogEntry struct {
 }
 
 // New 创建数据库连接并自动建表。
-// schema 仅对 PostgreSQL 生效；为空时保持数据库默认 search_path。
-func New(driver string, dsn string, schema ...string) (*DB, error) {
+func New(driver string, dsn string) (*DB, error) {
 	driver = normalizeDriver(driver)
-	driverName := sqlOpenDriverName(driver)
-	// 测试注册了 schema 模板且目标文件尚不存在时，直接复制模板并跳过迁移。
+	if driver == "postgresql" {
+		driver = "postgres"
+	}
+	switch driver {
+	case "mysql", "postgres":
+	default:
+		return nil, fmt.Errorf("不支持的数据库驱动: %s（仅支持 mysql 或 postgres）", driver)
+	}
 	fromSchemaTemplate := false
-	if driver == "sqlite" {
-		if target, ok := sqliteSchemaTemplateTarget(dsn); ok {
-			fromSchemaTemplate = applySQLiteSchemaTemplate(target)
-		}
-		dsn = sqliteConnectDSN(dsn)
-	}
+	sqliteSingleConn := false
 
-	pgSchema := ""
-	if len(schema) > 0 {
-		pgSchema = strings.TrimSpace(schema[0])
+	sqlDriver := driver
+	switch driver {
+	case "mysql":
+		sqlDriver = mysqlCompatDriverName
+	case "postgres":
+		sqlDriver = "pgx"
 	}
-	sqliteSingleConn := driver == "sqlite" && strings.TrimSpace(dsn) == ":memory:"
-
-	conn, err := sql.Open(driverName, dsn)
+	conn, err := sql.Open(sqlDriver, dsn)
 	if err != nil {
 		return nil, fmt.Errorf("连接数据库失败: %w", err)
 	}
 
-	// ==================== 连接池优化 ====================
 	if driver == "sqlite" {
 		if sqliteSingleConn {
 			conn.SetMaxOpenConns(1)
@@ -403,18 +404,24 @@ func New(driver string, dsn string, schema ...string) (*DB, error) {
 			applySQLiteConnLimits(conn, defaultSQLiteMaxOpenConns)
 		}
 	} else {
-		// 高并发场景：大量 RT 刷新 + 前端查询 + 使用日志写入 并行
-		conn.SetMaxOpenConns(100)                 // 增加最大打开连接数以处理更高并发
-		conn.SetMaxIdleConns(50)                  // 增加空闲连接数以保持热连接
-		conn.SetConnMaxLifetime(60 * time.Minute) // 增加连接最大生存时间
-		conn.SetConnMaxIdleTime(30 * time.Minute) // 增加空闲连接最大闲置时间
+		conn.SetMaxOpenConns(50)
+		conn.SetMaxIdleConns(25)
+		conn.SetConnMaxLifetime(30 * time.Minute)
+		conn.SetConnMaxIdleTime(5 * time.Minute)
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	if err := conn.PingContext(ctx); err != nil {
+		_ = conn.Close()
 		return nil, fmt.Errorf("数据库连接测试失败: %w", err)
+	}
+	if driver == "mysql" {
+		if _, err := platformmysql.CheckHealth(ctx, conn); err != nil {
+			_ = conn.Close()
+			return nil, fmt.Errorf("MySQL 运行环境检查失败: %w", err)
+		}
 	}
 
 	backgroundTaskCtx, backgroundTaskCancel := context.WithCancel(context.Background())
@@ -430,35 +437,49 @@ func New(driver string, dsn string, schema ...string) (*DB, error) {
 	if db.isSQLite() {
 		db.sqliteWriteSem = make(chan struct{}, 1)
 	}
-	db.authCacheScope = apiKeyAuthDatabaseScope(driver, dsn, pgSchema)
+	db.authCacheScope = apiKeyAuthDatabaseScope(driver, dsn)
 	db.SetUsageLogConfig(defaultUsageLogMode, defaultUsageLogBatchSize, defaultUsageLogFlushIntervalSeconds)
 	if db.isSQLite() {
 		if err := db.configureSQLite(ctx); err != nil {
 			return nil, fmt.Errorf("配置 SQLite 失败: %w", err)
 		}
-	} else {
-		// PostgreSQL: 统一会话时区为 UTC，确保 NOW() 和时间字面量一致
-		if _, err := conn.ExecContext(ctx, "SET timezone = 'UTC'"); err != nil {
-			return nil, fmt.Errorf("设置数据库时区失败: %w", err)
-		}
-		// 自定义 schema：确保 schema 存在并确认当前会话 search_path 已生效。
-		// search_path 已通过 DSN 的 options=-c search_path=... 在所有连接启动时设置；
-		// 这里仅做一次幂等的 CREATE SCHEMA + SET 兜底，便于首次部署时自动建好 schema。
-		if pgSchema != "" {
-			quoted := quotePostgresIdent(pgSchema)
-			if _, err := conn.ExecContext(ctx, "CREATE SCHEMA IF NOT EXISTS "+quoted); err != nil {
-				return nil, fmt.Errorf("创建数据库 schema 失败: %w", err)
-			}
-			if _, err := conn.ExecContext(ctx, "SET search_path TO "+quoted+", public"); err != nil {
-				return nil, fmt.Errorf("设置 search_path 失败: %w", err)
-			}
-		}
 	}
 	// 模板复制出来的库已经包含下面全部 schema（模板本身就是走完整路径建出来的），
 	// 跳过迁移与各 ensure*：在 -race 下这些幂等 DDL 每次仍要几百毫秒。
 	if !fromSchemaTemplate {
-		if err := db.migrate(ctx); err != nil {
+		if db.isMySQL() {
+			migrations, err := platformmysql.BuildSQLMigrationsFS(migrationassets.FS, ".")
+			if err != nil {
+				return nil, fmt.Errorf("加载 MySQL migrations 失败: %w", err)
+			}
+			migrator, err := platformmysql.NewMigrator(conn)
+			if err != nil {
+				return nil, fmt.Errorf("初始化 MySQL migrator 失败: %w", err)
+			}
+			migrateCtx, migrateCancel := context.WithTimeout(context.Background(), 5*time.Minute)
+			err = migrator.Run(migrateCtx, migrations)
+			migrateCancel()
+			if err != nil {
+				return nil, fmt.Errorf("MySQL 数据库迁移失败: %w", err)
+			}
+		} else if err := db.migrate(ctx); err != nil {
 			return nil, fmt.Errorf("数据库迁移失败: %w", err)
+		}
+		if db.isMySQL() {
+			if err := db.installSchedulerOutboxTriggers(ctx); err != nil {
+				backgroundTaskCancel()
+				_ = conn.Close()
+				return nil, fmt.Errorf("安装 MySQL scheduler outbox triggers 失败: %w", err)
+			}
+			if err := db.runDataMigrationsWithTimeout(); err != nil {
+				backgroundTaskCancel()
+				_ = conn.Close()
+				return nil, fmt.Errorf("执行 MySQL 数据迁移失败: %w", err)
+			}
+			db.startLogFlusher()
+			db.promptFilterAudit = newPromptFilterAuditQueue(db)
+			db.promptFilterAudit.start()
+			return db, nil
 		}
 		if err := db.ensureCodexTurnStateTemplateSchema(ctx); err != nil {
 			return nil, fmt.Errorf("初始化 Turn-State 模板表失败: %w", err)
@@ -580,7 +601,7 @@ func (db *DB) ensureUsageLogsGenerationIndex(parent context.Context) error {
 	defer conn.Close()
 	// Serialize builders across instances without delaying service startup.
 	var locked bool
-	if err := conn.QueryRowContext(ctx, `SELECT pg_try_advisory_lock(hashtext('codex2api:usage-log-indexes'))`).Scan(&locked); err != nil {
+	if err := conn.QueryRowContext(ctx, `SELECT pg_try_advisory_lock(hashtext('axisrelay:usage-log-indexes'))`).Scan(&locked); err != nil {
 		return err
 	}
 	if !locked {
@@ -589,7 +610,7 @@ func (db *DB) ensureUsageLogsGenerationIndex(parent context.Context) error {
 	defer func() {
 		unlockCtx, unlockCancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer unlockCancel()
-		if _, err := conn.ExecContext(unlockCtx, `SELECT pg_advisory_unlock(hashtext('codex2api:usage-log-indexes'))`); err != nil {
+		if _, err := conn.ExecContext(unlockCtx, `SELECT pg_advisory_unlock(hashtext('axisrelay:usage-log-indexes'))`); err != nil {
 			log.Printf("释放 usage_logs 索引构建锁失败: %v", err)
 		}
 	}()
@@ -775,10 +796,17 @@ func (db *DB) rebuildUsageStatsRollup(ctx context.Context) error {
 		AND TRIM(COALESCE(channel, '')) <> '' GROUP BY TRIM(COALESCE(channel, ''))`); err != nil {
 		return err
 	}
-	if _, err := tx.ExecContext(ctx, `INSERT INTO usage_stats_rollup_state (id, initialized, last_log_id, aggregation_version, updated_at)
+	stateUpsert := `INSERT INTO usage_stats_rollup_state (id, initialized, last_log_id, aggregation_version, updated_at)
 		VALUES (1, 1, COALESCE((SELECT MAX(id) FROM usage_logs), 0), 2, CURRENT_TIMESTAMP)
 		ON CONFLICT(id) DO UPDATE SET initialized=1, last_log_id=excluded.last_log_id,
-			aggregation_version=excluded.aggregation_version, updated_at=CURRENT_TIMESTAMP`); err != nil {
+			aggregation_version=excluded.aggregation_version, updated_at=CURRENT_TIMESTAMP`
+	if db.isMySQL() {
+		stateUpsert = `INSERT INTO usage_stats_rollup_state (id, initialized, last_log_id, aggregation_version, updated_at)
+			VALUES (1, 1, COALESCE((SELECT MAX(id) FROM usage_logs), 0), 2, CURRENT_TIMESTAMP)
+			ON DUPLICATE KEY UPDATE initialized=1, last_log_id=VALUES(last_log_id),
+				aggregation_version=VALUES(aggregation_version), updated_at=CURRENT_TIMESTAMP`
+	}
+	if _, err := tx.ExecContext(ctx, stateUpsert); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -815,7 +843,7 @@ func (db *DB) loadUsageStatsRollup(ctx context.Context, channel string) (usageSt
 	return result, err
 }
 
-func applyUsageStatsRollupWithExec(ctx context.Context, execer sqlExecer, batch []usageLogEntry) error {
+func (db *DB) applyUsageStatsRollupWithExec(ctx context.Context, execer sqlExecer, batch []usageLogEntry) error {
 	if execer == nil || len(batch) == 0 {
 		return nil
 	}
@@ -851,7 +879,7 @@ func applyUsageStatsRollupWithExec(ctx context.Context, execer sqlExecer, batch 
 		}
 	}
 	for channel, item := range rollups {
-		if _, err := execer.ExecContext(ctx, `INSERT INTO usage_stats_rollup (
+		query := `INSERT INTO usage_stats_rollup (
 			channel, total_requests, total_tokens, prompt_tokens, completion_tokens, cached_tokens,
 			cache_hit_requests, first_token_ms_sum, first_token_samples, account_billed, user_billed
 		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
@@ -865,7 +893,25 @@ func applyUsageStatsRollupWithExec(ctx context.Context, execer sqlExecer, batch 
 			first_token_ms_sum=usage_stats_rollup.first_token_ms_sum+excluded.first_token_ms_sum,
 			first_token_samples=usage_stats_rollup.first_token_samples+excluded.first_token_samples,
 			account_billed=usage_stats_rollup.account_billed+excluded.account_billed,
-			user_billed=usage_stats_rollup.user_billed+excluded.user_billed`, channel, item.TotalRequests,
+			user_billed=usage_stats_rollup.user_billed+excluded.user_billed`
+		if db.isMySQL() {
+			query = `INSERT INTO usage_stats_rollup (
+				channel, total_requests, total_tokens, prompt_tokens, completion_tokens, cached_tokens,
+				cache_hit_requests, first_token_ms_sum, first_token_samples, account_billed, user_billed
+			) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+			ON DUPLICATE KEY UPDATE
+				total_requests=total_requests+VALUES(total_requests),
+				total_tokens=total_tokens+VALUES(total_tokens),
+				prompt_tokens=prompt_tokens+VALUES(prompt_tokens),
+				completion_tokens=completion_tokens+VALUES(completion_tokens),
+				cached_tokens=cached_tokens+VALUES(cached_tokens),
+				cache_hit_requests=cache_hit_requests+VALUES(cache_hit_requests),
+				first_token_ms_sum=first_token_ms_sum+VALUES(first_token_ms_sum),
+				first_token_samples=first_token_samples+VALUES(first_token_samples),
+				account_billed=account_billed+VALUES(account_billed),
+				user_billed=user_billed+VALUES(user_billed)`
+		}
+		if _, err := execer.ExecContext(ctx, query, channel, item.TotalRequests,
 			item.TotalTokens, item.PromptTokens, item.CompletionTokens, item.CachedTokens, item.CacheHitRequests,
 			item.FirstTokenMsSum, item.FirstTokenSamples, item.TotalAccountBilled, item.TotalUserBilled); err != nil {
 			return err
@@ -1798,7 +1844,7 @@ type APIKeyLimits struct {
 	ModelAllow         []string                  `json:"model_allow,omitempty"`
 	ModelDeny          []string                  `json:"model_deny,omitempty"`
 	PlanAllow          []string                  `json:"plan_allow,omitempty"`
-	// NoAffinityGroupIDs 指定未携带 Codex 引擎指纹或 X-Codex2API-Affinity-Key 的请求使用的账号分组。
+	// NoAffinityGroupIDs 指定未携带 Codex 引擎指纹或 X-AxisRelay-Affinity-Key 的请求使用的账号分组。
 	// 空表示不启用分流，继续沿用 AllowedGroupIDs 的现有行为。
 	NoAffinityGroupIDs []int64 `json:"no_affinity_group_ids,omitempty"`
 	RPM                int     `json:"rpm,omitempty"`
@@ -1951,10 +1997,18 @@ type APIKeyUpdate struct {
 }
 
 const apiKeySelectColumns = `id, name, key, created_at, COALESCE(quota_limit, 0), COALESCE(quota_used, 0), COALESCE(total_used, 0), COALESCE(reset_count, 0), last_reset_at, expires_at, COALESCE(allowed_group_ids, '[]'), COALESCE(limits, '{}'), COALESCE(enabled, TRUE)`
+const apiKeySelectColumnsMySQL = "id, name, `key`, created_at, COALESCE(quota_limit, 0), COALESCE(quota_used, 0), COALESCE(total_used, 0), COALESCE(reset_count, 0), last_reset_at, expires_at, COALESCE(allowed_group_ids, '[]'), COALESCE(limits, '{}'), COALESCE(enabled, TRUE)"
+
+func (db *DB) apiKeySelectColumns() string {
+	if db.isMySQL() {
+		return apiKeySelectColumnsMySQL
+	}
+	return apiKeySelectColumns
+}
 
 // ListAPIKeys 获取所有 API 密钥
 func (db *DB) ListAPIKeys(ctx context.Context) ([]*APIKeyRow, error) {
-	rows, err := db.conn.QueryContext(ctx, `SELECT `+apiKeySelectColumns+` FROM api_keys ORDER BY id`)
+	rows, err := db.conn.QueryContext(ctx, `SELECT `+db.apiKeySelectColumns()+` FROM api_keys ORDER BY id`)
 	if err != nil {
 		return nil, err
 	}
@@ -1982,7 +2036,11 @@ func (db *DB) CountAPIKeys(ctx context.Context) (int, error) {
 
 // GetAPIKeyByValue 通过完整 API Key 查找元数据，用于鉴权热路径的按 key 缓存。
 func (db *DB) GetAPIKeyByValue(ctx context.Context, key string) (*APIKeyRow, error) {
-	rows, err := db.conn.QueryContext(ctx, `SELECT `+apiKeySelectColumns+` FROM api_keys WHERE key = $1`, key)
+	where := "key = $1"
+	if db.isMySQL() {
+		where = "`key` = $1"
+	}
+	rows, err := db.conn.QueryContext(ctx, `SELECT `+db.apiKeySelectColumns()+` FROM api_keys WHERE `+where, key)
 	if err != nil {
 		return nil, err
 	}
@@ -2009,6 +2067,24 @@ func (db *DB) InsertAPIKeyWithOptions(ctx context.Context, input APIKeyInput) (i
 	}
 	if input.QuotaUsed < 0 {
 		input.QuotaUsed = 0
+	}
+	if db.isMySQL() {
+		var id int64
+		err := db.withWriteTx(ctx, func(tx *sql.Tx) error {
+			res, err := tx.ExecContext(ctx,
+				"INSERT INTO api_keys (name, `key`, quota_limit, quota_used, expires_at, allowed_group_ids, limits) VALUES ($1, $2, $3, $4, $5, $6, $7)",
+				input.Name, input.Key, input.QuotaLimit, input.QuotaUsed, nullableTimeArg(input.ExpiresAt), encodeInt64SliceJSON(input.AllowedGroupIDs), encodeAPIKeyLimits(input.Limits),
+			)
+			if err != nil {
+				return err
+			}
+			id, err = res.LastInsertId()
+			if err != nil {
+				return err
+			}
+			return db.bumpMySQLAPIKeyAuthRevisionTx(ctx, tx, 1)
+		})
+		return id, err
 	}
 	return db.insertRowID(ctx,
 		`INSERT INTO api_keys (name, key, quota_limit, quota_used, expires_at, allowed_group_ids, limits) VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7::jsonb) RETURNING id`,
@@ -2038,6 +2114,9 @@ func (row *APIKeyRow) HasAccessConstraints() bool {
 
 // UpdateAPIKeyName updates the display name of an API key without changing the key value.
 func (db *DB) UpdateAPIKeyName(ctx context.Context, id int64, name string) error {
+	if db.isMySQL() {
+		return db.execMySQLAPIKeyConfigUpdate(ctx, `UPDATE api_keys SET name = $1 WHERE id = $2`, name, id)
+	}
 	res, err := db.conn.ExecContext(ctx, `UPDATE api_keys SET name = $1 WHERE id = $2`, name, id)
 	if err != nil {
 		return err
@@ -2057,6 +2136,9 @@ func (db *DB) UpdateAPIKeyQuotaLimit(ctx context.Context, id int64, quotaLimit f
 	if quotaLimit < 0 {
 		quotaLimit = 0
 	}
+	if db.isMySQL() {
+		return db.execMySQLAPIKeyConfigUpdate(ctx, `UPDATE api_keys SET quota_limit = $1 WHERE id = $2`, quotaLimit, id)
+	}
 	res, err := db.conn.ExecContext(ctx, `UPDATE api_keys SET quota_limit = $1 WHERE id = $2`, quotaLimit, id)
 	if err != nil {
 		return err
@@ -2073,6 +2155,9 @@ func (db *DB) UpdateAPIKeyQuotaLimit(ctx context.Context, id int64, quotaLimit f
 
 // UpdateAPIKeyExpiresAt updates or clears the key expiration.
 func (db *DB) UpdateAPIKeyExpiresAt(ctx context.Context, id int64, expiresAt sql.NullTime) error {
+	if db.isMySQL() {
+		return db.execMySQLAPIKeyConfigUpdate(ctx, `UPDATE api_keys SET expires_at = $1 WHERE id = $2`, nullableTimeArg(expiresAt), id)
+	}
 	res, err := db.conn.ExecContext(ctx, `UPDATE api_keys SET expires_at = $1 WHERE id = $2`, nullableTimeArg(expiresAt), id)
 	if err != nil {
 		return err
@@ -2095,7 +2180,10 @@ func (db *DB) UpdateAPIKeyAllowedGroups(ctx context.Context, id int64, groupIDs 
 		res sql.Result
 		err error
 	)
-	if db.isSQLite() {
+	if db.isSQLite() || db.isMySQL() {
+		if db.isMySQL() {
+			return db.execMySQLAPIKeyConfigUpdate(ctx, `UPDATE api_keys SET allowed_group_ids = $1 WHERE id = $2`, payload, id)
+		}
 		res, err = db.conn.ExecContext(ctx, `UPDATE api_keys SET allowed_group_ids = $1 WHERE id = $2`, payload, id)
 	} else {
 		res, err = db.conn.ExecContext(ctx, `UPDATE api_keys SET allowed_group_ids = $1::jsonb WHERE id = $2`, payload, id)
@@ -2130,11 +2218,24 @@ func (db *DB) UpdateAPIKeyLimits(ctx context.Context, id int64, limits APIKeyLim
 			return err
 		}
 		query := `UPDATE api_keys SET limits = $1::jsonb WHERE id = $2`
-		if db.isSQLite() {
+		if db.isSQLite() || db.isMySQL() {
 			query = `UPDATE api_keys SET limits = $1 WHERE id = $2`
 		}
-		_, err := tx.ExecContext(ctx, query, encodeAPIKeyLimits(limits), id)
-		return err
+		res, err := tx.ExecContext(ctx, query, encodeAPIKeyLimits(limits), id)
+		if err != nil {
+			return err
+		}
+		if db.isMySQL() {
+			affected, err := res.RowsAffected()
+			if err != nil {
+				return err
+			}
+			if affected == 0 {
+				return sql.ErrNoRows
+			}
+			return db.bumpMySQLAPIKeyAuthRevisionTx(ctx, tx, 0)
+		}
+		return nil
 	})
 }
 
@@ -2187,7 +2288,7 @@ func (db *DB) UpdateAPIKey(ctx context.Context, id int64, update APIKeyUpdate) e
 	if update.AllowedGroupIDsSet {
 		payload := encodeInt64SliceJSON(update.AllowedGroupIDs)
 		ph := setArg(payload)
-		if db.isSQLite() {
+		if db.isSQLite() || db.isMySQL() {
 			sets = append(sets, "allowed_group_ids = "+ph)
 		} else {
 			sets = append(sets, "allowed_group_ids = "+ph+"::jsonb")
@@ -2196,7 +2297,7 @@ func (db *DB) UpdateAPIKey(ctx context.Context, id int64, update APIKeyUpdate) e
 	if update.LimitsSet {
 		payload := encodeAPIKeyLimits(update.Limits)
 		ph := setArg(payload)
-		if db.isSQLite() {
+		if db.isSQLite() || db.isMySQL() {
 			sets = append(sets, "limits = "+ph)
 		} else {
 			sets = append(sets, "limits = "+ph+"::jsonb")
@@ -2225,7 +2326,17 @@ func (db *DB) UpdateAPIKey(ctx context.Context, id int64, update APIKeyUpdate) e
 			return err
 		}
 		if affected == 0 {
-			return sql.ErrNoRows
+			if !db.isMySQL() {
+				return sql.ErrNoRows
+			}
+			var exists int
+			if err := tx.QueryRowContext(ctx, `SELECT 1 FROM api_keys WHERE id=$1`, id).Scan(&exists); err != nil {
+				return err
+			}
+			return nil
+		}
+		if db.isMySQL() {
+			return db.bumpMySQLAPIKeyAuthRevisionTx(ctx, tx, 0)
 		}
 		return nil
 	})
@@ -2242,6 +2353,24 @@ type APIKeyQuotaResetTarget struct {
 // the API key's 5h/7d windows without deleting historical usage logs.
 func (db *DB) ResetAPIKeyQuota(ctx context.Context, id int64) (*APIKeyQuotaResetTarget, error) {
 	db.FlushUsageLogs()
+	if db.isMySQL() {
+		target := &APIKeyQuotaResetTarget{}
+		err := db.withWriteTx(ctx, func(tx *sql.Tx) error {
+			if err := tx.QueryRowContext(ctx, "SELECT id, `key` FROM api_keys WHERE id=$1 FOR UPDATE", id).Scan(&target.ID, &target.Key); err != nil {
+				return err
+			}
+			_, err := tx.ExecContext(ctx, `
+				UPDATE api_keys
+				SET quota_used=0, reset_count=COALESCE(reset_count,0)+1, last_reset_at=$1
+				WHERE id=$2
+			`, db.timeArg(time.Now()), id)
+			return err
+		})
+		if err != nil {
+			return nil, err
+		}
+		return target, nil
+	}
 	target := &APIKeyQuotaResetTarget{}
 	err := db.conn.QueryRowContext(ctx, `
 		UPDATE api_keys
@@ -2261,6 +2390,35 @@ func (db *DB) ResetAPIKeyQuota(ctx context.Context, id int64) (*APIKeyQuotaReset
 // API key in one statement and returns the exact affected rows for cache eviction.
 func (db *DB) ResetAllAPIKeyQuotas(ctx context.Context) ([]APIKeyQuotaResetTarget, error) {
 	db.FlushUsageLogs()
+	if db.isMySQL() {
+		targets := make([]APIKeyQuotaResetTarget, 0)
+		err := db.withWriteTx(ctx, func(tx *sql.Tx) error {
+			rows, err := tx.QueryContext(ctx, "SELECT id, `key` FROM api_keys ORDER BY id FOR UPDATE")
+			if err != nil {
+				return err
+			}
+			for rows.Next() {
+				var target APIKeyQuotaResetTarget
+				if err := rows.Scan(&target.ID, &target.Key); err != nil {
+					_ = rows.Close()
+					return err
+				}
+				targets = append(targets, target)
+			}
+			if err := rows.Close(); err != nil {
+				return err
+			}
+			if err := rows.Err(); err != nil {
+				return err
+			}
+			_, err = tx.ExecContext(ctx, `
+				UPDATE api_keys
+				SET quota_used=0, reset_count=COALESCE(reset_count,0)+1, last_reset_at=$1
+			`, db.timeArg(time.Now()))
+			return err
+		})
+		return targets, err
+	}
 	rows, err := db.conn.QueryContext(ctx, `
 		UPDATE api_keys
 		SET quota_used = 0,
@@ -2376,7 +2534,7 @@ type SystemSettings struct {
 	SessionSlotBufferSeconds           int    // 会话并发槽缓冲时间，默认 10 秒，范围 1..60
 	ModelsListReadMaxBytes             int64  // 上游 /models 与 Codex 模型清单的最大读取字节数，默认 8 MiB
 	ResinURL                           string // Resin 代理池地址（含 Token），例如 http://127.0.0.1:2260/my-token
-	ResinPlatformName                  string // Resin 平台标识，例如 codex2api
+	ResinPlatformName                  string // Resin 平台标识，例如 axisrelay
 	PromptFilterEnabled                bool
 	PromptFilterMode                   string
 	PromptFilterThreshold              int
@@ -2590,7 +2748,7 @@ func (db *DB) GetSystemSettings(ctx context.Context) (*SystemSettings, error) {
 	s := &SystemSettings{}
 	err := db.conn.QueryRowContext(ctx, `
 		SELECT COALESCE(site_name, 'CodexProxy'), COALESCE(site_logo, ''),
-		       max_concurrency, global_rpm, test_model, COALESCE(test_content, 'hi'), test_concurrency, proxy_url, pg_max_conns, redis_pool_size,
+		       max_concurrency, global_rpm, test_model, COALESCE(test_content, 'hi'), test_concurrency, COALESCE(proxy_url, ''), pg_max_conns, redis_pool_size,
 		       auto_clean_unauthorized, auto_clean_rate_limited, COALESCE(admin_secret, ''), COALESCE(auto_clean_full_usage, false),
 		       COALESCE(proxy_pool_enabled, false),
 		       COALESCE(fast_scheduler_enabled, false),
@@ -2850,11 +3008,11 @@ func (db *DB) UpdateContinuousRetryPolicy(ctx context.Context, update Continuous
 		defer func() { _ = tx.Rollback() }()
 
 		defaultRaw := EncodeContinuousRetryPolicy(DefaultContinuousRetryPolicy())
-		if _, err := tx.ExecContext(ctx, `
+		if _, err := tx.ExecContext(ctx, db.singletonUpsertSQL(`
 			INSERT INTO system_settings (id, continuous_retry_policy)
 			VALUES (1, $1)
 			ON CONFLICT (id) DO NOTHING
-		`, defaultRaw); err != nil {
+		`), defaultRaw); err != nil {
 			return err
 		}
 
@@ -2940,6 +3098,34 @@ func NormalizeCodexFingerprintDefaultMode(mode string) string {
 // codex_synced_cli_version 与 model_pricing_* 由各自的窄更新独立维护；冲突更新时
 // 保留数据库当前值，避免管理员保存其他设置时回滚后台同步刚写入的数据。
 func (db *DB) UpdateSystemSettings(ctx context.Context, s *SystemSettings) error {
+	modelMapping := strings.TrimSpace(s.ModelMapping)
+	if modelMapping == "" {
+		modelMapping = "{}"
+	}
+	codexModelMapping := strings.TrimSpace(s.CodexModelMapping)
+	if codexModelMapping == "" {
+		codexModelMapping = "{}"
+	}
+	backgroundConfig := strings.TrimSpace(s.BackgroundConfig)
+	if backgroundConfig == "" {
+		backgroundConfig = "{}"
+	}
+	imageStorageConfig := strings.TrimSpace(s.ImageStorageConfig)
+	if imageStorageConfig == "" {
+		imageStorageConfig = "{}"
+	}
+	promptFilterAdvancedConfig := strings.TrimSpace(s.PromptFilterAdvancedConfig)
+	if promptFilterAdvancedConfig == "" {
+		promptFilterAdvancedConfig = "{}"
+	}
+	promptFilterCustomPatterns := strings.TrimSpace(s.PromptFilterCustomPatterns)
+	if promptFilterCustomPatterns == "" {
+		promptFilterCustomPatterns = "[]"
+	}
+	promptFilterDisabledPatterns := strings.TrimSpace(s.PromptFilterDisabledPatterns)
+	if promptFilterDisabledPatterns == "" {
+		promptFilterDisabledPatterns = "[]"
+	}
 	reasoningEffortModels := strings.TrimSpace(s.ReasoningEffortModels)
 	if reasoningEffortModels == "" {
 		reasoningEffortModels = "[]"
@@ -2958,7 +3144,7 @@ func (db *DB) UpdateSystemSettings(ctx context.Context, s *SystemSettings) error
 	if testContent == "" {
 		testContent = "hi"
 	}
-	_, err := db.conn.ExecContext(ctx, `
+	query := db.singletonUpsertSQL(`
 			INSERT INTO system_settings (
 				id, site_name, site_logo, max_concurrency, global_rpm, test_model, test_content, test_concurrency, proxy_url, pg_max_conns, redis_pool_size,
 				auto_clean_unauthorized, auto_clean_rate_limited, admin_secret, auto_clean_full_usage, proxy_pool_enabled,
@@ -3168,20 +3354,21 @@ func (db *DB) UpdateSystemSettings(ctx context.Context, s *SystemSettings) error
 					codex_turn_state_account_mode = EXCLUDED.codex_turn_state_account_mode,
 					codex_oauth_keepalive_enabled = EXCLUDED.codex_oauth_keepalive_enabled,
 					codex_telemetry_timing_debug = EXCLUDED.codex_telemetry_timing_debug
-			`, NormalizeSiteName(s.SiteName), strings.TrimSpace(s.SiteLogo),
+			`)
+	_, err := db.conn.ExecContext(ctx, query, NormalizeSiteName(s.SiteName), strings.TrimSpace(s.SiteLogo),
 		s.MaxConcurrency, s.GlobalRPM, s.TestModel, testContent, s.TestConcurrency, s.ProxyURL, s.PgMaxConns, s.RedisPoolSize,
 		s.AutoCleanUnauthorized, s.AutoCleanRateLimited, s.AdminSecret, s.AutoCleanFullUsage, s.ProxyPoolEnabled,
-		s.FastSchedulerEnabled, s.MaxRetries, s.MaxRateLimitRetries, s.AllowRemoteMigration, s.AutoCleanError, s.AutoCleanExpired, s.LazyMode, s.ModelMapping, s.CodexModelMapping,
+		s.FastSchedulerEnabled, s.MaxRetries, s.MaxRateLimitRetries, s.AllowRemoteMigration, s.AutoCleanError, s.AutoCleanExpired, s.LazyMode, modelMapping, codexModelMapping,
 		s.BackgroundRefreshIntervalMinutes, s.UsageProbeMaxAgeMinutes, s.RecoveryProbeIntervalMinutes,
 		s.UsageProbeConcurrency, s.UsageProbeResponsesFallbackEnabled,
 		s.ResinURL, s.ResinPlatformName, s.PromptFilterEnabled, s.PromptFilterMode, s.PromptFilterThreshold,
 		s.PromptFilterStrictThreshold, s.PromptFilterLogMatches, s.PromptFilterMaxTextLength,
-		s.PromptFilterSensitiveWords, s.PromptFilterCustomPatterns, s.PromptFilterDisabledPatterns,
+		s.PromptFilterSensitiveWords, promptFilterCustomPatterns, promptFilterDisabledPatterns,
 		s.PromptFilterReviewEnabled, s.PromptFilterReviewAPIKey, s.PromptFilterReviewBaseURL,
 		s.PromptFilterReviewModel, s.PromptFilterReviewTimeoutSeconds, s.PromptFilterReviewFailClosed,
 		s.ClientCompatMode, s.CodexMinCLIVersion, codexUserAgentConfig, s.UsageLogMode, s.UsageLogBatchSize,
 		s.UsageLogFlushIntervalSeconds, s.StreamFlushPolicy, s.StreamFlushIntervalMS,
-		s.FirstTokenTimeoutSeconds, firstTokenMode, billingTierPolicy, s.ImageStorageConfig, s.SchedulerMode, normalizeAffinityMode(s.AffinityMode), s.SessionAffinitySpread, s.BackgroundConfig, normalizeGrokConfig(s.GrokConfig), s.ShowFullUsageNumbers, s.PublicKeyUsagePageEnabled, s.PublicImageStudioPageEnabled, reasoningEffortModels,
+		s.FirstTokenTimeoutSeconds, firstTokenMode, billingTierPolicy, imageStorageConfig, s.SchedulerMode, normalizeAffinityMode(s.AffinityMode), s.SessionAffinitySpread, backgroundConfig, normalizeGrokConfig(s.GrokConfig), s.ShowFullUsageNumbers, s.PublicKeyUsagePageEnabled, s.PublicImageStudioPageEnabled, reasoningEffortModels,
 		s.CodexForceWebsocket, s.CodexWSKeepaliveEnabled, normalizeCodexWSKeepaliveInterval(s.CodexWSKeepaliveIntervalSec),
 		s.CodexWSHideUpstreamErrors, s.CodexWSSilentRetryEnabled, normalizeCodexWSSilentMaxRetries(s.CodexWSSilentMaxRetries),
 		s.AutoPause5hThreshold, s.AutoPause7dThreshold, s.AutoPause5hGuardBandPercent, s.AutoPause5hGuardConcurrency,
@@ -3193,7 +3380,7 @@ func (db *DB) UpdateSystemSettings(ctx context.Context, s *SystemSettings) error
 		normalizeModelPricingOverridesJSON(s.ModelPricingOverrides), strings.TrimSpace(s.ModelPricingSyncURL),
 		s.IgnoreUsageLimitStatus, s.AutoResetCreditsEnabled,
 		NormalizeAutoResetCreditsBeforeExpiryMinutes(s.AutoResetCreditsBeforeExpiryMin),
-		s.PromptFilterStrictTerminalEnabled, s.PromptFilterAdvancedConfig, payloadRules, s.PublicAccountPortalPageEnabled,
+		s.PromptFilterStrictTerminalEnabled, promptFilterAdvancedConfig, payloadRules, s.PublicAccountPortalPageEnabled,
 		s.CodexWSSizeRouterEnabled,
 		NormalizeCodexWSBusyAcquireMaxWaitSec(s.CodexWSBusyAcquireMaxWaitSec),
 		s.CodexWSBusyOverflowEnabled,
@@ -3231,6 +3418,14 @@ func (db *DB) UpdateSystemSettings(ctx context.Context, s *SystemSettings) error
 // UpdateCodexSyncedCLIVersion 只更新后台同步得到的 Codex CLI 版本，避免用
 // 读取到的旧 SystemSettings 快照覆盖管理员刚保存的其他设置。
 func (db *DB) UpdateCodexSyncedCLIVersion(ctx context.Context, version string) error {
+	if db.isMySQL() {
+		_, err := db.conn.ExecContext(ctx, `
+			INSERT INTO system_settings (id, codex_synced_cli_version)
+			VALUES (1, $1)
+			ON DUPLICATE KEY UPDATE codex_synced_cli_version = VALUES(codex_synced_cli_version)
+		`, strings.TrimSpace(version))
+		return err
+	}
 	_, err := db.conn.ExecContext(ctx, `
 		INSERT INTO system_settings (id, codex_synced_cli_version)
 		VALUES (1, $1)
@@ -3245,6 +3440,15 @@ func (db *DB) UpdateModelsListReadMaxBytes(ctx context.Context, value int64) err
 	if err := ValidateModelsListReadMaxBytes(value); err != nil {
 		return err
 	}
+	if db.isMySQL() {
+		_, err := db.conn.ExecContext(ctx, `
+			INSERT INTO system_settings (id, models_list_read_max_bytes)
+			VALUES (1, $1)
+			ON DUPLICATE KEY UPDATE
+				models_list_read_max_bytes = VALUES(models_list_read_max_bytes)
+		`, value)
+		return err
+	}
 	_, err := db.conn.ExecContext(ctx, `
 		INSERT INTO system_settings (id, models_list_read_max_bytes)
 		VALUES (1, $1)
@@ -3256,6 +3460,16 @@ func (db *DB) UpdateModelsListReadMaxBytes(ctx context.Context, value int64) err
 
 // UpdateModelPricingSettings 原子更新模型定价覆盖及其同步来源，不回写整行设置。
 func (db *DB) UpdateModelPricingSettings(ctx context.Context, overridesJSON, syncURL string) error {
+	if db.isMySQL() {
+		_, err := db.conn.ExecContext(ctx, `
+			INSERT INTO system_settings (id, model_pricing_overrides, model_pricing_sync_url)
+			VALUES (1, $1, $2)
+			ON DUPLICATE KEY UPDATE
+				model_pricing_overrides = VALUES(model_pricing_overrides),
+				model_pricing_sync_url = VALUES(model_pricing_sync_url)
+		`, normalizeModelPricingOverridesJSON(overridesJSON), strings.TrimSpace(syncURL))
+		return err
+	}
 	_, err := db.conn.ExecContext(ctx, `
 		INSERT INTO system_settings (id, model_pricing_overrides, model_pricing_sync_url)
 		VALUES (1, $1, $2)
@@ -3451,9 +3665,9 @@ func normalizeClaudeConfig(raw string) string {
 func (db *DB) UpdateClaudeConfig(ctx context.Context, raw string) error {
 	value := normalizeClaudeConfig(raw)
 	return db.withSQLiteWriteLock(ctx, func() error {
-		_, err := db.conn.ExecContext(ctx, `
+		_, err := db.conn.ExecContext(ctx, db.singletonUpsertSQL(`
 			INSERT INTO system_settings (id, claude_config) VALUES (1, $1)
-			ON CONFLICT (id) DO UPDATE SET claude_config = EXCLUDED.claude_config`, value)
+			ON CONFLICT (id) DO UPDATE SET claude_config = EXCLUDED.claude_config`), value)
 		return err
 	})
 }
@@ -3481,8 +3695,20 @@ func (db *DB) DeleteAPIKey(ctx context.Context, id int64) error {
 		if _, err := tx.ExecContext(ctx, `DELETE FROM prompt_filter_newapi_bindings WHERE api_key_id = $1`, id); err != nil {
 			return err
 		}
-		if _, err := tx.ExecContext(ctx, `DELETE FROM api_keys WHERE id = $1`, id); err != nil {
+		deleteResult, err := tx.ExecContext(ctx, `DELETE FROM api_keys WHERE id = $1`, id)
+		if err != nil {
 			return err
+		}
+		if db.isMySQL() {
+			affected, err := deleteResult.RowsAffected()
+			if err != nil {
+				return err
+			}
+			if affected > 0 {
+				if err := db.bumpMySQLAPIKeyAuthRevisionTx(ctx, tx, -1); err != nil {
+					return err
+				}
+			}
 		}
 		if _, err := tx.ExecContext(ctx, `DELETE FROM api_key_model_request_counters WHERE api_key_id = $1`, id); err != nil {
 			return err
@@ -3748,6 +3974,23 @@ func (db *DB) ListEnabledProxies(ctx context.Context) ([]*ProxyRow, error) {
 
 // InsertProxy 插入单个代理
 func (db *DB) InsertProxy(ctx context.Context, url, label string) (int64, error) {
+	if db.isMySQL() {
+		hash := sha256.Sum256([]byte(strings.TrimSpace(url)))
+		res, err := db.conn.ExecContext(ctx,
+			`INSERT IGNORE INTO proxies (url, url_hash, label) VALUES ($1, $2, $3)`,
+			strings.TrimSpace(url), fmt.Sprintf("%x", hash[:]), label)
+		if err != nil {
+			return 0, err
+		}
+		affected, err := res.RowsAffected()
+		if err != nil {
+			return 0, err
+		}
+		if affected == 0 {
+			return 0, sql.ErrNoRows
+		}
+		return res.LastInsertId()
+	}
 	return db.insertRowID(ctx,
 		`INSERT INTO proxies (url, label) VALUES ($1, $2) ON CONFLICT (url) DO NOTHING RETURNING id`,
 		`INSERT INTO proxies (url, label) VALUES ($1, $2) ON CONFLICT(url) DO NOTHING`,
@@ -3759,6 +4002,24 @@ func (db *DB) InsertProxy(ctx context.Context, url, label string) (int64, error)
 func (db *DB) InsertProxies(ctx context.Context, urls []string, label string) (int, error) {
 	inserted := 0
 	for _, u := range urls {
+		if db.isMySQL() {
+			normalized := strings.TrimSpace(u)
+			hash := sha256.Sum256([]byte(normalized))
+			res, err := db.conn.ExecContext(ctx,
+				`INSERT IGNORE INTO proxies (url, url_hash, label) VALUES ($1, $2, $3)`,
+				normalized, fmt.Sprintf("%x", hash[:]), label)
+			if err != nil {
+				return inserted, err
+			}
+			affected, err := res.RowsAffected()
+			if err != nil {
+				return inserted, err
+			}
+			if affected > 0 {
+				inserted++
+			}
+			continue
+		}
 		if db.isSQLite() {
 			res, err := db.conn.ExecContext(ctx, `INSERT INTO proxies (url, label) VALUES ($1, $2) ON CONFLICT(url) DO NOTHING`, u, label)
 			if err != nil {
@@ -3956,59 +4217,48 @@ func (db *DB) CleanErrorProxies(ctx context.Context) (ProxyErrorCleanupResult, e
 			return tx.Commit()
 		}
 
-		unbindArgs := make([]interface{}, len(proxyURLs))
-		for i, proxyURL := range proxyURLs {
-			unbindArgs[i] = proxyURL
-		}
-		unbindQuery := fmt.Sprintf(`
-			UPDATE accounts
-			SET proxy_url = '', updated_at = CURRENT_TIMESTAMP
-			WHERE TRIM(COALESCE(proxy_url, '')) IN (%s)
-			RETURNING id
-		`, strings.Join(dbPlaceholders(db.isSQLite(), 1, len(proxyURLs)), ","))
-		rows, err = tx.QueryContext(ctx, unbindQuery, unbindArgs...)
+		result.UnboundAccountIDs, err = unbindAccountsFromProxyURLsTx(ctx, tx, db, proxyURLs)
 		if err != nil {
-			return err
-		}
-		for rows.Next() {
-			var accountID int64
-			if err := rows.Scan(&accountID); err != nil {
-				rows.Close()
-				return err
-			}
-			result.UnboundAccountIDs = append(result.UnboundAccountIDs, accountID)
-		}
-		if err := rows.Close(); err != nil {
-			return err
-		}
-		if err := rows.Err(); err != nil {
 			return err
 		}
 		result.Unbound = len(result.UnboundAccountIDs)
 
-		deleteQuery := fmt.Sprintf(
-			`DELETE FROM proxies WHERE id IN (%s) RETURNING id, TRIM(url)`,
-			strings.Join(dbPlaceholders(db.isSQLite(), 1, len(proxyIDs)), ","),
-		)
-		rows, err = tx.QueryContext(ctx, deleteQuery, argsFromInt64s(proxyIDs)...)
-		if err != nil {
-			return err
-		}
-		for rows.Next() {
-			var proxyID int64
-			var proxyURL string
-			if err := rows.Scan(&proxyID, &proxyURL); err != nil {
-				rows.Close()
+		deleteQuery := fmt.Sprintf(`DELETE FROM proxies WHERE id IN (%s)`, strings.Join(dbPlaceholders(db.isSQLite(), 1, len(proxyIDs)), ","))
+		if db.isMySQL() {
+			deleteResult, err := tx.ExecContext(ctx, deleteQuery, argsFromInt64s(proxyIDs)...)
+			if err != nil {
 				return err
 			}
-			result.Deleted++
-			result.DeletedProxyURLs = append(result.DeletedProxyURLs, proxyURL)
-		}
-		if err := rows.Close(); err != nil {
-			return err
-		}
-		if err := rows.Err(); err != nil {
-			return err
+			deleted, err := deleteResult.RowsAffected()
+			if err != nil {
+				return err
+			}
+			if int(deleted) != len(proxyIDs) {
+				return fmt.Errorf("proxy cleanup deleted %d rows, expected %d", deleted, len(proxyIDs))
+			}
+			result.Deleted = len(proxyIDs)
+			result.DeletedProxyURLs = append(result.DeletedProxyURLs, proxyURLs...)
+		} else {
+			rows, err = tx.QueryContext(ctx, deleteQuery+` RETURNING id, TRIM(url)`, argsFromInt64s(proxyIDs)...)
+			if err != nil {
+				return err
+			}
+			for rows.Next() {
+				var proxyID int64
+				var proxyURL string
+				if err := rows.Scan(&proxyID, &proxyURL); err != nil {
+					rows.Close()
+					return err
+				}
+				result.Deleted++
+				result.DeletedProxyURLs = append(result.DeletedProxyURLs, proxyURL)
+			}
+			if err := rows.Close(); err != nil {
+				return err
+			}
+			if err := rows.Err(); err != nil {
+				return err
+			}
 		}
 
 		return tx.Commit()
@@ -4034,7 +4284,7 @@ func scanUnboundAccountIDs(rows *sql.Rows) ([]int64, error) {
 	return ids, nil
 }
 
-func unbindAccountsFromProxyURLsTx(ctx context.Context, tx *sql.Tx, sqlite bool, proxyURLs []string) ([]int64, error) {
+func unbindAccountsFromProxyURLsTx(ctx context.Context, tx *sql.Tx, db *DB, proxyURLs []string) ([]int64, error) {
 	if len(proxyURLs) == 0 {
 		return nil, nil
 	}
@@ -4042,12 +4292,41 @@ func unbindAccountsFromProxyURLsTx(ctx context.Context, tx *sql.Tx, sqlite bool,
 	for i, proxyURL := range proxyURLs {
 		args[i] = proxyURL
 	}
+	placeholders := strings.Join(dbPlaceholders(db.isSQLite(), 1, len(proxyURLs)), ",")
+	if db.isMySQL() {
+		selectQuery := fmt.Sprintf(`SELECT id FROM accounts WHERE TRIM(COALESCE(proxy_url, '')) IN (%s) ORDER BY id FOR UPDATE`, placeholders)
+		rows, err := tx.QueryContext(ctx, selectQuery, args...)
+		if err != nil {
+			return nil, err
+		}
+		ids, err := scanUnboundAccountIDs(rows)
+		rows.Close()
+		if err != nil {
+			return nil, err
+		}
+		if len(ids) == 0 {
+			return nil, nil
+		}
+		query := fmt.Sprintf(`UPDATE accounts SET proxy_url='', updated_at=CURRENT_TIMESTAMP WHERE TRIM(COALESCE(proxy_url, '')) IN (%s)`, placeholders)
+		result, err := tx.ExecContext(ctx, query, args...)
+		if err != nil {
+			return nil, err
+		}
+		affected, err := result.RowsAffected()
+		if err != nil {
+			return nil, err
+		}
+		if int(affected) != len(ids) {
+			return nil, fmt.Errorf("proxy unbind updated %d rows, expected %d", affected, len(ids))
+		}
+		return ids, nil
+	}
 	query := fmt.Sprintf(`
 		UPDATE accounts
 		SET proxy_url = '', updated_at = CURRENT_TIMESTAMP
 		WHERE TRIM(COALESCE(proxy_url, '')) IN (%s)
 		RETURNING id
-	`, strings.Join(dbPlaceholders(sqlite, 1, len(proxyURLs)), ","))
+	`, placeholders)
 	rows, err := tx.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, err
@@ -4107,36 +4386,49 @@ func (db *DB) RetireProxiesByIDs(ctx context.Context, ids []int64) (ProxyErrorCl
 			return tx.Commit()
 		}
 
-		unboundIDs, err := unbindAccountsFromProxyURLsTx(ctx, tx, db.isSQLite(), proxyURLs)
+		unboundIDs, err := unbindAccountsFromProxyURLsTx(ctx, tx, db, proxyURLs)
 		if err != nil {
 			return err
 		}
 		result.UnboundAccountIDs = unboundIDs
 		result.Unbound = len(unboundIDs)
 
-		deleteQuery := fmt.Sprintf(
-			`DELETE FROM proxies WHERE id IN (%s) RETURNING id, TRIM(url)`,
-			strings.Join(dbPlaceholders(db.isSQLite(), 1, len(proxyIDs)), ","),
-		)
-		rows, err = tx.QueryContext(ctx, deleteQuery, argsFromInt64s(proxyIDs)...)
-		if err != nil {
-			return err
-		}
-		for rows.Next() {
-			var proxyID int64
-			var proxyURL string
-			if err := rows.Scan(&proxyID, &proxyURL); err != nil {
-				rows.Close()
+		deleteQuery := fmt.Sprintf(`DELETE FROM proxies WHERE id IN (%s)`, strings.Join(dbPlaceholders(db.isSQLite(), 1, len(proxyIDs)), ","))
+		if db.isMySQL() {
+			deleteResult, err := tx.ExecContext(ctx, deleteQuery, argsFromInt64s(proxyIDs)...)
+			if err != nil {
 				return err
 			}
-			result.Deleted++
-			result.DeletedProxyURLs = append(result.DeletedProxyURLs, proxyURL)
-		}
-		if err := rows.Close(); err != nil {
-			return err
-		}
-		if err := rows.Err(); err != nil {
-			return err
+			deleted, err := deleteResult.RowsAffected()
+			if err != nil {
+				return err
+			}
+			if int(deleted) != len(proxyIDs) {
+				return fmt.Errorf("proxy retirement deleted %d rows, expected %d", deleted, len(proxyIDs))
+			}
+			result.Deleted = len(proxyIDs)
+			result.DeletedProxyURLs = append(result.DeletedProxyURLs, proxyURLs...)
+		} else {
+			rows, err = tx.QueryContext(ctx, deleteQuery+` RETURNING id, TRIM(url)`, argsFromInt64s(proxyIDs)...)
+			if err != nil {
+				return err
+			}
+			for rows.Next() {
+				var proxyID int64
+				var proxyURL string
+				if err := rows.Scan(&proxyID, &proxyURL); err != nil {
+					rows.Close()
+					return err
+				}
+				result.Deleted++
+				result.DeletedProxyURLs = append(result.DeletedProxyURLs, proxyURL)
+			}
+			if err := rows.Close(); err != nil {
+				return err
+			}
+			if err := rows.Err(); err != nil {
+				return err
+			}
 		}
 		return tx.Commit()
 	})
@@ -4155,6 +4447,37 @@ func (db *DB) RebindAccountProxyURLs(ctx context.Context, oldURL, newURL string)
 	}
 	var ids []int64
 	err := db.withSQLiteWriteLock(ctx, func() error {
+		if db.isMySQL() {
+			tx, err := db.conn.BeginTx(ctx, nil)
+			if err != nil {
+				return err
+			}
+			defer tx.Rollback()
+			rows, err := tx.QueryContext(ctx, `SELECT id FROM accounts WHERE TRIM(COALESCE(proxy_url, ''))=$1 ORDER BY id FOR UPDATE`, oldURL)
+			if err != nil {
+				return err
+			}
+			ids, err = scanUnboundAccountIDs(rows)
+			rows.Close()
+			if err != nil {
+				return err
+			}
+			if len(ids) == 0 {
+				return tx.Commit()
+			}
+			result, err := tx.ExecContext(ctx, `UPDATE accounts SET proxy_url=$1, updated_at=CURRENT_TIMESTAMP WHERE TRIM(COALESCE(proxy_url, ''))=$2`, newURL, oldURL)
+			if err != nil {
+				return err
+			}
+			affected, err := result.RowsAffected()
+			if err != nil {
+				return err
+			}
+			if int(affected) != len(ids) {
+				return fmt.Errorf("proxy rebind updated %d rows, expected %d", affected, len(ids))
+			}
+			return tx.Commit()
+		}
 		rows, err := db.conn.QueryContext(ctx, `
 			UPDATE accounts
 			SET proxy_url = $1, updated_at = CURRENT_TIMESTAMP
@@ -4179,34 +4502,34 @@ func (db *DB) RebindAccountProxyURLs(ctx context.Context, oldURL, newURL string)
 // UsageLog 请求日志行
 type UsageLog struct {
 	UserBilling
-	RequestID              string    `json:"request_id"`
-	UpstreamRequestID      string    `json:"upstream_request_id"`
-	UpstreamProxyID        int64     `json:"upstream_proxy_id"`
-	UpstreamProxyName      string    `json:"upstream_proxy_name"`
-	InjectedTurnState      string    `json:"injected_turn_state,omitempty"`
-	UpstreamTurnState      string    `json:"upstream_turn_state,omitempty"`
-	ID                     int64     `json:"id"`
-	AccountID              int64     `json:"account_id"`
-	CredentialGeneration   int64     `json:"credential_generation,omitempty"`
-	Channel                string    `json:"channel,omitempty"`
-	ClientIP               string    `json:"client_ip"`
-	ClientUserAgent        string    `json:"client_user_agent"`
-	UpstreamUserAgent      string    `json:"upstream_user_agent"`
-	UserAgentOverridden    bool      `json:"user_agent_overridden"`
-	TurnStateOverridden    bool      `json:"turn_state_overridden"`
-	TurnStateRewriteNote   string    `json:"turn_state_rewrite_note"`
-	InternalReason         string    `json:"internal_reason"`
-	ParentRequestID        string    `json:"parent_request_id"`
-	Endpoint               string    `json:"endpoint"`
-	Model                  string    `json:"model"`
-	EffectiveModel         string    `json:"effective_model"`
+	RequestID            string `json:"request_id"`
+	UpstreamRequestID    string `json:"upstream_request_id"`
+	UpstreamProxyID      int64  `json:"upstream_proxy_id"`
+	UpstreamProxyName    string `json:"upstream_proxy_name"`
+	InjectedTurnState    string `json:"injected_turn_state,omitempty"`
+	UpstreamTurnState    string `json:"upstream_turn_state,omitempty"`
+	ID                   int64  `json:"id"`
+	AccountID            int64  `json:"account_id"`
+	CredentialGeneration int64  `json:"credential_generation,omitempty"`
+	Channel              string `json:"channel,omitempty"`
+	ClientIP             string `json:"client_ip"`
+	ClientUserAgent      string `json:"client_user_agent"`
+	UpstreamUserAgent    string `json:"upstream_user_agent"`
+	UserAgentOverridden  bool   `json:"user_agent_overridden"`
+	TurnStateOverridden  bool   `json:"turn_state_overridden"`
+	TurnStateRewriteNote string `json:"turn_state_rewrite_note"`
+	InternalReason       string `json:"internal_reason"`
+	ParentRequestID      string `json:"parent_request_id"`
+	Endpoint             string `json:"endpoint"`
+	Model                string `json:"model"`
+	EffectiveModel       string `json:"effective_model"`
 	// UpstreamResponseModel 是上游响应自报的模型名（取自 response.model 等字段，
 	// 未经协议转换或改写）。空串=上游未自报或历史行。
 	UpstreamResponseModel string `json:"upstream_response_model,omitempty"`
 	// UpstreamModelMismatch 三态：nil=上游未自报（或历史行），无法比对；
 	// true/false=已比对，上游自报与实发模型是否一致。
-	UpstreamModelMismatch *bool `json:"upstream_model_mismatch,omitempty"`
-	PromptTokens          int   `json:"prompt_tokens"`
+	UpstreamModelMismatch  *bool     `json:"upstream_model_mismatch,omitempty"`
+	PromptTokens           int       `json:"prompt_tokens"`
 	CompletionTokens       int       `json:"completion_tokens"`
 	TotalTokens            int       `json:"total_tokens"`
 	StatusCode             int       `json:"status_code"`
@@ -4278,10 +4601,10 @@ type UsageLog struct {
 // 整条批量 INSERT 回滚，失败的 batch 又会被原样放回缓冲区头部，下一轮继续失败——
 // 单条脏数据就能永久堵死整个日志写入。因此写入前按列宽截断。
 const (
-	usageLogChannelMaxLen    = 16  // channel
-	usageLogImageSizeMaxLen  = 32  // image_size
-	usageLogShortTextMaxLen  = 64  // client_ip / api_key_masked / upstream_error_kind
-	usageLogTextMaxLen       = 100 // endpoint / model / *_service_tier / reasoning_effort ...
+	usageLogChannelMaxLen   = 16  // channel
+	usageLogImageSizeMaxLen = 32  // image_size
+	usageLogShortTextMaxLen = 64  // client_ip / api_key_masked / upstream_error_kind
+	usageLogTextMaxLen      = 100 // endpoint / model / *_service_tier / reasoning_effort ...
 	// upstreamResponseModelMaxLen 与 usage_logs.upstream_response_model 列宽一致：
 	// 上游自报模型名不受网关控制，写入前按列宽截断。
 	upstreamResponseModelMaxLen = 200
@@ -4451,22 +4774,22 @@ type UsageLogInput struct {
 	// credential snapshot that issued it. Zero is legacy/unscoped traffic.
 	CredentialGeneration int64
 	// Channel 是处理该请求的上游渠道（codex/grok），写入时固化，空值表示未知。
-	Channel                string
-	ClientIP               string
-	ClientUserAgent        string
-	UpstreamUserAgent      string
-	UserAgentOverridden    bool
-	TurnStateOverridden    bool
-	TurnStateRewriteNote   string
-	InternalReason         string
-	ParentRequestID        string
-	Endpoint               string
-	Model                  string
-	EffectiveModel         string
+	Channel              string
+	ClientIP             string
+	ClientUserAgent      string
+	UpstreamUserAgent    string
+	UserAgentOverridden  bool
+	TurnStateOverridden  bool
+	TurnStateRewriteNote string
+	InternalReason       string
+	ParentRequestID      string
+	Endpoint             string
+	Model                string
+	EffectiveModel       string
 	// UpstreamResponseModel 是上游响应自报的模型名（观测值，未自报为空串）。
 	UpstreamResponseModel string
 	// UpstreamModelMismatch 三态：nil=上游未自报；true/false=自报与实发是否一致。
-	UpstreamModelMismatch *bool
+	UpstreamModelMismatch  *bool
 	PromptTokens           int
 	CompletionTokens       int
 	TotalTokens            int
@@ -4692,19 +5015,27 @@ func (db *DB) insertUsageLogBatch(ctx context.Context, batch []usageLogEntry) er
 	return db.insertSQLiteUsageLogBatch(ctx, batch)
 }
 
-// isUsageLogDataError 判断失败是不是「这批数据本身写不进去」。PostgreSQL 的 SQLSTATE
-// class 22（数据异常：超长、非法 UTF-8 字节、数值溢出…）和 class 23（约束冲突）重试多少次
-// 都不会成功；其余错误（连接断开、超时、死锁、只读事务）是瞬时故障，必须继续重试，
-// 绝不能顺手把日志丢掉。
+type sqlStateError interface {
+	error
+	SQLState() string
+}
+
+// isUsageLogDataError 判断失败是不是「这批数据本身写不进去」。
+// SQLSTATE class 22（数据异常）和 class 23（约束冲突）属于确定性数据错误；
+// 连接、超时、死锁等仍按瞬时故障重试。具体 MySQL 错误映射在后续 SQL 审计阶段补齐。
 func isUsageLogDataError(err error) bool {
 	if err == nil {
 		return false
 	}
-	var pgErr *pgconn.PgError
-	if !errors.As(err, &pgErr) || len(pgErr.Code) < 2 {
+	var stateErr sqlStateError
+	if !errors.As(err, &stateErr) {
 		return false
 	}
-	switch pgErr.Code[:2] {
+	code := stateErr.SQLState()
+	if len(code) < 2 {
+		return false
+	}
+	switch code[:2] {
 	case "22", "23":
 		return true
 	}
@@ -4848,7 +5179,7 @@ func (db *DB) insertSQLiteUsageLogBatch(ctx context.Context, batch []usageLogEnt
 	if err := db.applyAPIKeyQuotaUsageWithExec(ctx, tx, batch); err != nil {
 		return fmt.Errorf("更新 API Key 额度用量: %w", err)
 	}
-	if err := applyUsageStatsRollupWithExec(ctx, tx, logsToStore); err != nil {
+	if err := db.applyUsageStatsRollupWithExec(ctx, tx, logsToStore); err != nil {
 		return fmt.Errorf("更新用量累计汇总: %w", err)
 	}
 	if err := tx.Commit(); err != nil {
@@ -4895,7 +5226,7 @@ func (db *DB) batchInsertLogs(ctx context.Context, batch []usageLogEntry) error 
 	if err := db.applyAPIKeyQuotaUsageWithExec(ctx, tx, batch); err != nil {
 		return err
 	}
-	if err := applyUsageStatsRollupWithExec(ctx, tx, logsToStore); err != nil {
+	if err := db.applyUsageStatsRollupWithExec(ctx, tx, logsToStore); err != nil {
 		return fmt.Errorf("更新用量累计汇总: %w", err)
 	}
 	if err := tx.Commit(); err != nil {
@@ -5043,7 +5374,7 @@ type UsageModelStat struct {
 	ErrorCount    int64   `json:"error_count"`
 }
 
-// UsageFeatureStat codex2api 代理能力维度的请求构成。
+// UsageFeatureStat axisrelay 代理能力维度的请求构成。
 type UsageFeatureStat struct {
 	StreamRequests    int64 `json:"stream_requests"`
 	SyncRequests      int64 `json:"sync_requests"`
@@ -5132,7 +5463,7 @@ func (db *DB) getUsageStats(ctx context.Context, rangeStart, rangeEnd time.Time,
 		args = append(args, channel)
 	}
 	if dimFiltered {
-		dimParts, dimArgs := usageLogDimensionWhere(dim, len(args)+1)
+		dimParts, dimArgs := db.usageLogDimensionWhere(dim, len(args)+1)
 		for _, part := range dimParts {
 			endClause += " AND " + part
 		}
@@ -5266,7 +5597,7 @@ func (db *DB) usageStatsTimeWhere(column string, rangeStart, rangeEnd time.Time,
 		args = append(args, channel)
 	}
 	if dim.HasDimensionFilter() {
-		dimParts, dimArgs := usageLogDimensionWhere(dim, len(args)+1)
+		dimParts, dimArgs := db.usageLogDimensionWhere(dim, len(args)+1)
 		for _, part := range dimParts {
 			where += " AND " + part
 		}
@@ -5471,6 +5802,9 @@ func (db *DB) GetTrafficSnapshot(ctx context.Context) (*TrafficSnapshot, error) 
 	if db.isSQLite() {
 		return db.getTrafficSnapshotSQLite(ctx)
 	}
+	if db.isMySQL() {
+		return db.getTrafficSnapshotMySQL(ctx)
+	}
 
 	snapshot := &TrafficSnapshot{}
 	query := `
@@ -5529,7 +5863,7 @@ func (db *DB) ListRecentUsageLogs(ctx context.Context, limit int) ([]*UsageLog, 
 	            COALESCE(u.is_retry_attempt, false), COALESCE(u.attempt_index, 0), COALESCE(u.upstream_error_kind, ''), COALESCE(u.error_message, ''),
 	            COALESCE(u.client_user_agent, ''), COALESCE(u.upstream_user_agent, ''), COALESCE(u.user_agent_overridden, false), COALESCE(u.turn_state_overridden, false), COALESCE(u.turn_state_rewrite_note, ''), COALESCE(u.channel, ''),
 	            COALESCE(u.internal_reason, ''), COALESCE(u.parent_request_id, ''), COALESCE(u.prompt_policy_incident_id, ''), COALESCE(u.request_id, ''), COALESCE(u.upstream_request_id, ''), COALESCE(u.upstream_proxy_id, 0), COALESCE(u.upstream_proxy_name, ''), COALESCE(u.injected_turn_state, ''), COALESCE(u.upstream_turn_state, ''),
-	            COALESCE(CAST(a.credentials AS TEXT), '{}'), COALESCE(a.name, ''), u.created_at
+	            ` + db.credentialsTextSQL("a") + `, COALESCE(a.name, ''), u.created_at
 	           FROM usage_logs u
 	           LEFT JOIN accounts a ON u.account_id = a.id
 	           WHERE u.status_code <> 499
@@ -5680,6 +6014,9 @@ func (db *DB) GetChartAggregation(ctx context.Context, start, end time.Time, buc
 	channel = strings.TrimSpace(channel)
 	if db.isSQLite() {
 		return db.getChartAggregationSQLite(ctx, start, end, bucketMinutes, channel)
+	}
+	if db.isMySQL() {
+		return db.getChartAggregationMySQL(ctx, start, end, bucketMinutes, channel)
 	}
 
 	if bucketMinutes < 1 {
@@ -6009,7 +6346,7 @@ func (db *DB) ListUsageLogsByTimeRange(ctx context.Context, start, end time.Time
 	            COALESCE(u.is_retry_attempt, false), COALESCE(u.attempt_index, 0), COALESCE(u.upstream_error_kind, ''), COALESCE(u.error_message, ''),
 	            COALESCE(u.client_user_agent, ''), COALESCE(u.upstream_user_agent, ''), COALESCE(u.user_agent_overridden, false), COALESCE(u.turn_state_overridden, false), COALESCE(u.turn_state_rewrite_note, ''), COALESCE(u.channel, ''),
 	            COALESCE(u.internal_reason, ''), COALESCE(u.parent_request_id, ''), COALESCE(u.prompt_policy_incident_id, ''), COALESCE(u.request_id, ''), COALESCE(u.upstream_request_id, ''), COALESCE(u.upstream_proxy_id, 0), COALESCE(u.upstream_proxy_name, ''), COALESCE(u.injected_turn_state, ''), COALESCE(u.upstream_turn_state, ''),
-	            COALESCE(CAST(a.credentials AS TEXT), '{}'), COALESCE(a.name, ''), u.created_at
+	            ` + db.credentialsTextSQL("a") + `, COALESCE(a.name, ''), u.created_at
 	           FROM usage_logs u
 	           LEFT JOIN accounts a ON u.account_id = a.id
 	           WHERE u.created_at >= $1 AND u.created_at <= $2
@@ -6153,7 +6490,7 @@ func (f UsageLogFilter) DimensionKey() string {
 
 // usageLogDimensionWhere 生成维度条件片段(见 HasDimensionFilter),不含时间/渠道/状态类条件。
 // 列引用统一带 u. 前缀,调用方的 FROM 需给 usage_logs 起别名 u;占位符从 nextIdx 起编号。
-func usageLogDimensionWhere(f UsageLogFilter, nextIdx int) ([]string, []interface{}) {
+func (db *DB) usageLogDimensionWhere(f UsageLogFilter, nextIdx int) ([]string, []interface{}) {
 	parts := []string{}
 	args := []interface{}{}
 	paramIdx := nextIdx
@@ -6166,15 +6503,20 @@ func usageLogDimensionWhere(f UsageLogFilter, nextIdx int) ([]string, []interfac
 
 	if f.Email != "" {
 		p := addArg("%" + f.Email + "%")
+		likeParam := p
+		if db.isMySQL() {
+			likeParam = "CONVERT(" + p + " USING utf8mb4) COLLATE utf8mb4_0900_ai_ci"
+		}
+		credentialsText := db.credentialsTextSQL("search_accounts")
 		parts = append(parts, fmt.Sprintf(`(
 			LOWER(COALESCE(u.client_ip, '')) LIKE LOWER(%[1]s)
 			OR u.account_id IN (
 				SELECT search_accounts.id
 				FROM accounts search_accounts
 				WHERE LOWER(COALESCE(search_accounts.name, '')) LIKE LOWER(%[1]s)
-					OR LOWER(COALESCE(CAST(search_accounts.credentials AS TEXT), '')) LIKE LOWER(%[1]s)
+					OR LOWER(%[2]s) LIKE LOWER(%[1]s)
 			)
-		)`, p))
+		)`, likeParam, credentialsText))
 	}
 	if f.RequestID != "" {
 		parts = append(parts, "u.request_id = "+addArg(f.RequestID))
@@ -6237,6 +6579,11 @@ func usageLogDimensionWhere(f UsageLogFilter, nextIdx int) ([]string, []interfac
 	}
 	if f.Query != "" {
 		p := addArg("%" + f.Query + "%")
+		likeParam := p
+		if db.isMySQL() {
+			likeParam = "CONVERT(" + p + " USING utf8mb4) COLLATE utf8mb4_0900_ai_ci"
+		}
+		credentialsText := db.credentialsTextSQL("search_accounts")
 		parts = append(parts, fmt.Sprintf(`(
 			LOWER(COALESCE(u.error_message, '')) LIKE LOWER(%[1]s)
  OR LOWER(COALESCE(u.request_id, '')) LIKE LOWER(%[1]s)
@@ -6254,9 +6601,9 @@ func usageLogDimensionWhere(f UsageLogFilter, nextIdx int) ([]string, []interfac
 					SELECT search_accounts.id
 					FROM accounts search_accounts
 					WHERE LOWER(COALESCE(search_accounts.name, '')) LIKE LOWER(%[1]s)
-						OR LOWER(COALESCE(CAST(search_accounts.credentials AS TEXT), '')) LIKE LOWER(%[1]s)
+						OR LOWER(%[2]s) LIKE LOWER(%[1]s)
 				)
-		)`, p))
+		)`, likeParam, credentialsText))
 	}
 	return parts, args
 }
@@ -6273,7 +6620,7 @@ func (db *DB) buildUsageLogWhere(f UsageLogFilter) (string, []interface{}) {
 		parts = append(parts, `(u.status_code >= 400 OR COALESCE(u.error_message, '') <> '' OR COALESCE(u.upstream_error_kind, '') <> '')`)
 	}
 
-	dimParts, dimArgs := usageLogDimensionWhere(f, len(args)+1)
+	dimParts, dimArgs := db.usageLogDimensionWhere(f, len(args)+1)
 	parts = append(parts, dimParts...)
 	args = append(args, dimArgs...)
 
@@ -6386,7 +6733,7 @@ func (db *DB) ListUsageLogsByTimeRangePaged(ctx context.Context, f UsageLogFilte
 			            COALESCE(u.is_retry_attempt, false), COALESCE(u.attempt_index, 0), COALESCE(u.upstream_error_kind, ''), COALESCE(u.error_message, ''),
 			            COALESCE(u.client_user_agent, ''), COALESCE(u.upstream_user_agent, ''), COALESCE(u.user_agent_overridden, false), COALESCE(u.turn_state_overridden, false), COALESCE(u.turn_state_rewrite_note, ''), COALESCE(u.channel, ''),
 			            COALESCE(u.internal_reason, ''), COALESCE(u.parent_request_id, ''), COALESCE(u.prompt_policy_incident_id, ''), COALESCE(u.request_id, ''), COALESCE(u.upstream_request_id, ''), COALESCE(u.upstream_proxy_id, 0), COALESCE(u.upstream_proxy_name, ''), COALESCE(u.injected_turn_state, ''), COALESCE(u.upstream_turn_state, ''),
-			            COALESCE(CAST(a.credentials AS TEXT), '{}'), COALESCE(a.name, ''), u.created_at,
+			            ` + db.credentialsTextSQL("a") + `, COALESCE(a.name, ''), u.created_at,
 	            COUNT(*) OVER() AS total_count
 	           FROM usage_logs u
 	           LEFT JOIN accounts a ON u.account_id = a.id
@@ -6449,7 +6796,7 @@ func (db *DB) ListUsageLogsByFilter(ctx context.Context, f UsageLogFilter) ([]*U
 			COALESCE(u.is_retry_attempt, false), COALESCE(u.attempt_index, 0), COALESCE(u.upstream_error_kind, ''), COALESCE(u.error_message, ''),
 			COALESCE(u.client_user_agent, ''), COALESCE(u.upstream_user_agent, ''), COALESCE(u.user_agent_overridden, false), COALESCE(u.turn_state_overridden, false), COALESCE(u.turn_state_rewrite_note, ''), COALESCE(u.channel, ''),
 			COALESCE(u.internal_reason, ''), COALESCE(u.parent_request_id, ''), COALESCE(u.prompt_policy_incident_id, ''), COALESCE(u.request_id, ''), COALESCE(u.upstream_request_id, ''), COALESCE(u.upstream_proxy_id, 0), COALESCE(u.upstream_proxy_name, ''), COALESCE(u.injected_turn_state, ''), COALESCE(u.upstream_turn_state, ''),
-			COALESCE(CAST(a.credentials AS TEXT), '{}'), COALESCE(a.name, ''), u.created_at
+			` + db.credentialsTextSQL("a") + `, COALESCE(a.name, ''), u.created_at
 		FROM usage_logs u
 		LEFT JOIN accounts a ON u.account_id = a.id
 		WHERE ` + where
@@ -6505,8 +6852,28 @@ func (db *DB) ClearUsageLogs(ctx context.Context) error {
 		return err
 	}
 	defer tx.Rollback()
-	if !db.isSQLite() {
-		// 先锁明细表，等待正在写入的批次完整提交；之后的新写入在清理事务结束前不会插入。
+	if db.isMySQL() {
+		// InnoDB 全范围当前读持有主键记录/间隙锁，使基线快照与清空在同一事务内保持一致。
+		rows, lockErr := tx.QueryContext(ctx, `SELECT id FROM usage_logs FOR UPDATE`)
+		if lockErr != nil {
+			return lockErr
+		}
+		for rows.Next() {
+			var id int64
+			if scanErr := rows.Scan(&id); scanErr != nil {
+				_ = rows.Close()
+				return scanErr
+			}
+		}
+		if rowsErr := rows.Err(); rowsErr != nil {
+			_ = rows.Close()
+			return rowsErr
+		}
+		if closeErr := rows.Close(); closeErr != nil {
+			return closeErr
+		}
+	} else if !db.isSQLite() {
+		// PostgreSQL 锁定整张明细表，等待正在写入的批次完整提交。
 		if _, err := tx.ExecContext(ctx, `LOCK TABLE usage_logs IN ACCESS EXCLUSIVE MODE`); err != nil {
 			return err
 		}
@@ -6532,6 +6899,10 @@ func (db *DB) ClearUsageLogs(ctx context.Context) error {
 			return err
 		}
 		if _, err = tx.ExecContext(ctx, `DELETE FROM sqlite_sequence WHERE name = 'usage_logs'`); err != nil {
+			return err
+		}
+	} else if db.isMySQL() {
+		if _, err = tx.ExecContext(ctx, `DELETE FROM usage_logs`); err != nil {
 			return err
 		}
 	} else if _, err = tx.ExecContext(ctx, `TRUNCATE TABLE usage_logs RESTART IDENTITY`); err != nil {
@@ -6780,7 +7151,7 @@ func (db *DB) getAccountsBilledSinceChunk(ctx context.Context, ids []int64, wind
 	args := make([]interface{}, 0, len(ids)*2)
 	argIdx := 1
 	for _, accountID := range ids {
-		if db.isSQLite() {
+		if db.isSQLite() || db.isMySQL() {
 			values = append(values, fmt.Sprintf("($%d, $%d)", argIdx, argIdx+1))
 		} else {
 			values = append(values, fmt.Sprintf("($%d::BIGINT, $%d::TIMESTAMPTZ)", argIdx, argIdx+1))
@@ -6789,9 +7160,23 @@ func (db *DB) getAccountsBilledSinceChunk(ctx context.Context, ids []int64, wind
 		argIdx += 2
 	}
 
+	cteBody := "VALUES " + strings.Join(values, ",")
+	if db.isMySQL() {
+		selects := make([]string, 0, len(ids))
+		for index := range ids {
+			arg := index*2 + 1
+			if index == 0 {
+				selects = append(selects, fmt.Sprintf("SELECT $%d AS account_id, $%d AS since_at", arg, arg+1))
+			} else {
+				selects = append(selects, fmt.Sprintf("SELECT $%d, $%d", arg, arg+1))
+			}
+		}
+		cteBody = strings.Join(selects, " UNION ALL ")
+	}
+
 	query := fmt.Sprintf(`
 	WITH billing_windows(account_id, since_at) AS (
-		VALUES %s
+		%s
 	)
 	SELECT billing_windows.account_id, COALESCE(SUM(usage_logs.account_billed), 0) AS account_billed
 	FROM billing_windows
@@ -6801,7 +7186,7 @@ func (db *DB) getAccountsBilledSinceChunk(ctx context.Context, ids []int64, wind
 		AND usage_logs.status_code <> 499
 		AND TRIM(COALESCE(usage_logs.internal_reason, '')) = ''
 	GROUP BY billing_windows.account_id
-	`, strings.Join(values, ","))
+	`, cteBody)
 
 	rows, err := db.conn.QueryContext(ctx, query, args...)
 	if err != nil {
@@ -6834,11 +7219,13 @@ func (db *DB) ListActiveByChannel(ctx context.Context, channel string) ([]*Accou
 	upstreamTypeExpr := `LOWER(COALESCE(credentials->>'upstream_type', ''))`
 	if db.isSQLite() {
 		upstreamTypeExpr = `LOWER(COALESCE(json_extract(credentials, '$.upstream_type'), ''))`
+	} else if db.isMySQL() {
+		upstreamTypeExpr = `LOWER(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(credentials, '$.upstream_type')), ''))`
 	}
 	where += accountChannelFilterSQL(channel, upstreamTypeExpr)
 
 	query := `
-		SELECT id, name, platform, type, credentials, proxy_url, status, cooldown_reason, cooldown_until, error_message, COALESCE(enabled, true), COALESCE(locked, false), COALESCE(credit_enabled, false), COALESCE(credit_skip_usage_window, false), COALESCE(skip_warm_tier, false), score_bias_override, base_concurrency_override, COALESCE(tags, '[]'), COALESCE(note, ''), created_at, updated_at, COALESCE(credential_generation, 1), COALESCE(credential_family_id, '')
+		SELECT id, name, platform, type, credentials, proxy_url, status, cooldown_reason, cooldown_until, COALESCE(error_message, ''), COALESCE(enabled, true), COALESCE(locked, false), COALESCE(credit_enabled, false), COALESCE(credit_skip_usage_window, false), COALESCE(skip_warm_tier, false), score_bias_override, base_concurrency_override, COALESCE(tags, '[]'), COALESCE(note, ''), created_at, updated_at, COALESCE(credential_generation, 1), COALESCE(credential_family_id, '')
 		FROM accounts
 		WHERE ` + where + `
 		ORDER BY id
@@ -7020,6 +7407,17 @@ func (db *DB) SetModelCooldown(ctx context.Context, accountID int64, model, reas
 		`, accountID, model, reason, db.timeArg(resetAt))
 		return err
 	}
+	if db.isMySQL() {
+		_, err := db.conn.ExecContext(ctx, `
+			INSERT INTO account_model_cooldowns (account_id, model, reason, reset_at, updated_at)
+			VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP)
+			ON DUPLICATE KEY UPDATE
+				reason = VALUES(reason),
+				reset_at = VALUES(reset_at),
+				updated_at = CURRENT_TIMESTAMP
+		`, accountID, model, reason, db.timeArg(resetAt))
+		return err
+	}
 	_, err := db.conn.ExecContext(ctx, `
 		INSERT INTO account_model_cooldowns (account_id, model, reason, reset_at, updated_at)
 		VALUES ($1, $2, $3, $4, NOW())
@@ -7070,7 +7468,7 @@ func (db *DB) getAccountByID(ctx context.Context, id int64, includeDeleted bool)
 		deletedFilter = ""
 	}
 	query := `
-		SELECT id, name, platform, type, credentials, proxy_url, status, cooldown_reason, cooldown_until, error_message, COALESCE(enabled, true), COALESCE(locked, false), COALESCE(credit_enabled, false), COALESCE(credit_skip_usage_window, false), COALESCE(skip_warm_tier, false), score_bias_override, base_concurrency_override, COALESCE(tags, '[]'), COALESCE(note, ''), created_at, updated_at, COALESCE(credential_generation, 1), COALESCE(credential_family_id, '')
+		SELECT id, name, platform, type, credentials, proxy_url, status, cooldown_reason, cooldown_until, COALESCE(error_message, ''), COALESCE(enabled, true), COALESCE(locked, false), COALESCE(credit_enabled, false), COALESCE(credit_skip_usage_window, false), COALESCE(skip_warm_tier, false), score_bias_override, base_concurrency_override, COALESCE(tags, '[]'), COALESCE(note, ''), created_at, updated_at, COALESCE(credential_generation, 1), COALESCE(credential_family_id, '')
 		FROM accounts
 		WHERE id = $1 ` + deletedFilter + `
 		LIMIT 1
@@ -7207,7 +7605,7 @@ func (db *DB) UpdateAccountSchedulerConfig(ctx context.Context, id int64, scoreB
 		}
 
 		updateQuery := `UPDATE accounts SET credentials = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2`
-		if !db.isSQLite() {
+		if !db.isSQLite() && !db.isMySQL() {
 			updateQuery = `UPDATE accounts SET credentials = $1::jsonb, updated_at = CURRENT_TIMESTAMP WHERE id = $2`
 		}
 		if _, err := tx.ExecContext(ctx, updateQuery, credJSON, id); err != nil {
@@ -7262,7 +7660,7 @@ func (db *DB) UpdateAccountSchedulerMetadata(ctx context.Context, id int64, scor
 			add("skip_warm_tier", skipWarmTier.Value)
 		}
 		if tags.Set {
-			if db.isSQLite() {
+			if db.isSQLite() || db.isMySQL() {
 				add("tags", encodeTagsJSON(tags.Values))
 			} else {
 				args = append(args, encodeTagsJSON(tags.Values))
@@ -7286,7 +7684,7 @@ func (db *DB) UpdateAccountSchedulerMetadata(ctx context.Context, id int64, scor
 			if err != nil {
 				return fmt.Errorf("序列化 credentials 失败: %w", err)
 			}
-			if db.isSQLite() {
+			if db.isSQLite() || db.isMySQL() {
 				add("credentials", credJSON)
 			} else {
 				args = append(args, credJSON)
@@ -7462,7 +7860,7 @@ func (db *DB) batchUpdateAccountColumns(ctx context.Context, tx *sql.Tx, ids []i
 		add("skip_warm_tier", update.SkipWarmTier.Value, true)
 	}
 	if update.Tags.Set {
-		if db.isSQLite() {
+		if db.isSQLite() || db.isMySQL() {
 			add("tags", encodeTagsJSON(update.Tags.Values), true)
 		} else {
 			args = append(args, encodeTagsJSON(update.Tags.Values))
@@ -7491,7 +7889,7 @@ func (db *DB) batchUpdateAccountColumns(ctx context.Context, tx *sql.Tx, ids []i
 func (db *DB) batchUpdateAccountCredentials(ctx context.Context, tx *sql.Tx, current map[int64]map[string]interface{}, updates map[string]interface{}) error {
 	query := `UPDATE accounts SET credentials = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`
 	identityQuery := `UPDATE accounts SET credentials = ?, credential_generation = credential_generation + 1, updated_at = CURRENT_TIMESTAMP WHERE id = ?`
-	if !db.isSQLite() {
+	if !db.isSQLite() && !db.isMySQL() {
 		query = `UPDATE accounts SET credentials = $1::jsonb, updated_at = CURRENT_TIMESTAMP WHERE id = $2`
 		identityQuery = `UPDATE accounts SET credentials = $1::jsonb, credential_generation = credential_generation + 1, updated_at = CURRENT_TIMESTAMP WHERE id = $2`
 	}
@@ -7612,6 +8010,8 @@ func (db *DB) SetAccountTags(ctx context.Context, id int64, tags []string) error
 	var query string
 	if db.isSQLite() {
 		query = `UPDATE accounts SET tags = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`
+	} else if db.isMySQL() {
+		query = `UPDATE accounts SET tags = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2`
 	} else {
 		query = `UPDATE accounts SET tags = $1::jsonb, updated_at = CURRENT_TIMESTAMP WHERE id = $2`
 	}
@@ -7695,7 +8095,7 @@ func (db *DB) updateCredentialsReadMerge(ctx context.Context, id int64, credenti
 		generationUpdate = ", credential_generation = credential_generation + 1"
 	}
 	updateQuery := `UPDATE accounts SET credentials = $1` + generationUpdate + `, updated_at = CURRENT_TIMESTAMP WHERE id = $2`
-	if !db.isSQLite() {
+	if !db.isSQLite() && !db.isMySQL() {
 		updateQuery = `UPDATE accounts SET credentials = $1::jsonb` + generationUpdate + `, updated_at = CURRENT_TIMESTAMP WHERE id = $2`
 	}
 	if _, err := tx.ExecContext(ctx, updateQuery, credJSON, id); err != nil {
@@ -7874,7 +8274,7 @@ func (db *DB) UpdateOpenAIResponsesAccount(ctx context.Context, id int64, name s
 		identityUpdate = ", credential_generation = credential_generation + 1, status = 'active', error_message = '', cooldown_reason = '', cooldown_until = NULL"
 	}
 	updateQuery := `UPDATE accounts SET name = $1, credentials = $2, proxy_url = $3, platform = 'openai', type = 'responses_api'` + identityUpdate + `, updated_at = CURRENT_TIMESTAMP WHERE id = $4`
-	if !db.isSQLite() {
+	if !db.isSQLite() && !db.isMySQL() {
 		updateQuery = `UPDATE accounts SET name = $1, credentials = $2::jsonb, proxy_url = $3, platform = 'openai', type = 'responses_api'` + identityUpdate + `, updated_at = CURRENT_TIMESTAMP WHERE id = $4`
 	}
 	res, err := tx.ExecContext(ctx, updateQuery, name, credJSON, proxyURL, id)
@@ -7920,7 +8320,7 @@ func (db *DB) UpdateOAuthAccountCredentials(ctx context.Context, id int64, crede
 	}
 
 	updateQuery := `UPDATE accounts SET credentials = $1, proxy_url = $2, platform = 'openai', type = 'oauth', updated_at = CURRENT_TIMESTAMP WHERE id = $3`
-	if !db.isSQLite() {
+	if !db.isSQLite() && !db.isMySQL() {
 		updateQuery = `UPDATE accounts SET credentials = $1::jsonb, proxy_url = $2, platform = 'openai', type = 'oauth', updated_at = CURRENT_TIMESTAMP WHERE id = $3`
 	}
 	res, err := tx.ExecContext(ctx, updateQuery, credJSON, proxyURL, id)
@@ -8300,8 +8700,12 @@ func (db *DB) ClearError(ctx context.Context, id int64) error {
 // SetCooldown 持久化账号冷却状态
 func (db *DB) SetCooldown(ctx context.Context, id int64, reason string, until time.Time) error {
 	return db.withSQLiteWriteLock(ctx, func() error {
+		cooldownUntil := until
+		if db.isMySQL() {
+			cooldownUntil = until.UTC().Truncate(time.Millisecond)
+		}
 		query := `UPDATE accounts SET cooldown_reason = $1, cooldown_until = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3`
-		_, err := db.conn.ExecContext(ctx, query, reason, until, id)
+		_, err := db.conn.ExecContext(ctx, query, reason, cooldownUntil, id)
 		return err
 	})
 }
@@ -8309,8 +8713,12 @@ func (db *DB) SetCooldown(ctx context.Context, id int64, reason string, until ti
 // SetCooldownWithError 持久化账号冷却状态，并保留本次错误详情。
 func (db *DB) SetCooldownWithError(ctx context.Context, id int64, reason string, until time.Time, errorMsg string) error {
 	return db.withSQLiteWriteLock(ctx, func() error {
+		cooldownUntil := until
+		if db.isMySQL() {
+			cooldownUntil = until.UTC().Truncate(time.Millisecond)
+		}
 		query := `UPDATE accounts SET cooldown_reason = $1, cooldown_until = $2, error_message = $3, updated_at = CURRENT_TIMESTAMP WHERE id = $4`
-		_, err := db.conn.ExecContext(ctx, query, reason, until, errorMsg, id)
+		_, err := db.conn.ExecContext(ctx, query, reason, cooldownUntil, errorMsg, id)
 		return err
 	})
 }
@@ -8457,12 +8865,18 @@ func (db *DB) insertAccountRowWithFamily(ctx context.Context, postgresQuery, sql
 			return err
 		}
 		defer tx.Rollback()
-		if db.isSQLite() {
+		if db.isSQLite() || db.isMySQL() {
 			query := strings.TrimSpace(sqliteQuery)
-			if _, err = tx.ExecContext(ctx, query, args...); err != nil {
-				return err
+			result, execErr := tx.ExecContext(ctx, query, args...)
+			if execErr != nil {
+				return execErr
 			}
-			if err = tx.QueryRowContext(ctx, "SELECT last_insert_rowid()").Scan(&returnID); err != nil {
+			if db.isMySQL() {
+				returnID, err = result.LastInsertId()
+				if err != nil {
+					return err
+				}
+			} else if err = tx.QueryRowContext(ctx, "SELECT last_insert_rowid()").Scan(&returnID); err != nil {
 				return err
 			}
 		} else if err = tx.QueryRowContext(ctx, strings.TrimSpace(postgresQuery), args...).Scan(&returnID); err != nil {
@@ -8567,7 +8981,13 @@ func (db *DB) FindActiveAccountByOAuthIdentity(ctx context.Context, email, works
 		WHERE status <> 'deleted'
 		  AND COALESCE(error_message, '') <> 'deleted'
 		  AND LOWER(TRIM(json_extract(credentials, '$.email'))) = ?`
-	if db.driver == "postgres" {
+	if db.isMySQL() {
+		query = `SELECT id, credentials
+			FROM accounts
+			WHERE status <> 'deleted'
+			  AND COALESCE(error_message, '') <> 'deleted'
+			  AND LOWER(TRIM(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(credentials, '$.email')), ''))) = ?`
+	} else if db.driver == "postgres" {
 		query = `SELECT id, credentials
 			FROM accounts
 			WHERE status <> 'deleted'
@@ -8624,7 +9044,13 @@ func (db *DB) FindActiveAccountByOAuthRouteIdentity(ctx context.Context, email, 
 		WHERE status <> 'deleted'
 		  AND COALESCE(error_message, '') <> 'deleted'
 		  AND LOWER(TRIM(json_extract(credentials, '$.email'))) = ?`
-	if db.driver == "postgres" {
+	if db.isMySQL() {
+		query = `SELECT id, credentials
+			FROM accounts
+			WHERE status <> 'deleted'
+			  AND COALESCE(error_message, '') <> 'deleted'
+			  AND LOWER(TRIM(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(credentials, '$.email')), ''))) = ?`
+	} else if db.driver == "postgres" {
 		query = `SELECT id, credentials
 			FROM accounts
 			WHERE status <> 'deleted'

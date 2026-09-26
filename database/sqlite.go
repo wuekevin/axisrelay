@@ -1176,7 +1176,7 @@ func (db *DB) getUsageStatsSQLite(ctx context.Context, rangeStart, rangeEnd time
 		args = append(args, channel)
 	}
 	if dimFiltered {
-		dimParts, dimArgs := usageLogDimensionWhere(dim, len(args)+1)
+		dimParts, dimArgs := db.usageLogDimensionWhere(dim, len(args)+1)
 		for _, part := range dimParts {
 			query += " AND " + part
 		}

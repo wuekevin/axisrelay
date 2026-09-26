@@ -16,14 +16,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/codex2api/auth"
-	"github.com/codex2api/proxy"
 	"github.com/gorilla/websocket"
 	"github.com/tidwall/gjson"
+	"github.com/wuekevin/axisrelay/auth"
+	"github.com/wuekevin/axisrelay/proxy"
 )
 
 func TestPrepareWebsocketHeadersUsesConfiguredDefaultsAndBetaFeatures(t *testing.T) {
-	t.Setenv("CODEX_WS_SEND_USER_AGENT", "true")
+	t.Setenv("AXISRELAY_WS_SEND_USER_AGENT", "true")
 	exec := NewExecutor()
 	cfg := &proxy.DeviceProfileConfig{
 		UserAgent:              "codex_cli_rs/0.120.0 (Mac OS 15.5.0; arm64) Apple_Terminal/464",
@@ -145,7 +145,7 @@ func TestPrepareWebsocketHeadersSendsRoutingHintFromBody(t *testing.T) {
 }
 
 func TestPrepareWebsocketHeadersSendsUserAgentByDefault(t *testing.T) {
-	t.Setenv("CODEX_WS_SEND_USER_AGENT", "")
+	t.Setenv("AXISRELAY_WS_SEND_USER_AGENT", "")
 	exec := NewExecutor()
 	ginHeaders := http.Header{
 		"X-Codex-Turn-State":                    []string{"turn-state"},
@@ -182,7 +182,7 @@ func TestPrepareWebsocketHeadersSendsUserAgentByDefault(t *testing.T) {
 }
 
 func TestPrepareWebsocketHeadersCanOptOutOfUserAgent(t *testing.T) {
-	t.Setenv("CODEX_WS_SEND_USER_AGENT", "false")
+	t.Setenv("AXISRELAY_WS_SEND_USER_AGENT", "false")
 	exec := NewExecutor()
 
 	headers := exec.prepareWebsocketHeaders(context.Background(), "token-123", &auth.Account{DBID: 42, AccountID: "42"}, "42", "session-123", "api-key-1", nil, http.Header{}, nil, "")
@@ -199,7 +199,7 @@ func TestPrepareWebsocketHeadersCanOptOutOfUserAgent(t *testing.T) {
 }
 
 func TestPrepareWebsocketHeadersHonorsForcedGeneratedUserAgent(t *testing.T) {
-	t.Setenv("CODEX_WS_SEND_USER_AGENT", "true")
+	t.Setenv("AXISRELAY_WS_SEND_USER_AGENT", "true")
 	prev := proxy.CurrentRuntimeSettings()
 	proxy.ApplyRuntimeSettings(proxy.RuntimeSettings{ClientCompatMode: proxy.ClientCompatModeForce})
 	t.Cleanup(func() { proxy.ApplyRuntimeSettings(prev) })
@@ -535,13 +535,13 @@ func TestPrepareWebsocketHeadersOmitsSessionHeadersWhenEmpty(t *testing.T) {
 }
 
 func TestStatelessOneShotEnabled(t *testing.T) {
-	t.Setenv("CODEX_WS_STATELESS_ONESHOT", "")
+	t.Setenv("AXISRELAY_WS_STATELESS_ONESHOT", "")
 	if statelessOneShotEnabled() {
 		t.Fatal("default must be false (slot reuse on)")
 	}
-	t.Setenv("CODEX_WS_STATELESS_ONESHOT", "1")
+	t.Setenv("AXISRELAY_WS_STATELESS_ONESHOT", "1")
 	if !statelessOneShotEnabled() {
-		t.Fatal("CODEX_WS_STATELESS_ONESHOT=1 must disable slot reuse")
+		t.Fatal("AXISRELAY_WS_STATELESS_ONESHOT=1 must disable slot reuse")
 	}
 }
 
@@ -576,8 +576,8 @@ func TestPrepareWebsocketHeadersConvergesForwardedClientRequestID(t *testing.T) 
 	const (
 		clientUUID    = "01a00e75-8856-7542-89bf-35812620690f"
 		installUUID   = "341596ee-ab98-43f8-82e2-08ecdfb56db4"
-		workspacePath = "/Users/kyx/code_project/codex2api"
-		remoteURL     = "https://github.com/james-6-23/codex2api.git"
+		workspacePath = "/Users/kyx/code_project/axisrelay"
+		remoteURL     = "https://github.com/wuekevin/axisrelay.git"
 		commitHash    = "3cd12a685fe3ea23b84a9097fd4563927857ea21"
 	)
 	rawMetadata := `{"installation_id":"` + installUUID + `","session_id":"` + clientUUID +
@@ -604,7 +604,7 @@ func TestPrepareWebsocketHeadersConvergesForwardedClientRequestID(t *testing.T) 
 		t.Fatal("X-Client-Request-Id was dropped, want a converged value")
 	}
 	// 握手的会话键归调用方决定，收敛默认不得介入（对齐需显式开
-	// CODEX_SESSION_HEADER_ALIGN_CONVERGED）。头名换成真实形态，取值语义不变。
+	// AXISRELAY_SESSION_HEADER_ALIGN_CONVERGED）。头名换成真实形态，取值语义不变。
 	if got := headers.Get("Session-Id"); got != "upstream-session-id" {
 		t.Fatalf("Session-Id = %q, want the caller value untouched", got)
 	}
@@ -635,7 +635,7 @@ func TestPrepareWebsocketHeadersConvergesForwardedClientRequestID(t *testing.T) 
 
 func TestPrepareWebsocketHeadersGeneratedDesktopClientSendsMatchingOriginator(t *testing.T) {
 	// issue #653：WS 握手与 HTTP 路径同规则，生成 UA 时 Originator 跟随生成的客户端前缀。
-	t.Setenv("CODEX_WS_SEND_USER_AGENT", "true")
+	t.Setenv("AXISRELAY_WS_SEND_USER_AGENT", "true")
 	prev := proxy.CurrentRuntimeSettings()
 	normalized, err := proxy.NormalizeCodexUserAgentConfigJSON(`{"client_name":"Codex Desktop","client_version":"0.153.3","os_name":"Windows","os_version":"10.0.26100","arch":"x86_64","terminal":"unknown"}`)
 	if err != nil {

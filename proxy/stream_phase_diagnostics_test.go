@@ -93,19 +93,19 @@ func TestPoolEntryAgeRotation(t *testing.T) {
 }
 
 func TestDurationFromEnv(t *testing.T) {
-	if got := durationFromEnv("CODEX_TEST_UNSET_DURATION", 15*time.Second); got != 15*time.Second {
+	if got := durationFromEnv("AXISRELAY_TEST_UNSET_DURATION", 15*time.Second); got != 15*time.Second {
 		t.Fatalf("unset = %s, want 15s", got)
 	}
-	t.Setenv("CODEX_TEST_DURATION", "45s")
-	if got := durationFromEnv("CODEX_TEST_DURATION", 15*time.Second); got != 45*time.Second {
+	t.Setenv("AXISRELAY_TEST_DURATION", "45s")
+	if got := durationFromEnv("AXISRELAY_TEST_DURATION", 15*time.Second); got != 45*time.Second {
 		t.Fatalf("override = %s, want 45s", got)
 	}
-	t.Setenv("CODEX_TEST_DURATION", "0")
-	if got := durationFromEnv("CODEX_TEST_DURATION", 15*time.Second); got != 0 {
+	t.Setenv("AXISRELAY_TEST_DURATION", "0")
+	if got := durationFromEnv("AXISRELAY_TEST_DURATION", 15*time.Second); got != 0 {
 		t.Fatalf("explicit zero = %s, want 0", got)
 	}
-	t.Setenv("CODEX_TEST_DURATION", "nonsense")
-	if got := durationFromEnv("CODEX_TEST_DURATION", 15*time.Second); got != 15*time.Second {
+	t.Setenv("AXISRELAY_TEST_DURATION", "nonsense")
+	if got := durationFromEnv("AXISRELAY_TEST_DURATION", 15*time.Second); got != 15*time.Second {
 		t.Fatalf("invalid must fall back, got %s", got)
 	}
 }

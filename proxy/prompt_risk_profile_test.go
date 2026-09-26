@@ -7,15 +7,15 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/codex2api/auth"
-	"github.com/codex2api/cache"
-	"github.com/codex2api/database"
-	"github.com/codex2api/security/promptfilter"
+	"github.com/wuekevin/axisrelay/auth"
+	"github.com/wuekevin/axisrelay/cache"
+	"github.com/wuekevin/axisrelay/database"
+	"github.com/wuekevin/axisrelay/security/promptfilter"
 	"github.com/gin-gonic/gin"
 )
 
 func TestSignedCYCreatesSeparatedPersonKeyNetworkSessionAndAccountProfiles(t *testing.T) {
-	db, err := database.New("sqlite", filepath.Join(t.TempDir(), "signed-cy-risk.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "signed-cy-risk.db"))
 	if err != nil {
 		t.Fatalf("database.New: %v", err)
 	}

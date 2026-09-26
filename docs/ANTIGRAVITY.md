@@ -4,7 +4,7 @@
 
 ## Overview
 
-Codex2API can manage Google Antigravity accounts as a dedicated upstream channel and expose their models through the OpenAI-compatible `/v1/responses`, `/v1/chat/completions`, `/v1/messages`, and `/v1/models` surfaces. Antigravity accounts are isolated from Codex and Grok account groups and can be selected explicitly with an API key whose upstream channel is `antigravity`.
+AxisRelay can manage Google Antigravity accounts as a dedicated upstream channel and expose their models through the OpenAI-compatible `/v1/responses`, `/v1/chat/completions`, `/v1/messages`, and `/v1/models` surfaces. Antigravity accounts are isolated from Codex and Grok account groups and can be selected explicitly with an API key whose upstream channel is `antigravity`.
 
 Two credential shapes are supported:
 
@@ -30,12 +30,12 @@ An API Key account can declare its own model list and optional model mapping. Th
 OAuth uses the official Antigravity Desktop client when nothing else is configured, so **Start authorization** works out of the box. Custom clients override that fallback. Precedence is environment variable > admin settings > built-in official client:
 
 1. **Admin settings page** (Settings → Antigravity): add `key` / `client_id` / `client_secret` entries and optionally pick the default active client. Changes are stored in `system_settings.antigravity_oauth_config`, take effect immediately without a restart, and the secret is never echoed back by the API (leave the secret blank when editing to keep the stored value).
-2. **Environment variables**: `ANTIGRAVITY_OAUTH_CLIENTS` is a semicolon-separated list of `key|client_id|client_secret` entries; `ANTIGRAVITY_OAUTH_CLIENT_KEY` optionally selects the active key.
+2. **Environment variables**: `AXISRELAY_ANTIGRAVITY_OAUTH_CLIENTS` is a semicolon-separated list of `key|client_id|client_secret` entries; `AXISRELAY_ANTIGRAVITY_OAUTH_CLIENT_KEY` optionally selects the active key.
 3. **Built-in official Desktop client** (`key=official`): used only when both sources above are empty. This is the same public installed-app credential shipped in the Antigravity desktop app and reused by `sub2api`. Google may revoke a shared client; add your own entry if authorization starts returning `invalid_client`.
 
 ```bash
-ANTIGRAVITY_OAUTH_CLIENTS='primary|your-client-id|your-client-secret'
-ANTIGRAVITY_OAUTH_CLIENT_KEY='primary'
+AXISRELAY_ANTIGRAVITY_OAUTH_CLIENTS='primary|your-client-id|your-client-secret'
+AXISRELAY_ANTIGRAVITY_OAUTH_CLIENT_KEY='primary'
 ```
 
 Environment entries take precedence for a matching key, and the active key resolves as environment variable > admin setting > first configured entry > built-in `official`, so a deployment-level override always wins over a misconfigured database value. Keep custom credentials in the deployment secret store or the admin settings page rather than source control.
@@ -57,11 +57,11 @@ Choose **API Key** in the add-account dialog and provide:
 - an optional JSON model-mapping object;
 - optional proxy and Antigravity account groups.
 
-API Key accounts use `plan_type=api`, do not require an OAuth project ID, and do not expose OAuth token/quota refresh actions in the admin UI. They remain visible to administration and explicit capability probes while ordinary `/v1/responses` scheduling stays fail-closed unless the operator sets `ANTIGRAVITY_ENABLE_EXPERIMENTAL_INTERACTIONS=true`.
+API Key accounts use `plan_type=api`, do not require an OAuth project ID, and do not expose OAuth token/quota refresh actions in the admin UI. They remain visible to administration and explicit capability probes while ordinary `/v1/responses` scheduling stays fail-closed unless the operator sets `AXISRELAY_ANTIGRAVITY_ENABLE_EXPERIMENTAL_INTERACTIONS=true`.
 
 ## Downstream API key channel restriction
 
-When creating or editing a Codex2API downstream API key, choose **Antigravity** as its upstream channel to restrict dispatch to compatible Antigravity accounts. `auto` keys may route by model across Codex, Grok, and OAuth Antigravity accounts according to the available scoped model catalog. Experimental API-key accounts join either catalog only after the explicit environment opt-in above.
+When creating or editing a AxisRelay downstream API key, choose **Antigravity** as its upstream channel to restrict dispatch to compatible Antigravity accounts. `auto` keys may route by model across Codex, Grok, and OAuth Antigravity accounts according to the available scoped model catalog. Experimental API-key accounts join either catalog only after the explicit environment opt-in above.
 
 Account groups are channel-isolated: an Antigravity account can only join an Antigravity group.
 
@@ -84,7 +84,7 @@ Antigravity OAuth accounts also support the native Gemini REST shape for clients
 Requirements and behavior:
 
 - **OAuth only.** API Key / Interactions accounts are rejected; bind a downstream key to the `antigravity` upstream channel (or use an `auto` key whose scoped catalog includes Antigravity models).
-- **Authentication.** Send the Codex2API downstream key as `Authorization: Bearer <key>`, `x-api-key: <key>`, or `x-goog-api-key: <key>`. The last form is what the `google-genai` SDK, ADK, and the Gemini channel of aggregator gateways send by default, so pointing their base URL at Codex2API works without a custom header. The `?key=` query-string form is not accepted (the key would land in URLs and access logs).
+- **Authentication.** Send the AxisRelay downstream key as `Authorization: Bearer <key>`, `x-api-key: <key>`, or `x-goog-api-key: <key>`. The last form is what the `google-genai` SDK, ADK, and the Gemini channel of aggregator gateways send by default, so pointing their base URL at AxisRelay works without a custom header. The `?key=` query-string form is not accepted (the key would land in URLs and access logs).
 - **Model IDs** match the published Antigravity catalog (`gemini-3.7-flash-high`, `gemini-3.8-flash-low`, Claude tiers exposed by the channel, and so on), not raw Google wire IDs.
 - **Tool schemas** are normalized before upstream dispatch: orphan `required` entries are dropped, `anyOf` / `oneOf` / `allOf` unions are flattened, invalid function names are sanitized with response-name restore, and schemas are sent as `parametersJsonSchema` (Cloud Code expectation).
 - **Multi-turn tools:** `functionResponse` turns are regrouped for the adapter; leading `inlineData` parts in the same user turn are attached under the matching `functionResponse.parts`.
@@ -97,7 +97,7 @@ Example:
 
 ```bash
 curl -s http://127.0.0.1:2004/v1beta/models/gemini-3.7-flash-high:generateContent \
-  -H "Authorization: Bearer $CODEX2API_KEY" \
+  -H "Authorization: Bearer $AXISRELAY_KEY" \
   -H "Content-Type: application/json" \
   -d '{"contents":[{"role":"user","parts":[{"text":"Say hello"}]}]}'
 ```
@@ -108,7 +108,7 @@ Gemini-native clients authenticate with the same key through `x-goog-api-key`; f
 import os
 from google import genai
 
-client = genai.Client(api_key=os.environ["CODEX2API_KEY"], http_options={"base_url": "http://127.0.0.1:2004"})
+client = genai.Client(api_key=os.environ["AXISRELAY_KEY"], http_options={"base_url": "http://127.0.0.1:2004"})
 client.models.generate_content(model="gemini-3.7-flash-high", contents="Say hello")
 ```
 
@@ -119,7 +119,7 @@ Not yet implemented on this surface: batch/embed APIs, Imagen `predict`, and ful
 Responses function tools are bridged into Gemini `functionDeclarations`. Dropping them is not a safe degradation: the upstream still receives the system instruction describing those tools, answers with a call it was never allowed to declare, and terminates the turn as `MALFORMED_FUNCTION_CALL`. Built-in Codex tools (web search, image generation, computer use) have no `v1internal` equivalent and are still ignored. Operators can pin the bridge off for diagnostics, which makes a `tool_choice` that forces a function fail closed with a 400 instead:
 
 ```bash
-ANTIGRAVITY_FUNCTION_TOOLS_ENABLED=false
+AXISRELAY_ANTIGRAVITY_FUNCTION_TOOLS_ENABLED=false
 ```
 
 ## API Key Interactions request assumption
@@ -127,7 +127,7 @@ ANTIGRAVITY_FUNCTION_TOOLS_ENABLED=false
 Production dispatch through this executor requires the explicit process environment opt-in:
 
 ```bash
-ANTIGRAVITY_ENABLE_EXPERIMENTAL_INTERACTIONS=true
+AXISRELAY_ANTIGRAVITY_ENABLE_EXPERIMENTAL_INTERACTIONS=true
 ```
 
 Without that setting, API-key accounts are excluded from scheduling and model discovery. Explicit admin capability probes still work so an operator can test a key without silently enabling customer traffic.
@@ -151,15 +151,15 @@ It currently preserves the OpenAI Responses-style request body and injects:
 }
 ```
 
-Unit tests use an `httptest` endpoint override and verify that Codex2API constructs this endpoint, header set, and payload. They do **not** prove that Google accepts this body or returns OpenAI Responses-compatible JSON/SSE.
+Unit tests use an `httptest` endpoint override and verify that AxisRelay constructs this endpoint, header set, and payload. They do **not** prove that Google accepts this body or returns OpenAI Responses-compatible JSON/SSE.
 
 An opt-in production-executor integration test is available:
 
 ```bash
-ANTIGRAVITY_INTERACTIONS_TEST_API_KEY='...' go test ./proxy -run TestAntigravityInteractionsRealUpstream -v
+AXISRELAY_ANTIGRAVITY_INTERACTIONS_TEST_API_KEY='...' go test ./proxy -run TestAntigravityInteractionsRealUpstream -v
 ```
 
-Optional safe controls are `ANTIGRAVITY_INTERACTIONS_TEST_MODEL`, `ANTIGRAVITY_INTERACTIONS_TEST_INPUT` (maximum 512 bytes), and `ANTIGRAVITY_INTERACTIONS_TEST_STREAM=true` for the separately gated SSE subtest. The test skips with an explicit message when the key is absent, never prints the key, caps/redacts failure diagnostics, checks the actual status and content type, and parses the native JSON/SSE envelope without assuming OpenAI compatibility. A successful real-upstream run is required before production certification. A local skip is not a pass and does not remove this experimental warning.
+Optional safe controls are `AXISRELAY_ANTIGRAVITY_INTERACTIONS_TEST_MODEL`, `AXISRELAY_ANTIGRAVITY_INTERACTIONS_TEST_INPUT` (maximum 512 bytes), and `AXISRELAY_ANTIGRAVITY_INTERACTIONS_TEST_STREAM=true` for the separately gated SSE subtest. The test skips with an explicit message when the key is absent, never prints the key, caps/redacts failure diagnostics, checks the actual status and content type, and parses the native JSON/SSE envelope without assuming OpenAI compatibility. A successful real-upstream run is required before production certification. A local skip is not a pass and does not remove this experimental warning.
 
 Before production use, verify at least:
 

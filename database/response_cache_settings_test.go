@@ -2,7 +2,6 @@ package database
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"math"
 	"path/filepath"
@@ -17,7 +16,7 @@ const (
 	testResponseCacheDefaultReconstruct = int64(67_108_864)
 )
 
-func TestResponseCacheSettingsFreshSQLiteDefaults(t *testing.T) {
+func TestResponseCacheSettingsFreshMySQLDefaults(t *testing.T) {
 	db := newResponseCacheSettingsTestDB(t)
 	got, err := db.GetResponseCacheSettings(context.Background())
 	if err != nil {
@@ -34,8 +33,8 @@ func TestResponseCacheSettingsFreshSQLiteDefaults(t *testing.T) {
 	if err := db.conn.QueryRowContext(context.Background(), `SELECT COUNT(*) FROM system_settings`).Scan(&rows); err != nil {
 		t.Fatalf("count fresh system_settings rows: %v", err)
 	}
-	if rows != 0 {
-		t.Fatalf("GetResponseCacheSettings created %d system_settings rows, want 0", rows)
+	if rows != 1 {
+		t.Fatalf("fresh MySQL system_settings rows = %d, want 1", rows)
 	}
 
 	for name, wantDefault := range map[string]string{
@@ -47,78 +46,29 @@ func TestResponseCacheSettingsFreshSQLiteDefaults(t *testing.T) {
 		var columnType, defaultValue string
 		err := db.conn.QueryRowContext(
 			context.Background(),
-			`SELECT type, CAST(dflt_value AS TEXT) FROM pragma_table_info('system_settings') WHERE name = $1`,
+			`SELECT data_type, CAST(column_default AS CHAR)
+			 FROM information_schema.columns
+			 WHERE table_schema = DATABASE() AND table_name = 'system_settings' AND column_name = $1`,
 			name,
 		).Scan(&columnType, &defaultValue)
 		if err != nil {
 			t.Fatalf("read fresh column %s: %v", name, err)
 		}
-		if strings.ToUpper(columnType) != "INTEGER" || strings.Trim(defaultValue, "'\"()") != wantDefault {
-			t.Fatalf("column %s type/default = %s/%s, want INTEGER/%s", name, columnType, defaultValue, wantDefault)
+		if strings.ToLower(columnType) != "bigint" || strings.Trim(defaultValue, "'\"()") != wantDefault {
+			t.Fatalf("column %s type/default = %s/%s, want BIGINT/%s", name, columnType, defaultValue, wantDefault)
 		}
 	}
 }
 
-func TestResponseCacheSettingsPostgresReadForUpdateLocksSingletonRow(t *testing.T) {
-	postgresQuery := responseCacheSettingsSelectQuery(true)
-	if !strings.Contains(strings.ToUpper(postgresQuery), "FOR UPDATE") {
-		t.Fatalf("PostgreSQL transactional read lacks FOR UPDATE: %s", postgresQuery)
+func TestResponseCacheSettingsTransactionalReadLocksSingletonRow(t *testing.T) {
+	lockingQuery := responseCacheSettingsSelectQuery(true)
+	if !strings.Contains(strings.ToUpper(lockingQuery), "FOR UPDATE") {
+		t.Fatalf("transactional read lacks FOR UPDATE: %s", lockingQuery)
 	}
-	sqliteQuery := responseCacheSettingsSelectQuery(false)
-	if strings.Contains(strings.ToUpper(sqliteQuery), "FOR UPDATE") {
-		t.Fatalf("SQLite read must not contain FOR UPDATE: %s", sqliteQuery)
+	nonLockingQuery := responseCacheSettingsSelectQuery(false)
+	if strings.Contains(strings.ToUpper(nonLockingQuery), "FOR UPDATE") {
+		t.Fatalf("non-transactional read must not contain FOR UPDATE: %s", nonLockingQuery)
 	}
-}
-
-func TestSQLiteResponseCacheSettingsMigrationFromLegacySchema(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "legacy-response-cache.db")
-	db, err := New("sqlite", dbPath)
-	if err != nil {
-		t.Fatalf("New(sqlite) setup error = %v", err)
-	}
-	if _, err := db.conn.ExecContext(context.Background(), `INSERT INTO system_settings (id) VALUES (1)`); err != nil {
-		_ = db.Close()
-		t.Fatalf("insert legacy settings row: %v", err)
-	}
-	if err := db.Close(); err != nil {
-		t.Fatalf("close setup database: %v", err)
-	}
-
-	legacy, err := sql.Open("sqlite", dbPath)
-	if err != nil {
-		t.Fatalf("open legacy sqlite: %v", err)
-	}
-	for _, column := range []string{
-		"response_cache_local_max_bytes",
-		"response_cache_local_max_entry_bytes",
-		"response_cache_reconstruct_max_bytes",
-		"response_cache_config_generation",
-	} {
-		if _, err := legacy.Exec(`ALTER TABLE system_settings DROP COLUMN ` + column); err != nil {
-			_ = legacy.Close()
-			t.Fatalf("drop %s: %v", column, err)
-		}
-	}
-	if err := legacy.Close(); err != nil {
-		t.Fatalf("close legacy sqlite: %v", err)
-	}
-
-	db, err = New("sqlite", dbPath)
-	if err != nil {
-		t.Fatalf("New(sqlite legacy) error = %v", err)
-	}
-	t.Cleanup(func() { _ = db.Close() })
-	got, err := db.GetResponseCacheSettings(context.Background())
-	if err != nil {
-		t.Fatalf("GetResponseCacheSettings() after migration error = %v", err)
-	}
-	assertResponseCacheSettings(t, got, ResponseCacheSettings{
-		LocalMaxBytes:       testResponseCacheDefaultTotal,
-		LocalMaxEntryBytes:  testResponseCacheDefaultEntry,
-		ReconstructMaxBytes: testResponseCacheDefaultReconstruct,
-		WritePolicy:         DefaultResponseCacheWritePolicy,
-		Generation:          1,
-	})
 }
 
 func TestResponseCacheSettingsRoundTripPartialAndGeneration(t *testing.T) {
@@ -232,12 +182,12 @@ func TestResponseCacheSettingsInvalidMergedUpdateRollsBack(t *testing.T) {
 
 func TestResponseCacheSettingsConcurrentDisjointSQLiteUpdatesDoNotLoseChanges(t *testing.T) {
 	dbPath := filepath.Join(t.TempDir(), "concurrent-response-cache.db")
-	db1, err := New("sqlite", dbPath)
+	db1, err := newTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatalf("New(sqlite db1) error = %v", err)
 	}
 	t.Cleanup(func() { _ = db1.Close() })
-	db2, err := New("sqlite", dbPath)
+	db2, err := newTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatalf("New(sqlite db2) error = %v", err)
 	}
@@ -304,11 +254,11 @@ func TestResponseCacheSettingsLargeSystemSettingsUpsertCannotOverwriteNarrowValu
 func TestResponseCacheSettingsGenerationOverflowRollsBack(t *testing.T) {
 	db := newResponseCacheSettingsTestDB(t)
 	ctx := context.Background()
-	if _, err := db.conn.ExecContext(ctx, `
+	if _, err := db.conn.ExecContext(ctx, db.singletonUpsertSQL(`
 		INSERT INTO system_settings (id, response_cache_config_generation)
 		VALUES (1, $1)
 		ON CONFLICT (id) DO UPDATE SET response_cache_config_generation = $1
-	`, int64(math.MaxInt64)); err != nil {
+	`), int64(math.MaxInt64)); err != nil {
 		t.Fatalf("seed max generation: %v", err)
 	}
 	total := int64(128 << 20)
@@ -327,7 +277,7 @@ func TestResponseCacheSettingsGenerationOverflowRollsBack(t *testing.T) {
 
 func newResponseCacheSettingsTestDB(t *testing.T) *DB {
 	t.Helper()
-	db, err := New("sqlite", filepath.Join(t.TempDir(), "response-cache-settings.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "response-cache-settings.db"))
 	if err != nil {
 		t.Fatalf("New(sqlite) error = %v", err)
 	}

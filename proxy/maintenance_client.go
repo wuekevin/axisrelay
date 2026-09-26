@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/codex2api/auth"
+	"github.com/wuekevin/axisrelay/auth"
 )
 
 // ==================== 账号维护请求的 HTTP Client 池（issue #446） ====================
@@ -48,7 +48,7 @@ func maintenanceClientKey(account *auth.Account, proxyURL, transportMode, purpos
 
 // getMaintenanceClient 返回维护请求专用的池化 Client。
 //
-// forceUTLS=true 时无视 CODEX_TRANSPORT_MODE 强制使用 uTLS Chrome 指纹
+// forceUTLS=true 时无视 AXISRELAY_TRANSPORT_MODE 强制使用 uTLS Chrome 指纹
 // （订阅端点在 Cloudflare 后面，普通指纹会被拦截）。
 func getMaintenanceClient(account *auth.Account, proxyURL, purpose string, forceUTLS bool) *http.Client {
 	transportMode := codexTransportModeFromEnv()

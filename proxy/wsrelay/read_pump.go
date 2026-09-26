@@ -780,10 +780,10 @@ func (wc *WsConnection) ReadMessage() (int, []byte, error) {
 }
 
 // activeReadMaxTurnSilence 单轮响应业务帧静默上限。存活复核只证明传输层活着,
-// 证明不了上游还在处理本请求;env CODEX_WS_MAX_TURN_SILENCE 可调
+// 证明不了上游还在处理本请求;env AXISRELAY_WS_MAX_TURN_SILENCE 可调
 // (Go duration 格式,如 "30m";设 "0" 关闭上限,恢复只看传输存活的行为)。
 func activeReadMaxTurnSilence() time.Duration {
-	raw := strings.TrimSpace(os.Getenv("CODEX_WS_MAX_TURN_SILENCE"))
+	raw := strings.TrimSpace(os.Getenv("AXISRELAY_WS_MAX_TURN_SILENCE"))
 	if raw == "" {
 		return ActiveReadMaxTurnSilence
 	}

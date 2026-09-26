@@ -9,7 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func TestCORSMiddlewareAllowsCodex2APIAffinityHeaderPreflight(t *testing.T) {
+func TestCORSMiddlewareAllowsAxisRelayAffinityHeaderPreflight(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	handlerCalled := false
@@ -24,7 +24,7 @@ func TestCORSMiddlewareAllowsCodex2APIAffinityHeaderPreflight(t *testing.T) {
 	request := httptest.NewRequest(http.MethodOptions, "/v1/responses", nil)
 	request.Header.Set("Origin", "https://client.example")
 	request.Header.Set("Access-Control-Request-Method", http.MethodPost)
-	request.Header.Set("Access-Control-Request-Headers", "authorization, x-codex2api-affinity-key")
+	request.Header.Set("Access-Control-Request-Headers", "authorization, x-axisrelay-affinity-key")
 	router.ServeHTTP(recorder, request)
 
 	if recorder.Code != http.StatusNoContent {
@@ -35,7 +35,7 @@ func TestCORSMiddlewareAllowsCodex2APIAffinityHeaderPreflight(t *testing.T) {
 	}
 
 	allowedHeaders := strings.ToLower(recorder.Header().Get("Access-Control-Allow-Headers"))
-	if !strings.Contains(allowedHeaders, strings.ToLower("X-Codex2API-Affinity-Key")) {
-		t.Fatalf("Access-Control-Allow-Headers = %q, missing X-Codex2API-Affinity-Key", recorder.Header().Get("Access-Control-Allow-Headers"))
+	if !strings.Contains(allowedHeaders, strings.ToLower("X-AxisRelay-Affinity-Key")) {
+		t.Fatalf("Access-Control-Allow-Headers = %q, missing X-AxisRelay-Affinity-Key", recorder.Header().Get("Access-Control-Allow-Headers"))
 	}
 }

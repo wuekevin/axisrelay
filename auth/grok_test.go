@@ -200,7 +200,7 @@ func TestBuildGrokAuthorizationURL(t *testing.T) {
 	if !strings.Contains(url, "redirect_uri=") {
 		t.Fatalf("missing redirect_uri: %s", url)
 	}
-	if !strings.Contains(url, "referrer=codex2api") {
+	if !strings.Contains(url, "referrer=axisrelay") {
 		t.Fatalf("missing referrer: %s", url)
 	}
 }

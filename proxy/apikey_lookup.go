@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/codex2api/database"
+	"github.com/wuekevin/axisrelay/database"
 )
 
 // resolveAPIKey uses the configured authentication cache. With the layered

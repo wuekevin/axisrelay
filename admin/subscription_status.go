@@ -9,9 +9,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/codex2api/auth"
-	"github.com/codex2api/database"
-	"github.com/codex2api/proxy"
+	"github.com/wuekevin/axisrelay/auth"
+	"github.com/wuekevin/axisrelay/database"
+	"github.com/wuekevin/axisrelay/proxy"
 )
 
 // 订阅状态查询与手动刷新：状态对象由服务端按业务时区计算，前端不再自行按

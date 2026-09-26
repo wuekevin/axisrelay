@@ -3,8 +3,8 @@ package proxy
 import (
 	"testing"
 
-	"github.com/codex2api/auth"
-	"github.com/codex2api/database"
+	"github.com/wuekevin/axisrelay/auth"
+	"github.com/wuekevin/axisrelay/database"
 )
 
 // grok_config 里的 max_rate_limit_retries 应被解析并按账号类型生效:

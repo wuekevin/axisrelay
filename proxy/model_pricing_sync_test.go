@@ -4,7 +4,7 @@ import (
 	"math"
 	"testing"
 
-	"github.com/codex2api/database"
+	"github.com/wuekevin/axisrelay/database"
 )
 
 func TestAstraPricingSourcesCannotRestoreLongContext(t *testing.T) {

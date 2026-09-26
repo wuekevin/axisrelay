@@ -715,25 +715,6 @@ func TestFastSchedulerPremium5hRateLimitIsFencedAndRecoversAfterReset(t *testing
 	scheduler.Release(fourth)
 }
 
-func TestFastSchedulerEnabledFromEnv(t *testing.T) {
-	t.Setenv("FAST_SCHEDULER_ENABLED", "")
-	t.Setenv("CODEX_FAST_SCHEDULER", "")
-	if fastSchedulerEnabledFromEnv() {
-		t.Fatal("fastSchedulerEnabledFromEnv() should be false when env is empty")
-	}
-
-	t.Setenv("FAST_SCHEDULER_ENABLED", "true")
-	if !fastSchedulerEnabledFromEnv() {
-		t.Fatal("fastSchedulerEnabledFromEnv() should be true for FAST_SCHEDULER_ENABLED=true")
-	}
-
-	t.Setenv("FAST_SCHEDULER_ENABLED", "")
-	t.Setenv("CODEX_FAST_SCHEDULER", "1")
-	if !fastSchedulerEnabledFromEnv() {
-		t.Fatal("fastSchedulerEnabledFromEnv() should be true for CODEX_FAST_SCHEDULER=1")
-	}
-}
-
 func BenchmarkStoreNext1000(b *testing.B) {
 	benchmarkStoreNext(b, 1000)
 }

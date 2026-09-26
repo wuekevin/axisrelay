@@ -10,7 +10,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/codex2api/auth"
+	"github.com/wuekevin/axisrelay/auth"
 )
 
 // newTestAgentPrivateKey 生成一把合法的 PKCS8 Ed25519 私钥（base64），供解析测试使用。

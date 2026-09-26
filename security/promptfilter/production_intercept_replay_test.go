@@ -27,9 +27,9 @@ type productionInterceptReplaySample struct {
 // GuardPipeline, so source-classification regressions cannot hide behind a
 // regex-only test.
 func TestProductionInterceptReplay(t *testing.T) {
-	path := strings.TrimSpace(os.Getenv("PROMPT_FILTER_PRODUCTION_REPLAY"))
+	path := strings.TrimSpace(os.Getenv("AXISRELAY_PROMPT_FILTER_PRODUCTION_REPLAY"))
 	if path == "" {
-		t.Skip("set PROMPT_FILTER_PRODUCTION_REPLAY to an anonymized production review JSON")
+		t.Skip("set AXISRELAY_PROMPT_FILTER_PRODUCTION_REPLAY to an anonymized production review JSON")
 	}
 	data, err := os.ReadFile(path)
 	if err != nil {

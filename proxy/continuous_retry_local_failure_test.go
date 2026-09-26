@@ -12,10 +12,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/codex2api/auth"
-	"github.com/codex2api/cache"
-	"github.com/codex2api/config"
-	"github.com/codex2api/database"
+	"github.com/wuekevin/axisrelay/auth"
+	"github.com/wuekevin/axisrelay/cache"
+	"github.com/wuekevin/axisrelay/config"
+	"github.com/wuekevin/axisrelay/database"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 	"github.com/tidwall/gjson"
@@ -226,7 +226,7 @@ func continuousRetryLocalRequest(t *testing.T, tc continuousRetryLocalEndpointCa
 	ctx, _ := gin.CreateTestContext(recorder)
 	ctx.Request = httptest.NewRequest(http.MethodPost, tc.path, bytes.NewReader(body))
 	ctx.Request.Header.Set("Content-Type", "application/json")
-	ctx.Request.Header.Set("X-Codex2API-Affinity-Key", "local-replay-test")
+	ctx.Request.Header.Set("X-AxisRelay-Affinity-Key", "local-replay-test")
 	identity := resolveRequestSessionIdentity(ctx.Request.Header, body)
 	affinityKey := sessionAffinityKey(identity.affinityID, 0)
 	tc.invoke(handler, ctx)
@@ -347,7 +347,7 @@ func TestContinuousRetryReplayCommitFailurePreservesExistingState(t *testing.T) 
 	ctx, _ := gin.CreateTestContext(recorder)
 	ctx.Request = httptest.NewRequest(http.MethodPost, tc.path, bytes.NewReader(body))
 	ctx.Request.Header.Set("Content-Type", "application/json")
-	ctx.Request.Header.Set("X-Codex2API-Affinity-Key", "local-commit-existing")
+	ctx.Request.Header.Set("X-AxisRelay-Affinity-Key", "local-commit-existing")
 	identity := resolveRequestSessionIdentity(ctx.Request.Header, body)
 	affinityKey := sessionAffinityKey(identity.affinityID, 0)
 	store.BindSessionAffinity(affinityKey, account, "")
@@ -401,7 +401,7 @@ func TestContinuousRetryReplayWriteFailurePreservesExistingAffinity(t *testing.T
 	body := []byte(tc.body)
 	req := httptest.NewRequest(http.MethodPost, tc.path, bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-Codex2API-Affinity-Key", "local-write-existing")
+	req.Header.Set("X-AxisRelay-Affinity-Key", "local-write-existing")
 	affinityKey := sessionAffinityKey(resolveRequestSessionIdentity(req.Header, body).affinityID, 0)
 	store.BindSessionAffinity(affinityKey, account, "")
 	recorder := httptest.NewRecorder()
@@ -752,7 +752,7 @@ func TestContinuousRetryGrokNativeReplayLimitIsLocalAcrossProtocols(t *testing.T
 			requestBody := []byte(tc.body)
 			ctx.Request = httptest.NewRequest(http.MethodPost, tc.path, bytes.NewReader(requestBody))
 			ctx.Request.Header.Set("Content-Type", "application/json")
-			ctx.Request.Header.Set("X-Codex2API-Affinity-Key", "local-grok-native-"+string(tc.protocol))
+			ctx.Request.Header.Set("X-AxisRelay-Affinity-Key", "local-grok-native-"+string(tc.protocol))
 			affinityKey := sessionAffinityKey(resolveRequestSessionIdentity(ctx.Request.Header, requestBody).affinityID, 0)
 			codexTurnStateOrigins.Delete(affinityKey)
 			t.Cleanup(func() { codexTurnStateOrigins.Delete(affinityKey) })
@@ -884,7 +884,7 @@ func TestContinuousRetryResponsesWSReplayLimitWritesErrorBeforeClose(t *testing.
 	t.Cleanup(server.Close)
 
 	requestBody := []byte(`{"type":"response.create","model":"gpt-5.5","input":"hello"}`)
-	headers := http.Header{"X-Codex2API-Affinity-Key": []string{"local-ws-affinity"}}
+	headers := http.Header{"X-AxisRelay-Affinity-Key": []string{"local-ws-affinity"}}
 	affinityKey := sessionAffinityKey(resolveRequestSessionIdentity(headers, requestBody).affinityID, 0)
 	conn, response, err := websocket.DefaultDialer.Dial("ws"+strings.TrimPrefix(server.URL, "http")+"/v1/responses", headers)
 	if err != nil {

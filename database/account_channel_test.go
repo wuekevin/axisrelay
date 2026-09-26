@@ -47,7 +47,7 @@ func TestNormalizeAccountGroupChannel(t *testing.T) {
 }
 
 func TestSQLiteListAccountListProjectionByChannel(t *testing.T) {
-	db, err := New("sqlite", filepath.Join(t.TempDir(), "account-list-projection-channel.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "account-list-projection-channel.db"))
 	if err != nil {
 		t.Fatalf("New(sqlite) error: %v", err)
 	}
@@ -119,7 +119,7 @@ func TestSQLiteListAccountListProjectionByChannel(t *testing.T) {
 }
 
 func TestReplaceAccountCredentialsCASUpdatesCanonicalFamily(t *testing.T) {
-	db, err := New("sqlite", filepath.Join(t.TempDir(), "antigravity-family-cas.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "antigravity-family-cas.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -153,7 +153,7 @@ func TestReplaceAccountCredentialsCASUpdatesCanonicalFamily(t *testing.T) {
 }
 
 func TestUpdateAccountCredentialsCASKeepsEmbeddedFamilyCanonical(t *testing.T) {
-	db, err := New("sqlite", filepath.Join(t.TempDir(), "antigravity-family-refresh-cas.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "antigravity-family-refresh-cas.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -185,7 +185,7 @@ func TestUpdateAccountCredentialsCASKeepsEmbeddedFamilyCanonical(t *testing.T) {
 }
 
 func TestSQLiteListAccountListProjectionCarriesClaudeAuthKind(t *testing.T) {
-	db, err := New("sqlite", filepath.Join(t.TempDir(), "account-list-projection-claude-auth-kind.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "account-list-projection-claude-auth-kind.db"))
 	if err != nil {
 		t.Fatalf("New(sqlite) error: %v", err)
 	}
@@ -241,7 +241,7 @@ func TestSQLiteListAccountListProjectionCarriesClaudeAuthKind(t *testing.T) {
 // 列表投影必须带出订阅筛选依赖的三个键，否则账号页"订阅状态"筛选会把全部账号判成未知。
 func TestListAccountListProjectionCarriesSubscriptionKeys(t *testing.T) {
 	ctx := context.Background()
-	db, err := New("sqlite", filepath.Join(t.TempDir(), "subscription-projection.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "subscription-projection.db"))
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}

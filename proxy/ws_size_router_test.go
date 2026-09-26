@@ -55,10 +55,10 @@ func TestWebsocketSizeRouterExpiresLearnedThreshold(t *testing.T) {
 }
 
 func TestWebsocketSizeRouterEnvEscapeHatch(t *testing.T) {
-	t.Setenv("CODEX_WS_SIZE_ROUTER", "off")
+	t.Setenv("AXISRELAY_WS_SIZE_ROUTER", "off")
 	var r websocketSizeRouter
 	r.RecordMessageTooBig(400 * 1024)
 	if r.PreferHTTP(500 * 1024) {
-		t.Fatal("CODEX_WS_SIZE_ROUTER=off 时应保持旧行为")
+		t.Fatal("AXISRELAY_WS_SIZE_ROUTER=off 时应保持旧行为")
 	}
 }

@@ -12,13 +12,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/codex2api/auth"
-	"github.com/codex2api/database"
+	"github.com/wuekevin/axisrelay/auth"
+	"github.com/wuekevin/axisrelay/database"
 )
 
 func newProxyGrokRuntimeFactAccount(t *testing.T, baseURL string, catalogOrigins ...string) (*database.DB, *auth.Store, *auth.Account, int64, time.Time) {
 	t.Helper()
-	db, err := database.New("sqlite", filepath.Join(t.TempDir(), "proxy-grok-runtime.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "proxy-grok-runtime.db"))
 	if err != nil {
 		t.Fatalf("database.New: %v", err)
 	}

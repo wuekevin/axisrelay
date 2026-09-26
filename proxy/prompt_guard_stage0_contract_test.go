@@ -13,10 +13,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/codex2api/auth"
-	"github.com/codex2api/config"
-	"github.com/codex2api/database"
-	"github.com/codex2api/security/promptfilter"
+	"github.com/wuekevin/axisrelay/auth"
+	"github.com/wuekevin/axisrelay/config"
+	"github.com/wuekevin/axisrelay/database"
+	"github.com/wuekevin/axisrelay/security/promptfilter"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 	"github.com/tidwall/gjson"
@@ -179,7 +179,7 @@ func TestStage0RealtimeSecondTurnCurrentUserDoesNotIncludeHistory(t *testing.T) 
 
 func TestStage0RealtimePromptGuardAuditsRealtimeEndpoint(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	db, err := database.New("sqlite", filepath.Join(t.TempDir(), "codex2api.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "axisrelay.db"))
 	if err != nil {
 		t.Fatalf("database.New(sqlite): %v", err)
 	}

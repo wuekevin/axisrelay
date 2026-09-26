@@ -147,7 +147,7 @@ const GROK_LIMITED_STATUSES = new Set([
 ]);
 
 // 与 Codex 账号页一致的表格/卡片双布局，选择持久化到 localStorage。
-const GROK_VIEW_MODE_KEY = "codex2api:grok-accounts:view-mode";
+const GROK_VIEW_MODE_KEY = "axisrelay:grok-accounts:view-mode";
 const GROK_TABLE_COLUMNS = [
   "sequence", "plan", "proxy", "status", "requests", "usage", "models", "updatedAt",
 ] as const;
@@ -622,7 +622,7 @@ function GrokAccounts({
   const [viewMode, setViewMode] = useState<GrokViewMode>(getInitialGrokViewMode);
   const isDesktop = useIsDesktop();
   const { columns: visibleColumns, toggleColumn, resetColumns } = useAccountTableColumns(
-    "codex2api:grok-accounts:visible-columns",
+    "axisrelay:grok-accounts:visible-columns",
     GROK_TABLE_COLUMNS,
   );
   // 与 Codex 账号页一致：服务端分页 + 本地记忆每页条数。
@@ -1757,7 +1757,7 @@ function GrokAccounts({
     try {
       const { blob, filename } = await api.exportGrokAccounts(ids);
     const count = ids ? ids.length : totalAccounts;
-      const fallback = `codex2api-grok-${new Date()
+      const fallback = `axisrelay-grok-${new Date()
         .toISOString()
         .replace(/[:.]/g, "-")
         .slice(0, 19)}-${count}.${blob.type.includes("zip") ? "zip" : "json"}`;
@@ -3283,7 +3283,7 @@ function GrokAccounts({
               variant="outline"
               size="xs"
               disabled={quickGroupSubmitting}
-              onClick={() => navigate("/accounts?groupManager=1")}
+              onClick={() => navigate("/admin/gateway/accounts?groupManager=1")}
             >
               <FolderOpen className="size-3" />
               {t("accounts.groupManage")}

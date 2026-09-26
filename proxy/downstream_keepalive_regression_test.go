@@ -13,10 +13,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/codex2api/auth"
-	"github.com/codex2api/config"
-	"github.com/codex2api/database"
 	"github.com/gin-gonic/gin"
+	"github.com/wuekevin/axisrelay/auth"
+	"github.com/wuekevin/axisrelay/config"
+	"github.com/wuekevin/axisrelay/database"
 )
 
 // TestKeepaliveReadCancellationPreservesDrainBudget checks the stream pump,
@@ -105,14 +105,14 @@ func TestClaudeDisabledKeepaliveSurvivesQuotaAdmission(t *testing.T) {
 	}
 }
 
-// TestMessagesKeepalivePreservesPendingQuotaRejection holds a real SQLite
-// writer lock so heartbeat deadlines elapse before the exhausted quota is read.
+// TestMessagesKeepalivePreservesPendingQuotaRejection holds a real MySQL
+// row lock so heartbeat deadlines elapse before the exhausted quota is read.
 func TestMessagesKeepalivePreservesPendingQuotaRejection(t *testing.T) {
 	previous := continuousRetryKeepaliveInterval
 	continuousRetryKeepaliveInterval = 5 * time.Millisecond
 	t.Cleanup(func() { continuousRetryKeepaliveInterval = previous })
 	dbPath := filepath.Join(t.TempDir(), "locked-quota.db")
-	db, err := database.New("sqlite", dbPath)
+	db, err := newTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -142,25 +142,26 @@ func TestMessagesKeepalivePreservesPendingQuotaRejection(t *testing.T) {
 	c.Set(contextAPIKeyRow, row)
 	c.Set(contextAPIKeyID, row.ID)
 	h.attachAPIKeyModelRequestQuota(c, false)
-	raw, err := sql.Open("sqlite", dbPath)
+	raw, err := openRawTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer raw.Close()
-	conn, err := raw.Conn(context.Background())
+	lockTx, err := raw.BeginTx(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer conn.Close()
-	if _, err := conn.ExecContext(context.Background(), "BEGIN IMMEDIATE"); err != nil {
+	defer lockTx.Rollback()
+	var lockedKeyID int64
+	if err := lockTx.QueryRowContext(context.Background(), "SELECT id FROM api_keys WHERE id=? FOR UPDATE", row.ID).Scan(&lockedKeyID); err != nil {
 		t.Fatal(err)
 	}
 	unlocked := make(chan struct{})
 	go func() {
 		time.Sleep(60 * time.Millisecond)
-		_, unlockErr := conn.ExecContext(context.Background(), "ROLLBACK")
-		if unlockErr != nil {
-			t.Errorf("release SQLite write lock: %v", unlockErr)
+		unlockErr := lockTx.Rollback()
+		if unlockErr != nil && !errors.Is(unlockErr, sql.ErrTxDone) {
+			t.Errorf("release MySQL row lock: %v", unlockErr)
 		}
 		close(unlocked)
 	}()

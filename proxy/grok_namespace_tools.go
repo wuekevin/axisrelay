@@ -840,7 +840,7 @@ func grokWebSearchAllowedDomains(tool map[string]any) []any {
 	return nil
 }
 
-// Codex 的历史回放会带上游私钥加密的密文，Grok 无法解码（codex2api 不把 compact 请求
+// Codex 的历史回放会带上游私钥加密的密文，Grok 无法解码（axisrelay 不把 compact 请求
 // 路由到 Grok，这些密文对 Grok 恒为"外来"），原样转发会 400
 // "Could not decode the compaction blob"。密文有两种载体：
 //   - reasoning 项的 encrypted_content（最常见）；
@@ -1259,7 +1259,7 @@ func (r *grokStreamReverser) failureLine(head, gap, suffix []byte, source map[st
 			"status": "failed", "status_code": 400, "output": []any{},
 			"error": map[string]any{
 				"type": "invalid_request_error", "code": "invalid_prompt", "param": "tools", "status_code": 400,
-				"message": "tool_input_too_large: codex2api stopped an oversized tool call after " + strconv.Itoa(r.inputBytes[itemID]) + " bytes (limit " + strconv.Itoa(grokToolCallHardLimitBytes) + "). Split the work into smaller batches.",
+				"message": "tool_input_too_large: axisrelay stopped an oversized tool call after " + strconv.Itoa(r.inputBytes[itemID]) + " bytes (limit " + strconv.Itoa(grokToolCallHardLimitBytes) + "). Split the work into smaller batches.",
 			},
 		},
 	}

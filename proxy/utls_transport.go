@@ -18,7 +18,7 @@ import (
 	"golang.org/x/net/http2"
 	xproxy "golang.org/x/net/proxy"
 
-	"github.com/codex2api/security"
+	"github.com/wuekevin/axisrelay/security"
 )
 
 // ==================== utls RoundTripper（Chrome 指纹 + HTTP/2） ====================
@@ -357,11 +357,16 @@ func (t *utlsRoundTripper) createConnection(host, addr string) (*http2.ClientCon
 	// IdleConnTimeout 必须显式设置：NewClientConn 仅在 idleConnTimeout()!=0 时安装
 	// 空闲定时器（closeIfIdle）。缺失时连接永不自动回收，readLoop goroutine 与
 	// socket 常驻，是 issue #446 万级连接/goroutine 泄漏的根因。
-	tr := &http2.Transport{
-		ReadIdleTimeout: codexHTTP2ReadIdleTimeout,
-		PingTimeout:     codexHTTP2PingTimeout,
-		IdleConnTimeout: codexUTLSIdleConnTimeout,
+	baseTransport := &http.Transport{}
+	tr, err := http2.ConfigureTransports(baseTransport)
+	if err != nil {
+		tlsConn.Close()
+		return nil, fmt.Errorf("HTTP/2 transport 初始化失败: %w", err)
 	}
+	tr.ReadIdleTimeout = codexHTTP2ReadIdleTimeout
+	tr.PingTimeout = codexHTTP2PingTimeout
+	tr.IdleConnTimeout = codexUTLSIdleConnTimeout
+
 	h2Conn, err := tr.NewClientConn(tlsConn)
 	if err != nil {
 		tlsConn.Close()

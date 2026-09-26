@@ -10,7 +10,7 @@ import (
 
 // 自然日限额(issue #460)的聚合边界:since 之前的不算、499 不算、OldestAt 取窗口内最早一笔。
 func TestGetAPIKeyUsageSinceAggregatesFromBoundary(t *testing.T) {
-	db, err := New("sqlite", filepath.Join(t.TempDir(), "daily.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "daily.db"))
 	if err != nil {
 		t.Fatalf("New(sqlite) 返回错误: %v", err)
 	}
@@ -54,7 +54,7 @@ func TestGetAPIKeyUsageSinceAggregatesFromBoundary(t *testing.T) {
 
 // 自助报表的窗口语义:today 是 fixed 且 reset_at=次日零点;滑动窗口带 decay_at=OldestAt+窗口长度。
 func TestGetAPIKeySelfUsageReportWindowMetadata(t *testing.T) {
-	db, err := New("sqlite", filepath.Join(t.TempDir(), "daily-report.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "daily-report.db"))
 	if err != nil {
 		t.Fatalf("New(sqlite) 返回错误: %v", err)
 	}

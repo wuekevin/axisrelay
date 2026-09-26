@@ -3,7 +3,7 @@ package proxy
 import (
 	"sync/atomic"
 
-	"github.com/codex2api/auth"
+	"github.com/wuekevin/axisrelay/auth"
 )
 
 var grokFollowUpEffort atomic.Value

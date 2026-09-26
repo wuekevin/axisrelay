@@ -5,7 +5,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/codex2api/database"
+	"github.com/wuekevin/axisrelay/database"
 )
 
 // Production uses the database as the only template store. Observations contain

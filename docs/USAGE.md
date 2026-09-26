@@ -25,7 +25,7 @@
 | 管理 API | `X-Admin-Key: YOUR_ADMIN_SECRET`，不需要叠加下游 API Key |
 | 出站代理 | 账号 `proxy_url`，用于网关访问上游，与客户端 Base URL 分开配置 |
 
-公共 API 默认要求认证。普通公共接口仅在未配置任何 API Key 且显式启用 `CODEX_ALLOW_ANONYMOUS=true` 时允许匿名访问；异步图片任务始终要求后台创建的 API Key。
+公共 API 默认要求认证。普通公共接口仅在未配置任何 API Key 且显式启用 `AXISRELAY_ALLOW_ANONYMOUS=true` 时允许匿名访问；异步图片任务始终要求后台创建的 API Key。
 
 Claude 上游支持 OAuth、Setup Token 和 API Key + Base URL。后者不走 OAuth 刷新或订阅用量采样；原生 Messages 与 Codex 转换回退取决于密钥渠道、账号和路由配置。详见 [Claude 凭据](API.md#claude-凭据与原生-messages)。
 

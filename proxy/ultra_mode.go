@@ -10,7 +10,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/tidwall/gjson"
 
-	"github.com/codex2api/database"
+	"github.com/wuekevin/axisrelay/database"
 )
 
 // Codex 客户端的 "Ultra" 档不是线路上的 reasoning.effort 取值:客户端把它翻成
@@ -24,7 +24,7 @@ const (
 	ultraModeMarkerTag  = "<multi_agent_mode>"
 	ultraModeActiveText = "Proactive multi-agent delegation is active"
 
-	requestUltraModeContextKey = "codex2api.request.ultra_mode"
+	requestUltraModeContextKey = "axisrelay.request.ultra_mode"
 
 	ultraModeTurnTTL        = 6 * time.Hour
 	ultraModeTurnMaxEntries = 20000

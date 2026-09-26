@@ -1,0 +1,87 @@
+name: axisrelay-mysqlredis
+
+services:
+  axisrelay:
+    build: .
+    container_name: axisrelay
+    ports:
+      - "${AXISRELAY_BIND_HOST:-0.0.0.0}:${AXISRELAY_PORT:-8080}:${AXISRELAY_PORT:-8080}"
+    env_file:
+      - .env
+    environment:
+      AXISRELAY_DATABASE_DRIVER: mysql
+      AXISRELAY_DATABASE_HOST: mysql
+      AXISRELAY_DATABASE_PORT: "3306"
+      AXISRELAY_DATABASE_USER: "${AXISRELAY_DATABASE_USER:-axisrelay}"
+      AXISRELAY_DATABASE_PASSWORD: "${AXISRELAY_DATABASE_PASSWORD:-axisrelay}"
+      AXISRELAY_DATABASE_NAME: "${AXISRELAY_DATABASE_NAME:-axisrelay}"
+      AXISRELAY_CACHE_DRIVER: redis
+      AXISRELAY_REDIS_ADDR: redis:6379
+      AXISRELAY_REDIS_PASSWORD: "${AXISRELAY_REDIS_PASSWORD:-}"
+      AXISRELAY_REDIS_DB: "${AXISRELAY_REDIS_DB:-0}"
+    volumes:
+      - image-assets:/data
+      - ./logs:/app/logs
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - axisrelay-net
+
+  mysql:
+    image: mysql:8.0
+    container_name: axisrelay-mysql
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_0900_ai_ci
+    environment:
+      MYSQL_DATABASE: "${AXISRELAY_DATABASE_NAME:-axisrelay}"
+      MYSQL_USER: "${AXISRELAY_DATABASE_USER:-axisrelay}"
+      MYSQL_PASSWORD: "${AXISRELAY_DATABASE_PASSWORD:-axisrelay}"
+      MYSQL_ROOT_PASSWORD: "${MYSQL_ROOT_PASSWORD:-axisrelay-root}"
+      TZ: "${TZ:-Asia/Shanghai}"
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - mysqladmin ping -h 127.0.0.1 -u"$${MYSQL_USER}" -p"$${MYSQL_PASSWORD}" --silent
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 30s
+    restart: unless-stopped
+    networks:
+      - axisrelay-net
+
+  redis:
+    image: redis:7-alpine
+    container_name: axisrelay-redis
+    command: redis-server --appendonly yes
+    environment:
+      TZ: "${TZ:-Asia/Shanghai}"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - axisrelay-net
+
+networks:
+  axisrelay-net:
+    driver: bridge
+
+volumes:
+  mysql-data:
+    name: axisrelay_mysql_data
+  redis-data:
+    name: axisrelay_redis_data
+  image-assets:
+    name: axisrelay_image_assets

@@ -4,7 +4,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/codex2api/database"
+	"github.com/wuekevin/axisrelay/database"
 )
 
 func (s *Store) ReplacePromptRiskTrustPolicies(items []*database.PromptRiskTrustPolicy) {

@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/codex2api/auth"
+	"github.com/wuekevin/axisrelay/auth"
 )
 
 func rateLimitedProbeAccount(id int64, now time.Time) *auth.Account {

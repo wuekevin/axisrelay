@@ -1,6 +1,7 @@
 package database
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"encoding/json"
@@ -368,7 +369,7 @@ func (db *DB) MarkInterruptedImageJobs(ctx context.Context) error {
 
 func (db *DB) GetImageGenerationJob(ctx context.Context, id int64) (*ImageGenerationJob, error) {
 	job, err := scanImageGenerationJob(db.conn.QueryRowContext(ctx, `
-		SELECT id, status, prompt, params_json, api_key_id, api_key_name, api_key_masked, error_message,
+		SELECT id, status, prompt, params_json, api_key_id, api_key_name, api_key_masked, COALESCE(error_message, ''),
 			duration_ms, created_at, started_at, completed_at
 		FROM image_generation_jobs WHERE id=$1
 	`, id))
@@ -396,7 +397,7 @@ func (db *DB) ListImageGenerationJobs(ctx context.Context, page, pageSize int, a
 			return nil, err
 		}
 		rows, err = db.conn.QueryContext(ctx, `
-			SELECT id, status, prompt, params_json, api_key_id, api_key_name, api_key_masked, error_message,
+			SELECT id, status, prompt, params_json, api_key_id, api_key_name, api_key_masked, COALESCE(error_message, ''),
 				duration_ms, created_at, started_at, completed_at
 			FROM image_generation_jobs
 			WHERE api_key_id=$1
@@ -408,7 +409,7 @@ func (db *DB) ListImageGenerationJobs(ctx context.Context, page, pageSize int, a
 			return nil, err
 		}
 		rows, err = db.conn.QueryContext(ctx, `
-			SELECT id, status, prompt, params_json, api_key_id, api_key_name, api_key_masked, error_message,
+			SELECT id, status, prompt, params_json, api_key_id, api_key_name, api_key_masked, COALESCE(error_message, ''),
 				duration_ms, created_at, started_at, completed_at
 			FROM image_generation_jobs
 			ORDER BY created_at DESC, id DESC
@@ -478,6 +479,12 @@ func scanImageGenerationJob(scanner interface {
 		&job.ErrorMessage, &job.DurationMs, &createdRaw, &startedRaw, &completedRaw,
 	); err != nil {
 		return nil, err
+	}
+	if raw := []byte(strings.TrimSpace(job.ParamsJSON)); len(raw) > 0 && json.Valid(raw) {
+		var compact bytes.Buffer
+		if json.Compact(&compact, raw) == nil {
+			job.ParamsJSON = compact.String()
+		}
 	}
 	if job.Status == ImageJobSucceeded && job.ErrorMessage != "" {
 		job.Warning = job.ErrorMessage
@@ -670,7 +677,7 @@ func normalizePage(page, pageSize int) (int, int) {
 }
 
 func (db *DB) GetAPIKeyByID(ctx context.Context, id int64) (*APIKeyRow, error) {
-	rows, err := db.conn.QueryContext(ctx, `SELECT `+apiKeySelectColumns+` FROM api_keys WHERE id=$1`, id)
+	rows, err := db.conn.QueryContext(ctx, `SELECT `+db.apiKeySelectColumns()+` FROM api_keys WHERE id=$1`, id)
 	if err != nil {
 		return nil, err
 	}
@@ -682,7 +689,7 @@ func (db *DB) GetAPIKeyByID(ctx context.Context, id int64) (*APIKeyRow, error) {
 }
 
 func (db *DB) FirstAPIKey(ctx context.Context) (*APIKeyRow, error) {
-	rows, err := db.conn.QueryContext(ctx, `SELECT `+apiKeySelectColumns+` FROM api_keys ORDER BY id LIMIT 1`)
+	rows, err := db.conn.QueryContext(ctx, `SELECT `+db.apiKeySelectColumns()+` FROM api_keys ORDER BY id LIMIT 1`)
 	if err != nil {
 		return nil, err
 	}

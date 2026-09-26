@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/codex2api/auth"
-	"github.com/codex2api/database"
+	"github.com/wuekevin/axisrelay/auth"
+	"github.com/wuekevin/axisrelay/database"
 )
 
 // upstreamResponseReadContext 保留普通请求取消后的有界 usage 补读窗口。

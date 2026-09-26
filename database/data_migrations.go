@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/codex2api/internal/openaiidentity"
+	"github.com/wuekevin/axisrelay/internal/openaiidentity"
 )
 
 const (
@@ -69,6 +69,8 @@ func (db *DB) classifyAccountGroupChannels(ctx context.Context, tx *sql.Tx) erro
 	upstreamTypeExpr := `LOWER(COALESCE(a.credentials->>'upstream_type', ''))`
 	if db.isSQLite() {
 		upstreamTypeExpr = `LOWER(COALESCE(json_extract(a.credentials, '$.upstream_type'), ''))`
+	} else if db.isMySQL() {
+		upstreamTypeExpr = `LOWER(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(a.credentials, '$.upstream_type')), ''))`
 	}
 	res, err := tx.ExecContext(ctx, `
 		UPDATE account_groups SET channel = 'grok'
@@ -99,6 +101,15 @@ func (db *DB) backfillUsageLogChannel(ctx context.Context, tx *sql.Tx) error {
 			  AND account_id IN (SELECT id FROM accounts WHERE platform = 'xai')`); err != nil {
 			return fmt.Errorf("回填 grok 渠道: %w", err)
 		}
+	} else if db.isMySQL() {
+		if _, err := tx.ExecContext(ctx, `
+			UPDATE usage_logs u
+			JOIN accounts a ON u.account_id = a.id
+			SET u.channel = 'grok'
+			WHERE COALESCE(u.channel, '') = ''
+			  AND a.platform = 'xai'`); err != nil {
+			return fmt.Errorf("回填 grok 渠道: %w", err)
+		}
 	} else {
 		if _, err := tx.ExecContext(ctx, `
 			UPDATE usage_logs SET channel = 'grok'
@@ -127,6 +138,8 @@ func (db *DB) backfillClaudeProviderData(ctx context.Context, tx *sql.Tx) error 
 	upstreamTypeExpr := `LOWER(COALESCE(a.credentials->>'upstream_type', ''))`
 	if db.isSQLite() {
 		upstreamTypeExpr = `LOWER(COALESCE(json_extract(a.credentials, '$.upstream_type'), ''))`
+	} else if db.isMySQL() {
+		upstreamTypeExpr = `LOWER(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(a.credentials, '$.upstream_type')), ''))`
 	}
 	// Do not update usage_logs with a correlated account subquery. On a large
 	// history that shape forces a full usage_logs scan (and a repeated accounts
@@ -249,6 +262,9 @@ func (db *DB) runDataMigrationsWithTimeout() error {
 }
 
 func (db *DB) ensureDataMigrationsTable(ctx context.Context) error {
+	if db.isMySQL() {
+		return nil
+	}
 	_, err := db.conn.ExecContext(ctx, `
 		CREATE TABLE IF NOT EXISTS data_migrations (
 			version TEXT PRIMARY KEY,
@@ -269,11 +285,18 @@ func (db *DB) runDataMigrationOnce(ctx context.Context, version string, migrate 
 		}
 		defer tx.Rollback()
 
-		res, err := tx.ExecContext(ctx, `
+		insertSQL := `
 			INSERT INTO data_migrations (version, applied_at)
 			VALUES ($1, CURRENT_TIMESTAMP)
 			ON CONFLICT(version) DO NOTHING
-		`, version)
+		`
+		if db.isMySQL() {
+			insertSQL = `
+				INSERT IGNORE INTO data_migrations (version, applied_at)
+				VALUES ($1, CURRENT_TIMESTAMP)
+			`
+		}
+		res, err := tx.ExecContext(ctx, insertSQL, version)
 		if err != nil {
 			return fmt.Errorf("记录 data migration %s 失败: %w", version, err)
 		}
@@ -403,7 +426,7 @@ func (db *DB) migrateWorkspaceIdentityV3(ctx context.Context, tx *sql.Tx) error 
 					return err
 				}
 				query := `UPDATE accounts SET credentials = $1 WHERE id = $2`
-				if !db.isSQLite() {
+				if !db.isSQLite() && !db.isMySQL() {
 					query = `UPDATE accounts SET credentials = $1::jsonb WHERE id = $2`
 				}
 				if _, err := tx.ExecContext(ctx, query, encoded, account.id); err != nil {

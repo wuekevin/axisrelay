@@ -10,8 +10,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/codex2api/auth"
-	"github.com/codex2api/database"
+	"github.com/wuekevin/axisrelay/auth"
+	"github.com/wuekevin/axisrelay/database"
 )
 
 func TestAntigravityFlash38DiscoveryAndAccountIsolation(t *testing.T) {

@@ -12,7 +12,7 @@ import (
 // 灌入一行旧锁,再触发建表逻辑,验证:迁移不报错、旧行回落到 'newapi' 语义、
 // 且随后可正常写入 codex_session 降级身份的新锁。
 func TestPromptConversationLockIdentityKindMigrationFromLegacyTable(t *testing.T) {
-	db, err := New("sqlite", filepath.Join(t.TempDir(), "lock-migration.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "lock-migration.db"))
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
@@ -27,8 +27,8 @@ func TestPromptConversationLockIdentityKindMigrationFromLegacyTable(t *testing.T
 
 	// 旧 schema:与当前 DDL 相同,唯独缺少 identity_kind 列。
 	legacyDDL := `CREATE TABLE prompt_conversation_locks (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		lock_key VARCHAR(64) NOT NULL UNIQUE,
+		id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+		lock_key CHAR(64) NOT NULL UNIQUE,
 		status VARCHAR(24) NOT NULL DEFAULT 'active',
 		platform VARCHAR(100) NOT NULL DEFAULT '',
 		newapi_user_id VARCHAR(255) NOT NULL DEFAULT '',
@@ -40,19 +40,19 @@ func TestPromptConversationLockIdentityKindMigrationFromLegacyTable(t *testing.T
 		reason_code VARCHAR(100) NOT NULL DEFAULT '',
 		endpoint VARCHAR(255) NOT NULL DEFAULT '',
 		model VARCHAR(128) NOT NULL DEFAULT '',
-		trigger_count BIGINT NOT NULL DEFAULT 1,
-		unlock_count BIGINT NOT NULL DEFAULT 0,
-		locked_at TIMESTAMP NOT NULL,
-		unlocked_at TIMESTAMP NULL,
-		unlock_reason TEXT NOT NULL DEFAULT '',
-		created_at TIMESTAMP NOT NULL,
-		updated_at TIMESTAMP NOT NULL
-	)`
+		trigger_count BIGINT UNSIGNED NOT NULL DEFAULT 1,
+		unlock_count BIGINT UNSIGNED NOT NULL DEFAULT 0,
+		locked_at DATETIME(3) NOT NULL,
+		unlocked_at DATETIME(3) NULL,
+		unlock_reason VARCHAR(1000) NOT NULL DEFAULT '',
+		created_at DATETIME(3) NOT NULL,
+		updated_at DATETIME(3) NOT NULL
+	) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`
 	if _, err := db.conn.ExecContext(ctx, legacyDDL); err != nil {
 		t.Fatalf("create legacy table: %v", err)
 	}
 	legacyKey := "aa" + repeatByte("0", 62) // 64 hex
-	now := time.Now().UTC().Format("2006-01-02 15:04:05")
+	now := time.Now().UTC().Truncate(time.Millisecond)
 	if _, err := db.conn.ExecContext(ctx, `INSERT INTO prompt_conversation_locks
 		(lock_key, status, platform, newapi_user_id, session_fingerprint, session_hash, decision_id, locked_at, created_at, updated_at)
 		VALUES (?,?,?,?,?,?,?,?,?,?)`,

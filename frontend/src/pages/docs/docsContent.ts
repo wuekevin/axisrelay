@@ -919,7 +919,7 @@ export function buildDocsMarkdown(args: {
   const block = (label: string, lang: string, content: string) =>
     `### ${label}\n\n\`\`\`${lang}\n${content}\n\`\`\``;
   return [
-    `# ${c("Codex2API 使用文档", "Codex2API documentation")}`,
+    `# ${c("AxisRelay 使用文档", "AxisRelay documentation")}`,
     `> ${c("服务地址", "Service URL")}: ${baseUrl}`,
     `## ${c("快速接入", "Quick start")}`,
     c(

@@ -13,7 +13,7 @@ var downstreamWSKeepaliveInterval = downstreamWSKeepaliveIntervalFromEnv()
 
 // downstreamWSKeepaliveIntervalFromEnv 读取下游 WebSocket Ping 周期配置。
 func downstreamWSKeepaliveIntervalFromEnv() time.Duration {
-	return durationFromEnv("DOWNSTREAM_WS_KEEPALIVE_INTERVAL", defaultDownstreamWSKeepaliveInterval)
+	return durationFromEnv("AXISRELAY_DOWNSTREAM_WS_KEEPALIVE_INTERVAL", defaultDownstreamWSKeepaliveInterval)
 }
 
 // startDownstreamWSKeepalive 周期发送 WebSocket Ping，并在写入失败时取消连接。

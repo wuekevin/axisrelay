@@ -137,6 +137,18 @@ func (db *DB) ResetAPIKeyScopeCounter(ctx context.Context, apiKeyID int64, scope
 			reset_count = COALESCE(api_key_scope_counters.reset_count, 0) + 1,
 			last_reset_at = ` + db.nowExpr() + `,
 			updated_at = ` + db.nowExpr()
+	if db.isMySQL() {
+		query = `
+			INSERT INTO api_key_scope_counters (api_key_id, scope_type, scope_id, used_cost, used_tokens, used_requests, reset_count, last_reset_at, updated_at)
+			VALUES ($1, $2, $3, 0, 0, 0, 1, ` + db.nowExpr() + `, ` + db.nowExpr() + `)
+			ON DUPLICATE KEY UPDATE
+				used_cost = 0,
+				used_tokens = 0,
+				used_requests = 0,
+				reset_count = COALESCE(reset_count, 0) + 1,
+				last_reset_at = ` + db.nowExpr() + `,
+				updated_at = ` + db.nowExpr()
+	}
 	_, err := db.conn.ExecContext(ctx, query, apiKeyID, scopeType, scopeID)
 	return err
 }
@@ -214,6 +226,26 @@ func (db *DB) applyAPIKeyScopeCountersWithExec(ctx context.Context, execer sqlEx
 			used_tokens = COALESCE(api_key_scope_counters.used_tokens, 0) + $4,
 			used_requests = COALESCE(api_key_scope_counters.used_requests, 0) + $5,
 			updated_at = ` + db.nowExpr()
+	if db.isMySQL() {
+		accountQuery = `
+			INSERT INTO api_key_scope_counters (api_key_id, scope_type, scope_id, used_cost, used_tokens, used_requests, updated_at)
+			VALUES ($1, '` + APIKeyScopeTypeAccount + `', $2, $3, $4, $5, ` + db.nowExpr() + `)
+			ON DUPLICATE KEY UPDATE
+				used_cost = COALESCE(used_cost, 0) + VALUES(used_cost),
+				used_tokens = COALESCE(used_tokens, 0) + VALUES(used_tokens),
+				used_requests = COALESCE(used_requests, 0) + VALUES(used_requests),
+				updated_at = ` + db.nowExpr()
+		groupQuery = `
+			INSERT INTO api_key_scope_counters (api_key_id, scope_type, scope_id, used_cost, used_tokens, used_requests, updated_at)
+			SELECT $1, '` + APIKeyScopeTypeGroup + `', m.group_id, $3, $4, $5, ` + db.nowExpr() + `
+			FROM account_group_members m
+			WHERE m.account_id = $2
+			ON DUPLICATE KEY UPDATE
+				used_cost = COALESCE(used_cost, 0) + VALUES(used_cost),
+				used_tokens = COALESCE(used_tokens, 0) + VALUES(used_tokens),
+				used_requests = COALESCE(used_requests, 0) + VALUES(used_requests),
+				updated_at = ` + db.nowExpr()
+	}
 
 	for key, delta := range deltas {
 		if delta.cost <= 0 && delta.tokens <= 0 && delta.requests <= 0 {

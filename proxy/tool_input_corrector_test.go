@@ -12,7 +12,7 @@ func TestToolInputCorrectorStats(t *testing.T) {
 	if _, corrected := corrector.CorrectToolInputJSON("Read", `{"file_path":"/etc/hosts","pages":""}`); !corrected {
 		t.Fatalf("expected Read pages correction")
 	}
-	if _, corrected := corrector.CorrectToolInputJSON("EnterWorktree", `{"name":"","path":"F:\\Github\\codex2api\\.claude\\worktrees\\existing"}`); !corrected {
+	if _, corrected := corrector.CorrectToolInputJSON("EnterWorktree", `{"name":"","path":"F:\\Github\\axisrelay\\.claude\\worktrees\\existing"}`); !corrected {
 		t.Fatalf("expected EnterWorktree name correction")
 	}
 	if _, corrected := corrector.CorrectToolInputJSON("Write", `{"content":""}`); corrected {

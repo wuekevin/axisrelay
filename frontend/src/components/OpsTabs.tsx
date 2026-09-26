@@ -3,10 +3,10 @@ import { Activity, AlertCircle, ServerCog, Workflow } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 const tabs = [
-  { to: '/ops/overview', labelKey: 'ops.tabs.overview', icon: <Activity className="size-4" /> },
-  { to: '/ops/runtime', labelKey: 'ops.tabs.runtime', icon: <ServerCog className="size-4" /> },
-  { to: '/ops/errors', labelKey: 'ops.tabs.errors', icon: <AlertCircle className="size-4" /> },
-  { to: '/ops/scheduler', labelKey: 'ops.tabs.scheduler', icon: <Workflow className="size-4" /> },
+  { to: '/admin/gateway/ops/overview', labelKey: 'ops.tabs.overview', icon: <Activity className="size-4" /> },
+  { to: '/admin/gateway/ops/runtime', labelKey: 'ops.tabs.runtime', icon: <ServerCog className="size-4" /> },
+  { to: '/admin/gateway/ops/errors', labelKey: 'ops.tabs.errors', icon: <AlertCircle className="size-4" /> },
+  { to: '/admin/gateway/ops/scheduler', labelKey: 'ops.tabs.scheduler', icon: <Workflow className="size-4" /> },
 ]
 
 export default function OpsTabs() {

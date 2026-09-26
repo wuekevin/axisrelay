@@ -72,6 +72,31 @@ func (db *DB) ListAccountListProjection(ctx context.Context, channel string) ([]
 			COALESCE(json_extract(credentials, '$.subscription_expires_at'), ''),
 			COALESCE(json_extract(credentials, '$.subscription_sync_state'), ''),
 			COALESCE(json_extract(credentials, '$.subscription_grace_until'), '')`
+	} else if db.isMySQL() {
+		upstreamExpr = `LOWER(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(credentials, '$.upstream_type')), ''))`
+		fromClause = `FROM accounts`
+		credentialColumns = `
+			COALESCE(JSON_UNQUOTE(JSON_EXTRACT(credentials, '$.upstream_type')), ''),
+			COALESCE(JSON_UNQUOTE(JSON_EXTRACT(credentials, '$.email')), ''),
+			COALESCE(JSON_UNQUOTE(JSON_EXTRACT(credentials, '$.base_url')), ''),
+			COALESCE(JSON_UNQUOTE(JSON_EXTRACT(credentials, '$.plan_type')), ''),
+			COALESCE(JSON_EXTRACT(credentials, '$.models'), JSON_ARRAY()),
+			CASE WHEN COALESCE(JSON_UNQUOTE(JSON_EXTRACT(credentials, '$.api_key')), '') <> '' THEN 1 ELSE 0 END,
+			CASE WHEN COALESCE(JSON_UNQUOTE(JSON_EXTRACT(credentials, '$.refresh_token')), '') <> '' THEN 1 ELSE 0 END,
+			COALESCE(JSON_UNQUOTE(JSON_EXTRACT(credentials, '$.scheduler_priority')), ''),
+			COALESCE(JSON_UNQUOTE(JSON_EXTRACT(credentials, '$.avatar_url')), ''),
+			CASE WHEN COALESCE(JSON_UNQUOTE(JSON_EXTRACT(credentials, '$.verified_email')), 'false') IN ('true','1') THEN 1 ELSE 0 END,
+			COALESCE(JSON_UNQUOTE(JSON_EXTRACT(credentials, '$.project_id')), ''),
+			COALESCE(JSON_UNQUOTE(JSON_EXTRACT(credentials, '$.antigravity_sync_error')), ''),
+			COALESCE(JSON_UNQUOTE(JSON_EXTRACT(credentials, '$.antigravity_sync_warning')), ''),
+			COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(credentials, '$.antigravity_permissions')), ''), JSON_UNQUOTE(JSON_EXTRACT(credentials, '$.antigravity_entitlements')), '{}'),
+			COALESCE(JSON_UNQUOTE(JSON_EXTRACT(credentials, '$.antigravity_quota')), '{}'),
+			COALESCE(JSON_UNQUOTE(JSON_EXTRACT(credentials, '$.claude_usage_probe_at')), ''),
+			COALESCE(JSON_UNQUOTE(JSON_EXTRACT(credentials, '$.claude_usage_probe_error')), ''),
+			COALESCE(JSON_UNQUOTE(JSON_EXTRACT(credentials, '$.claude_auth_kind')), ''),
+			COALESCE(JSON_UNQUOTE(JSON_EXTRACT(credentials, '$.subscription_expires_at')), ''),
+			COALESCE(JSON_UNQUOTE(JSON_EXTRACT(credentials, '$.subscription_sync_state')), ''),
+			COALESCE(JSON_UNQUOTE(JSON_EXTRACT(credentials, '$.subscription_grace_until')), '')`
 	}
 	where += accountChannelFilterSQL(channel, upstreamExpr)
 	query := `SELECT id, name, type, proxy_url, status, cooldown_reason, cooldown_until,
@@ -235,7 +260,7 @@ func (db *DB) ListActiveByIDs(ctx context.Context, ids []int64) ([]*AccountRow, 
 		placeholders = append(placeholders, fmt.Sprintf("$%d", len(args)))
 	}
 	query := `SELECT id, name, platform, type, credentials, proxy_url, status, cooldown_reason,
-		cooldown_until, error_message, COALESCE(enabled, true), COALESCE(locked, false),
+		cooldown_until, COALESCE(error_message, ''), COALESCE(enabled, true), COALESCE(locked, false),
 		COALESCE(credit_enabled, false), COALESCE(credit_skip_usage_window, false),
 		COALESCE(skip_warm_tier, false), score_bias_override, base_concurrency_override,
 		COALESCE(tags, '[]'), COALESCE(note, ''), created_at, updated_at,

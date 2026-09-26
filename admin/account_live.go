@@ -3,7 +3,7 @@ package admin
 import (
 	"net/http"
 
-	"github.com/codex2api/proxy"
+	"github.com/wuekevin/axisrelay/proxy"
 	"github.com/gin-gonic/gin"
 )
 

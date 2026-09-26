@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/codex2api/cache"
+	"github.com/wuekevin/axisrelay/cache"
 )
 
 func waitForResponseCacheWriter(t *testing.T, condition func() bool) {

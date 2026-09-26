@@ -405,7 +405,7 @@ func (db *DB) ListAPIKeyAccountStats(ctx context.Context, apiKeyID int64, rangeS
 		SELECT
 			u.account_id,
 			COALESCE(a.name, '') AS account_name,
-			COALESCE(CAST(a.credentials AS TEXT), '{}') AS credentials,
+			` + db.credentialsTextSQL("a") + ` AS credentials,
 			COALESCE(a.status, '') AS account_status,
 			COALESCE(a.error_message, '') AS account_error,
 			u.requests, u.input_tokens, u.output_tokens, u.cached_tokens,

@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/codex2api/database"
+	"github.com/wuekevin/axisrelay/database"
 )
 
 // Codex 过载熔断：上游返回 server_is_overloaded（service_unavailable_error，

@@ -12,10 +12,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/codex2api/api"
-	"github.com/codex2api/auth"
-	"github.com/codex2api/config"
-	"github.com/codex2api/database"
+	"github.com/wuekevin/axisrelay/api"
+	"github.com/wuekevin/axisrelay/auth"
+	"github.com/wuekevin/axisrelay/config"
+	"github.com/wuekevin/axisrelay/database"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 	"github.com/tidwall/gjson"
@@ -36,7 +36,7 @@ func newModelQuotaTestHandler(t *testing.T, limit int64, upstream string, native
 	settings.CodexForceWebsocket = false
 	ApplyRuntimeSettings(settings)
 	t.Cleanup(func() { ApplyRuntimeSettings(previous) })
-	db, err := database.New("sqlite", filepath.Join(t.TempDir(), "quota.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "quota.db"))
 	if err != nil {
 		t.Fatal(err)
 	}

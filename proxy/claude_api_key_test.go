@@ -12,10 +12,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/codex2api/auth"
-	"github.com/codex2api/config"
-	"github.com/codex2api/database"
 	"github.com/gin-gonic/gin"
+	"github.com/wuekevin/axisrelay/auth"
+	"github.com/wuekevin/axisrelay/config"
+	"github.com/wuekevin/axisrelay/database"
 )
 
 const claudeAPIKeyTestBody = `{"model":"claude-sonnet-4-5","max_tokens":64,"system":"Custom system","service_tier":"auto","metadata":{"user_id":"customer"},"messages":[{"role":"assistant","content":[{"type":"thinking","thinking":"history","signature":"third-party-signature"},{"type":"tool_use","id":"call_1","name":"lookup","input":{"city":"Paris"}}]},{"role":"user","content":[{"type":"tool_result","tool_use_id":"call_1","content":"sunny"}]}]}`
@@ -41,7 +41,7 @@ data: {"type":"message_stop"}
 `
 
 func TestClaudeAPIKeyOutboundPreservesNativeBodyAndHeaders(t *testing.T) {
-	t.Setenv("CODEX_TRANSPORT_MODE", "standard")
+	t.Setenv("AXISRELAY_TRANSPORT_MODE", "standard")
 	for i, base := range []string{"https://example.com", "https://example.com/v1/", "https://example.com/gateway/v1"} {
 		t.Run(base, func(t *testing.T) {
 			// No custom headers and no identity mode: the historical neutral
@@ -84,7 +84,7 @@ func TestClaudeAPIKeyOutboundPreservesNativeBodyAndHeaders(t *testing.T) {
 	}
 	request := httptest.NewRequest(http.MethodPost, "https://example.com", nil)
 	applyClaudeAPIKeyHeaders(request, "key", nil, true, nil, "")
-	if request.UserAgent() != "Codex2API" || request.Header.Get("Accept") != "text/event-stream" || request.Header.Get("anthropic-beta") != "" {
+	if request.UserAgent() != "AxisRelay" || request.Header.Get("Accept") != "text/event-stream" || request.Header.Get("anthropic-beta") != "" {
 		t.Fatalf("invalid neutral headers: %v", request.Header)
 	}
 }
@@ -93,7 +93,7 @@ func TestClaudeAPIKeyOutboundPreservesNativeBodyAndHeaders(t *testing.T) {
 // custom_headers reach the upstream and win over the neutral defaults, while the
 // gateway-owned reserved headers can never be overridden.
 func TestClaudeAPIKeyAccountCustomHeadersApply(t *testing.T) {
-	t.Setenv("CODEX_TRANSPORT_MODE", "standard")
+	t.Setenv("AXISRELAY_TRANSPORT_MODE", "standard")
 	account := &auth.Account{DBID: 964530, UpstreamType: auth.UpstreamClaude, ClaudeAuthKind: auth.ClaudeAuthKindAPIKey, AccessToken: "upstream-key", ClaudeBaseURL: "https://example.com", CustomHeaders: map[string]string{
 		"User-Agent":        "gateway-client/2.0",
 		"x-app":             "cli",
@@ -132,7 +132,7 @@ func TestClaudeAPIKeyAccountCustomHeadersApply(t *testing.T) {
 // optional Claude Code client identity for API Key accounts (preserve/force),
 // layered under custom headers and never copying OAuth session state.
 func TestClaudeAPIKeyClientIdentityEmulation(t *testing.T) {
-	t.Setenv("CODEX_TRANSPORT_MODE", "standard")
+	t.Setenv("AXISRELAY_TRANSPORT_MODE", "standard")
 	cliUA := "claude-cli/" + auth.EffectiveClaudeCLIVersion() + " (external, cli)"
 	cases := []struct {
 		name     string
@@ -197,10 +197,10 @@ func TestClaudeAPIKeyClientIdentityEmulation(t *testing.T) {
 }
 
 func TestClaudeAPIKeyMessagesHandlerAndUsage(t *testing.T) {
-	t.Setenv("CODEX_TRANSPORT_MODE", "standard")
+	t.Setenv("AXISRELAY_TRANSPORT_MODE", "standard")
 	for _, stream := range []bool{false, true} {
 		t.Run(fmt.Sprintf("stream=%t", stream), func(t *testing.T) {
-			db, err := database.New("sqlite", filepath.Join(t.TempDir(), "claude-api-key.db"))
+			db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "claude-api-key.db"))
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -247,7 +247,7 @@ func TestClaudeAPIKeyMessagesHandlerAndUsage(t *testing.T) {
 }
 
 func TestClaudeAPIKeyHTTPFailuresUseSharedCooldowns(t *testing.T) {
-	t.Setenv("CODEX_TRANSPORT_MODE", "standard")
+	t.Setenv("AXISRELAY_TRANSPORT_MODE", "standard")
 	for _, status := range []int{401, 429, 503} {
 		t.Run(fmt.Sprint(status), func(t *testing.T) {
 			store := auth.NewStore(nil, nil, &database.SystemSettings{MaxConcurrency: 2, MaxRetries: 0})

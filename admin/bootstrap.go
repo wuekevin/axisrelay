@@ -11,13 +11,13 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/codex2api/auth"
-	"github.com/codex2api/database"
-	"github.com/codex2api/internal/imagestore"
-	"github.com/codex2api/proxy"
-	"github.com/codex2api/security"
-	"github.com/codex2api/security/promptfilter"
 	"github.com/gin-gonic/gin"
+	"github.com/wuekevin/axisrelay/auth"
+	"github.com/wuekevin/axisrelay/database"
+	"github.com/wuekevin/axisrelay/internal/imagestore"
+	"github.com/wuekevin/axisrelay/proxy"
+	"github.com/wuekevin/axisrelay/security"
+	"github.com/wuekevin/axisrelay/security/promptfilter"
 )
 
 // bootstrapState 跟踪初始化端点的运行状态，主要用于：
@@ -64,7 +64,7 @@ func bootstrapAllowRate() bool {
 //
 // 规则：
 //   - loopback 永远允许；
-//   - BOOTSTRAP_ALLOWED_CIDR 已设置时以其为准（逗号分隔 CIDR；设为 none 表示仅 loopback）；
+//   - AXISRELAY_BOOTSTRAP_ALLOWED_CIDR 已设置时以其为准（逗号分隔 CIDR；设为 none 表示仅 loopback）；
 //   - 未设置时默认放行私有/链路本地地址——Docker 端口映射后宿主机访问的源 IP 是
 //     网桥地址(如 172.17.0.1)而非 loopback，若只认 loopback 会把最常见的本地
 //     Docker 部署挡在初始化页面外(issue #199)。公网 IP 默认仍拒绝。
@@ -76,7 +76,7 @@ func bootstrapAllowClientIP(clientIP string) bool {
 	if ip.IsLoopback() {
 		return true
 	}
-	cidrEnv := strings.TrimSpace(os.Getenv("BOOTSTRAP_ALLOWED_CIDR"))
+	cidrEnv := strings.TrimSpace(os.Getenv("AXISRELAY_BOOTSTRAP_ALLOWED_CIDR"))
 	if cidrEnv == "" {
 		return ip.IsPrivate() || ip.IsLinkLocalUnicast()
 	}
@@ -130,12 +130,9 @@ func bootstrapPublicBaseURL(r *http.Request) string {
 }
 
 func bootstrapDatabaseLocation(driver string) string {
-	if strings.EqualFold(driver, "sqlite") {
-		return strings.TrimSpace(os.Getenv("DATABASE_PATH"))
-	}
-	host := strings.TrimSpace(os.Getenv("DATABASE_HOST"))
-	name := strings.TrimSpace(os.Getenv("DATABASE_NAME"))
-	port := strings.TrimSpace(os.Getenv("DATABASE_PORT"))
+	host := strings.TrimSpace(os.Getenv("AXISRELAY_DATABASE_HOST"))
+	name := strings.TrimSpace(os.Getenv("AXISRELAY_DATABASE_NAME"))
+	port := strings.TrimSpace(os.Getenv("AXISRELAY_DATABASE_PORT"))
 	if host == "" || name == "" {
 		return ""
 	}
@@ -212,7 +209,7 @@ func (h *Handler) bootstrapSetupHints(r *http.Request) gin.H {
 // GetBootstrapStatus 返回当前是否需要执行初始化（GET /api/admin/bootstrap-status）。
 //
 // 该端点不要求鉴权，前端 AuthGate 在拿到登录界面前会先轮询此端点：
-//   - 已通过 .env 设置 ADMIN_SECRET => needs_bootstrap=false, source="env"
+//   - 已通过 .env 设置 AXISRELAY_ADMIN_SECRET => needs_bootstrap=false, source="env"
 //   - 已写入数据库                  => needs_bootstrap=false, source="database"
 //   - 两端均空                       => needs_bootstrap=true,  source="empty"
 func (h *Handler) GetBootstrapStatus(c *gin.Context) {
@@ -262,7 +259,7 @@ func (h *Handler) GetSetupHints(c *gin.Context) {
 // PostBootstrap 接收用户在浏览器中输入的初始管理密钥并写入数据库。
 //
 // 安全约束：
-//  1. 仅在系统未配置 ADMIN_SECRET 时可用，否则一律 409；
+//  1. 仅在系统未配置 AXISRELAY_ADMIN_SECRET 时可用，否则一律 409；
 //  2. 通过互斥锁 + 双重检查避免并发写入；
 //  3. 简单全局限频，防止扫描器穷举；
 //  4. 校验最小长度（8 个 rune），避免过弱密钥；
@@ -270,7 +267,7 @@ func (h *Handler) GetSetupHints(c *gin.Context) {
 func (h *Handler) PostBootstrap(c *gin.Context) {
 	if !bootstrapAllowClientIP(c.ClientIP()) {
 		security.SecurityAuditLog("BOOTSTRAP_REJECTED_IP", "ip="+c.ClientIP())
-		c.JSON(http.StatusForbidden, gin.H{"error": "当前来源 IP (" + c.ClientIP() + ") 不允许执行页面初始化。可任选其一：1) 在 .env 中设置 ADMIN_SECRET 后重建容器，跳过页面初始化直接登录；2) 设置 BOOTSTRAP_ALLOWED_CIDR 环境变量放行你的来源网段（如 BOOTSTRAP_ALLOWED_CIDR=203.0.113.0/24）。"})
+		c.JSON(http.StatusForbidden, gin.H{"error": "当前来源 IP (" + c.ClientIP() + ") 不允许执行页面初始化。可任选其一：1) 在 .env 中设置 AXISRELAY_ADMIN_SECRET 后重建容器，跳过页面初始化直接登录；2) 设置 AXISRELAY_BOOTSTRAP_ALLOWED_CIDR 环境变量放行你的来源网段（如 AXISRELAY_BOOTSTRAP_ALLOWED_CIDR=203.0.113.0/24）。"})
 		return
 	}
 
@@ -284,7 +281,7 @@ func (h *Handler) PostBootstrap(c *gin.Context) {
 	if envSecret != "" {
 		security.SecurityAuditLog("BOOTSTRAP_REJECTED_ENV", "ip="+c.ClientIP())
 		c.JSON(http.StatusConflict, gin.H{
-			"error": "ADMIN_SECRET 已通过环境变量配置，无需在页面初始化",
+			"error": "AXISRELAY_ADMIN_SECRET 已通过环境变量配置，无需在页面初始化",
 		})
 		return
 	}
@@ -328,7 +325,7 @@ func (h *Handler) PostBootstrap(c *gin.Context) {
 	if settings != nil && strings.TrimSpace(settings.AdminSecret) != "" {
 		security.SecurityAuditLog("BOOTSTRAP_REJECTED_ALREADY_INITIALIZED", "ip="+c.ClientIP())
 		c.JSON(http.StatusConflict, gin.H{
-			"error": "ADMIN_SECRET 已配置，无法重复初始化。如需重置，请进入「设置」页面使用现有密钥登录后修改。",
+			"error": "AXISRELAY_ADMIN_SECRET 已配置，无法重复初始化。如需重置，请进入「设置」页面使用现有密钥登录后修改。",
 		})
 		return
 	}

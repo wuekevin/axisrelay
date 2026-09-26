@@ -3,64 +3,66 @@ package config
 import (
 	"fmt"
 	"log"
+	"net"
+	"net/url"
 	"os"
-	"regexp"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/joho/godotenv"
+	platformmysql "github.com/wuekevin/axisrelay/internal/platform/mysql"
 )
-
-// schemaNameRegex 限定 PostgreSQL schema 名为 ASCII 标识符，避免 DSN/DDL 注入。
-var schemaNameRegex = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
-
-// IsValidSchemaName 校验 PostgreSQL schema 名（首字母为字母或下划线，余下为字母/数字/下划线，长度 ≤63）。
-func IsValidSchemaName(name string) bool {
-	if name == "" || len(name) > 63 {
-		return false
-	}
-	return schemaNameRegex.MatchString(name)
-}
 
 // DatabaseConfig 数据库核心配置。
 type DatabaseConfig struct {
 	Driver   string
-	Path     string
 	Host     string
 	Port     int
 	User     string
 	Password string
 	DBName   string
-	Schema   string // PostgreSQL schema（search_path）；空值保持数据库默认行为
-	SSLMode  string
 }
 
 // DSN 返回当前驱动的连接字符串。
 func (d *DatabaseConfig) DSN() string {
-	if strings.EqualFold(d.Driver, "sqlite") {
-		return d.Path
+	switch strings.ToLower(strings.TrimSpace(d.Driver)) {
+	case "mysql":
+		dsn, err := (platformmysql.Config{
+			Host:     d.Host,
+			Port:     d.Port,
+			User:     d.User,
+			Password: d.Password,
+			Database: d.DBName,
+		}).DSN()
+		if err == nil {
+			return dsn
+		}
+	case "postgres", "postgresql":
+		port := d.Port
+		if port == 0 {
+			port = 5432
+		}
+		u := &url.URL{
+			Scheme: "postgres",
+			User:   url.UserPassword(d.User, d.Password),
+			Host:   net.JoinHostPort(d.Host, strconv.Itoa(port)),
+			Path:   d.DBName,
+		}
+		return u.String()
 	}
-	sslMode := d.SSLMode
-	if sslMode == "" {
-		sslMode = "disable"
-	}
-	dsn := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=%s",
-		d.Host, d.Port, d.User, d.Password, d.DBName, sslMode)
-	if d.Schema != "" {
-		// 通过 PostgreSQL startup options 在连接启动时设置 search_path，覆盖连接池中的所有连接。
-		// schema 已在 Load() 阶段做白名单校验，此处可安全拼接。
-		dsn += fmt.Sprintf(" options='-c search_path=%s,public'", d.Schema)
-	}
-	return dsn
+	return ""
 }
 
 // Label 返回用于展示的数据库标签。
 func (d *DatabaseConfig) Label() string {
-	if strings.EqualFold(d.Driver, "sqlite") {
-		return "SQLite"
+	switch strings.ToLower(strings.TrimSpace(d.Driver)) {
+	case "mysql":
+		return "MySQL"
+	case "postgres", "postgresql":
+		return "PostgreSQL"
 	}
-	return "PostgreSQL"
+	return strings.ToUpper(strings.TrimSpace(d.Driver))
 }
 
 // RedisConfig Redis 核心配置
@@ -102,7 +104,7 @@ type Config struct {
 	Database                  DatabaseConfig
 	Cache                     CacheConfig
 	UseWebsocket              bool     // 是否启用 WebSocket 传输
-	CodexUpstreamTransport    string   // http|auto|ws，默认 http；USE_WEBSOCKET 作为旧开关兼容
+	CodexUpstreamTransport    string   // http|auto|ws，默认 http；仅由 AXISRELAY_UPSTREAM_TRANSPORT 配置
 	TrustedProxies            []string // Gin 可信反向代理 CIDR/IP；默认信任回环与私有网段以兼容 Docker 反代，none/off/false/0 表示禁用
 }
 
@@ -138,51 +140,49 @@ func Load(envPath string) (*Config, error) {
 	}
 
 	// Web服务端口
-	if port := os.Getenv("CODEX_PORT"); port != "" {
-		fmt.Sscanf(port, "%d", &cfg.Port)
-	} else if port := os.Getenv("PORT"); port != "" {
+	if port := os.Getenv("AXISRELAY_PORT"); port != "" {
 		fmt.Sscanf(port, "%d", &cfg.Port)
 	}
-	cfg.AdminSecret = strings.TrimSpace(os.Getenv("ADMIN_SECRET"))
-	cfg.AllowAnonymousV1 = parseBoolEnv(os.Getenv("CODEX_ALLOW_ANONYMOUS"))
+	cfg.AdminSecret = strings.TrimSpace(os.Getenv("AXISRELAY_ADMIN_SECRET"))
+	cfg.AllowAnonymousV1 = parseBoolEnv(os.Getenv("AXISRELAY_ALLOW_ANONYMOUS"))
 	cfg.APIKeyAuthCacheEnabled = true
-	if value := strings.TrimSpace(os.Getenv("CODEX_API_KEY_AUTH_CACHE_ENABLED")); value != "" {
+	if value := strings.TrimSpace(os.Getenv("AXISRELAY_API_KEY_AUTH_CACHE_ENABLED")); value != "" {
 		enabled, err := strconv.ParseBool(value)
 		if err != nil {
-			return nil, fmt.Errorf("CODEX_API_KEY_AUTH_CACHE_ENABLED must be a boolean")
+			return nil, fmt.Errorf("AXISRELAY_API_KEY_AUTH_CACHE_ENABLED must be a boolean")
 		}
 		cfg.APIKeyAuthCacheEnabled = enabled
 	}
 	// 默认绑 0.0.0.0 以兼容 Docker 端口映射、反向代理、生产服务器等常规部署。
 	// 安全防护由 fail-closed 中间件 + 首启自助初始化 (/api/admin/bootstrap) + 启动 banner 共同保证；
-	// 想要严格仅本机访问的用户可设 CODEX_BIND=127.0.0.1。
-	cfg.BindAddress = strings.TrimSpace(os.Getenv("CODEX_BIND"))
+	// 想要严格仅本机访问的用户可设 AXISRELAY_BIND=127.0.0.1。
+	cfg.BindAddress = strings.TrimSpace(os.Getenv("AXISRELAY_BIND"))
 	if cfg.BindAddress == "" {
 		cfg.BindAddress = "0.0.0.0"
 	}
-	if v := strings.TrimSpace(os.Getenv("CODEX_MAX_REQUEST_BODY_SIZE_MB")); v != "" {
+	if v := strings.TrimSpace(os.Getenv("AXISRELAY_MAX_REQUEST_BODY_SIZE_MB")); v != "" {
 		if mb, err := strconv.Atoi(v); err == nil && mb > 0 {
 			cfg.MaxRequestBodySize = mb * 1024 * 1024
 		}
 	}
 	cfg.RequestMemoryBudgetBytes = max(int64(128<<20), int64(cfg.MaxRequestBodySize))
-	if value := strings.TrimSpace(os.Getenv("CODEX_REQUEST_MEMORY_BUDGET_MB")); value != "" {
+	if value := strings.TrimSpace(os.Getenv("AXISRELAY_REQUEST_MEMORY_BUDGET_MB")); value != "" {
 		mb, err := strconv.ParseInt(value, 10, 64)
 		if err != nil || mb <= 0 || mb > (1<<63-1)/(1<<20) {
-			return nil, fmt.Errorf("CODEX_REQUEST_MEMORY_BUDGET_MB must be a positive MiB value")
+			return nil, fmt.Errorf("AXISRELAY_REQUEST_MEMORY_BUDGET_MB must be a positive MiB value")
 		}
 		cfg.RequestMemoryBudgetBytes = mb << 20
 		if cfg.RequestMemoryBudgetBytes < int64(cfg.MaxRequestBodySize) {
-			return nil, fmt.Errorf("CODEX_REQUEST_MEMORY_BUDGET_MB must be at least CODEX_MAX_REQUEST_BODY_SIZE_MB")
+			return nil, fmt.Errorf("AXISRELAY_REQUEST_MEMORY_BUDGET_MB must be at least AXISRELAY_MAX_REQUEST_BODY_SIZE_MB")
 		}
 	}
-	cfg.TrustedProxies = parseTrustedProxiesEnv(os.Getenv("CODEX_TRUSTED_PROXIES"))
+	cfg.TrustedProxies = parseTrustedProxiesEnv(os.Getenv("AXISRELAY_TRUSTED_PROXIES"))
 	for _, setting := range []struct {
 		name   string
 		target *int
 	}{
-		{"CODEX_SCHEDULER_MAX_WAITERS", &cfg.SchedulerMaxWaiters},
-		{"CODEX_SCHEDULER_MAX_WAITERS_PER_KEY", &cfg.SchedulerMaxWaitersPerKey},
+		{"AXISRELAY_SCHEDULER_MAX_WAITERS", &cfg.SchedulerMaxWaiters},
+		{"AXISRELAY_SCHEDULER_MAX_WAITERS_PER_KEY", &cfg.SchedulerMaxWaitersPerKey},
 	} {
 		if value := strings.TrimSpace(os.Getenv(setting.name)); value != "" {
 			n, err := strconv.Atoi(value)
@@ -193,12 +193,8 @@ func Load(envPath string) (*Config, error) {
 		}
 	}
 
-	// Codex 上游传输配置。CODEX_UPSTREAM_TRANSPORT 优先；USE_WEBSOCKET 保留为旧开关。
-	cfg.CodexUpstreamTransport = normalizeCodexUpstreamTransport(os.Getenv("CODEX_UPSTREAM_TRANSPORT"))
-	if cfg.CodexUpstreamTransport == "" && parseBoolEnv(os.Getenv("USE_WEBSOCKET")) {
-		cfg.CodexUpstreamTransport = "ws"
-		cfg.UseWebsocket = true
-	}
+	// Codex 上游传输仅接受 AxisRelay 命名空间，不读取旧兼容变量。
+	cfg.CodexUpstreamTransport = normalizeCodexUpstreamTransport(os.Getenv("AXISRELAY_UPSTREAM_TRANSPORT"))
 	if cfg.CodexUpstreamTransport == "" {
 		cfg.CodexUpstreamTransport = "http"
 	}
@@ -207,65 +203,59 @@ func Load(envPath string) (*Config, error) {
 	}
 
 	// 数据库配置
-	cfg.Database.Driver = normalizeDriver(os.Getenv("DATABASE_DRIVER"), "postgres")
-	cfg.Database.Path = strings.TrimSpace(os.Getenv("DATABASE_PATH"))
-	cfg.Database.Host = os.Getenv("DATABASE_HOST")
-	if v := os.Getenv("DATABASE_PORT"); v != "" {
+	cfg.Database.Driver = normalizeDriver(os.Getenv("AXISRELAY_DATABASE_DRIVER"), "mysql")
+	cfg.Database.Host = os.Getenv("AXISRELAY_DATABASE_HOST")
+	if v := os.Getenv("AXISRELAY_DATABASE_PORT"); v != "" {
 		if p, err := strconv.Atoi(v); err == nil {
 			cfg.Database.Port = p
 		}
 	}
-	cfg.Database.User = os.Getenv("DATABASE_USER")
-	cfg.Database.Password = os.Getenv("DATABASE_PASSWORD")
-	cfg.Database.DBName = os.Getenv("DATABASE_NAME")
-	if v := strings.TrimSpace(os.Getenv("DATABASE_SCHEMA")); v != "" {
-		if !IsValidSchemaName(v) {
-			return nil, fmt.Errorf("非法的 DATABASE_SCHEMA: %q（仅允许字母、数字、下划线，且不能以数字开头，长度不超过 63）", v)
+	cfg.Database.User = os.Getenv("AXISRELAY_DATABASE_USER")
+	cfg.Database.Password = os.Getenv("AXISRELAY_DATABASE_PASSWORD")
+	cfg.Database.DBName = os.Getenv("AXISRELAY_DATABASE_NAME")
+	if cfg.Database.Port == 0 {
+		switch cfg.Database.Driver {
+		case "mysql":
+			cfg.Database.Port = 3306
+		case "postgres", "postgresql":
+			cfg.Database.Port = 5432
 		}
-		cfg.Database.Schema = v
-	}
-	if v := os.Getenv("DATABASE_SSLMODE"); v != "" {
-		cfg.Database.SSLMode = v
 	}
 
 	// 缓存配置
-	cfg.Cache.Driver = normalizeDriver(os.Getenv("CACHE_DRIVER"), "redis")
-	cfg.Cache.Redis.Addr = strings.TrimSpace(os.Getenv("REDIS_ADDR"))
-	cfg.Cache.Redis.Username = strings.TrimSpace(os.Getenv("REDIS_USERNAME"))
-	cfg.Cache.Redis.Password = os.Getenv("REDIS_PASSWORD")
-	if v := os.Getenv("REDIS_DB"); v != "" {
+	cfg.Cache.Driver = normalizeDriver(os.Getenv("AXISRELAY_CACHE_DRIVER"), "redis")
+	cfg.Cache.Redis.Addr = strings.TrimSpace(os.Getenv("AXISRELAY_REDIS_ADDR"))
+	cfg.Cache.Redis.Username = strings.TrimSpace(os.Getenv("AXISRELAY_REDIS_USERNAME"))
+	cfg.Cache.Redis.Password = os.Getenv("AXISRELAY_REDIS_PASSWORD")
+	if v := os.Getenv("AXISRELAY_REDIS_DB"); v != "" {
 		if db, err := strconv.Atoi(v); err == nil {
 			cfg.Cache.Redis.DB = db
 		}
 	}
-	cfg.Cache.Redis.TLS = parseBoolEnv(os.Getenv("REDIS_TLS"))
-	cfg.Cache.Redis.InsecureSkipVerify = parseBoolEnv(os.Getenv("REDIS_INSECURE_SKIP_VERIFY"))
+	cfg.Cache.Redis.TLS = parseBoolEnv(os.Getenv("AXISRELAY_REDIS_TLS"))
+	cfg.Cache.Redis.InsecureSkipVerify = parseBoolEnv(os.Getenv("AXISRELAY_REDIS_INSECURE_SKIP_VERIFY"))
 
 	// 校验必填物理层配置
 	switch cfg.Database.Driver {
-	case "sqlite":
-		if cfg.Database.Path == "" {
-			return nil, fmt.Errorf("必须通过 .env 或环境变量配置 SQLite 数据库路径 (DATABASE_PATH)")
+	case "mysql", "postgres", "postgresql":
+		if strings.TrimSpace(cfg.Database.Host) == "" {
+			return nil, fmt.Errorf("必须配置数据库主机 (AXISRELAY_DATABASE_HOST)")
 		}
-	case "postgres":
-		if cfg.Database.Host == "" {
-			return nil, fmt.Errorf("必须通过 .env 或环境变量配置 PostgreSQL (DATABASE_HOST)")
+		if strings.TrimSpace(cfg.Database.User) == "" {
+			return nil, fmt.Errorf("必须配置数据库用户 (AXISRELAY_DATABASE_USER)")
+		}
+		if strings.TrimSpace(cfg.Database.DBName) == "" {
+			return nil, fmt.Errorf("必须配置数据库名称 (AXISRELAY_DATABASE_NAME)")
 		}
 	default:
-		return nil, fmt.Errorf("不支持的数据库驱动: %s", cfg.Database.Driver)
-	}
-	if cfg.Database.Port == 0 {
-		cfg.Database.Port = 5432
-	}
-	if cfg.Database.SSLMode == "" {
-		cfg.Database.SSLMode = "disable"
+		return nil, fmt.Errorf("不支持的数据库驱动: %s（仅支持 mysql 或 postgres）", cfg.Database.Driver)
 	}
 
 	switch cfg.Cache.Driver {
 	case "memory":
 	case "redis":
 		if cfg.Cache.Redis.Addr == "" {
-			return nil, fmt.Errorf("必须通过 .env 或环境变量配置 Redis (REDIS_ADDR)")
+			return nil, fmt.Errorf("必须通过 .env 或环境变量配置 Redis (AXISRELAY_REDIS_ADDR)")
 		}
 	default:
 		return nil, fmt.Errorf("不支持的缓存驱动: %s", cfg.Cache.Driver)

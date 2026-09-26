@@ -94,19 +94,19 @@ func TestWaitForRedisLoadingTimesOut(t *testing.T) {
 }
 
 func TestRedisLoadingWaitEnvOverride(t *testing.T) {
-	t.Setenv("CODEX_REDIS_LOADING_WAIT_SECONDS", "")
+	t.Setenv("AXISRELAY_REDIS_LOADING_WAIT_SECONDS", "")
 	if got := redisLoadingWait(); got != defaultRedisLoadingWait {
 		t.Fatalf("默认应为 %s，实际 %s", defaultRedisLoadingWait, got)
 	}
-	t.Setenv("CODEX_REDIS_LOADING_WAIT_SECONDS", "30")
+	t.Setenv("AXISRELAY_REDIS_LOADING_WAIT_SECONDS", "30")
 	if got := redisLoadingWait(); got != 30*time.Second {
 		t.Fatalf("期望 30s，实际 %s", got)
 	}
-	t.Setenv("CODEX_REDIS_LOADING_WAIT_SECONDS", "0")
+	t.Setenv("AXISRELAY_REDIS_LOADING_WAIT_SECONDS", "0")
 	if got := redisLoadingWait(); got != 0 {
 		t.Fatalf("0 应禁用等待，实际 %s", got)
 	}
-	t.Setenv("CODEX_REDIS_LOADING_WAIT_SECONDS", "abc")
+	t.Setenv("AXISRELAY_REDIS_LOADING_WAIT_SECONDS", "abc")
 	if got := redisLoadingWait(); got != defaultRedisLoadingWait {
 		t.Fatalf("非法值应回退默认，实际 %s", got)
 	}

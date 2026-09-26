@@ -13,7 +13,7 @@ body:
     attributes:
       label: 提交前我已确认
       options:
-        - label: 我看过 [README](https://github.com/james-6-23/codex2api#documentation) 和 `docs/` 里的部署说明
+        - label: 我看过 [README](https://github.com/wuekevin/axisrelay#documentation) 和 `docs/` 里的部署说明
           required: true
         - label: 我已经把贴出来的 docker-compose / env / 日志里的敏感信息打码
           required: true
@@ -38,7 +38,7 @@ body:
       label: 我卡在哪一步 / 报了什么错？
       description: 尽量贴上启动日志的报错段落，比凭印象描述准。
       placeholder: |
-        例如：我执行 docker compose up 后，codex2api 容器一直重启，
+        例如：我执行 docker compose up 后，axisrelay 容器一直重启，
         日志里反复出现 "failed to connect to redis"……
     validations:
       required: true

@@ -20,9 +20,9 @@ type externalSemanticCorpusRow struct {
 // repository. It is opt-in so ordinary contributors do not need local report
 // artifacts, while release QA can still use the exact production-like corpus.
 func TestExternalSemanticCorpusReplay(t *testing.T) {
-	rawPaths := strings.TrimSpace(os.Getenv("PROMPT_FILTER_QA_CORPUS"))
+	rawPaths := strings.TrimSpace(os.Getenv("AXISRELAY_PROMPT_FILTER_QA_CORPUS"))
 	if rawPaths == "" {
-		t.Skip("set PROMPT_FILTER_QA_CORPUS to replay external semantic corpora")
+		t.Skip("set AXISRELAY_PROMPT_FILTER_QA_CORPUS to replay external semantic corpora")
 	}
 
 	cfg := recommendedEnabledConfig()

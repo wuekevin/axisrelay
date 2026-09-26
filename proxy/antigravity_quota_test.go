@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/codex2api/auth"
+	"github.com/wuekevin/axisrelay/auth"
 )
 
 const antigravityQuotaExhaustedBody = `{"error":{"code":429,"message":"You have exhausted your capacity on this model.","status":"RESOURCE_EXHAUSTED","details":[{"@type":"type.googleapis.com/google.rpc.ErrorInfo","reason":"QUOTA_EXHAUSTED","domain":"cloudcode-pa.googleapis.com","metadata":{"model":"gemini-3.7-flash-tiered"}},{"@type":"type.googleapis.com/google.rpc.RetryInfo","retryDelay":"4m50s"}]}}`

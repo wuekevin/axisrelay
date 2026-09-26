@@ -1,6 +1,6 @@
-# Codex2API 贡献指南
+# AxisRelay 贡献指南
 
-感谢您对 Codex2API 项目的关注！本指南将帮助您了解如何参与项目贡献。
+感谢您对 AxisRelay 项目的关注！本指南将帮助您了解如何参与项目贡献。
 
 ## 目录
 
@@ -27,9 +27,9 @@
 1. **Fork 并克隆仓库**
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/codex2api.git
-cd codex2api
-git remote add upstream https://github.com/james-6-23/codex2api.git
+git clone https://github.com/YOUR_USERNAME/axisrelay.git
+cd axisrelay
+git remote add upstream https://github.com/wuekevin/axisrelay.git
 ```
 
 2. **安装后端依赖**
@@ -152,7 +152,7 @@ npm run test:svg
 ### 项目结构规范
 
 ```
-codex2api/
+axisrelay/
 ├── admin/          # 管理后台 API 处理器
 ├── auth/           # 账号池和调度逻辑
 ├── cache/          # 缓存抽象层
@@ -406,8 +406,8 @@ git push origin v1.0.0
 
 ## 获取帮助
 
-- **GitHub Issues**: [提交问题](https://github.com/james-6-23/codex2api/issues)
-- **Discussions**: [参与讨论](https://github.com/james-6-23/codex2api/discussions)
+- **GitHub Issues**: [提交问题](https://github.com/wuekevin/axisrelay/issues)
+- **Discussions**: [参与讨论](https://github.com/wuekevin/axisrelay/discussions)
 
 ---
 

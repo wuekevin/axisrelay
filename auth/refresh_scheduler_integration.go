@@ -171,40 +171,35 @@ func (s *Store) InitRefreshSchedulerFromEnv() {
 	config := DefaultRefreshConfig()
 
 	// 从环境变量读取配置
-	if v := getEnvInt("REFRESH_MAX_CONCURRENCY", 0); v > 0 {
+	if v := getEnvInt("AXISRELAY_REFRESH_MAX_CONCURRENCY", 0); v > 0 {
 		config.MaxConcurrency = v
 	}
-	if v := getEnvDuration("REFRESH_PRE_EXPIRE_WINDOW", 0); v > 0 {
+	if v := getEnvDuration("AXISRELAY_REFRESH_PRE_EXPIRE_WINDOW", 0); v > 0 {
 		config.PreExpireWindow = v
 	}
-	if v := getEnvDuration("REFRESH_MIN_INTERVAL", 0); v > 0 {
+	if v := getEnvDuration("AXISRELAY_REFRESH_MIN_INTERVAL", 0); v > 0 {
 		config.MinInterval = v
 	}
-	if v := getEnvDuration("REFRESH_RETRY_BACKOFF_BASE", 0); v > 0 {
+	if v := getEnvDuration("AXISRELAY_REFRESH_RETRY_BACKOFF_BASE", 0); v > 0 {
 		config.RetryBackoffBase = v
 	}
-	if v := getEnvInt("REFRESH_RETRY_MAX_ATTEMPTS", 0); v > 0 {
+	if v := getEnvInt("AXISRELAY_REFRESH_RETRY_MAX_ATTEMPTS", 0); v > 0 {
 		config.RetryMaxAttempts = v
 	}
-	if v := getEnvFloat("REFRESH_JITTER_PERCENT", -1); v >= 0 {
+	if v := getEnvFloat("AXISRELAY_REFRESH_JITTER_PERCENT", -1); v >= 0 {
 		config.JitterPercent = v
 	}
-	if v := getEnvInt("REFRESH_BATCH_SIZE", 0); v > 0 {
+	if v := getEnvInt("AXISRELAY_REFRESH_BATCH_SIZE", 0); v > 0 {
 		config.BatchSize = v
 	}
-	config.EnableBatchOptimize = truthyEnv(refreshGetEnv("REFRESH_BATCH_OPTIMIZE", "true"))
+	config.EnableBatchOptimize = truthyEnv(refreshGetEnv("AXISRELAY_REFRESH_BATCH_OPTIMIZE", "true"))
 
 	s.EnableRefreshScheduler(config)
 }
 
 // refreshSchedulerEnabledFromEnv 检查环境变量是否启用刷新调度器
 func refreshSchedulerEnabledFromEnv() bool {
-	for _, key := range []string{"REFRESH_SCHEDULER_ENABLED", "SMART_REFRESH_ENABLED"} {
-		if truthyEnv(refreshGetEnv(key, "")) {
-			return true
-		}
-	}
-	return false
+	return truthyEnv(refreshGetEnv("AXISRELAY_REFRESH_SCHEDULER_ENABLED", ""))
 }
 
 // refreshGetEnv 获取环境变量

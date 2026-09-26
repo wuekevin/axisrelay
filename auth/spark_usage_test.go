@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/codex2api/database"
+	"github.com/wuekevin/axisrelay/database"
 )
 
 func TestIsSparkUsagePlanFoldsProlite(t *testing.T) {
@@ -104,7 +104,7 @@ func TestFastSchedulerKeeps5hExhaustedSparkAccount(t *testing.T) {
 
 func TestSparkSnapshotHydratesFromCredentials(t *testing.T) {
 	ctx := context.Background()
-	db, err := database.New("sqlite", filepath.Join(t.TempDir(), "codex2api.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "axisrelay.db"))
 	if err != nil {
 		t.Fatalf("database.New: %v", err)
 	}

@@ -8,20 +8,20 @@ import (
 	"testing"
 	"time"
 
-	"github.com/codex2api/database"
+	"github.com/wuekevin/axisrelay/database"
 )
 
 // This opt-in test performs a real official-source fetch but writes only to a
 // temporary SQLite database. It is intentionally excluded from ordinary test
 // runs so CI never depends on external network availability.
 func TestLiveOfficialPricingSyncIsolated(t *testing.T) {
-	if os.Getenv("CODEX_LIVE_OFFICIAL_PRICING_TEST") != "1" {
-		t.Skip("set CODEX_LIVE_OFFICIAL_PRICING_TEST=1 to run live official pricing verification")
+	if os.Getenv("AXISRELAY_LIVE_OFFICIAL_PRICING_TEST") != "1" {
+		t.Skip("set AXISRELAY_LIVE_OFFICIAL_PRICING_TEST=1 to run live official pricing verification")
 	}
 	database.SetModelPricingOverrides(nil)
 	t.Cleanup(func() { database.SetModelPricingOverrides(nil) })
 
-	db, err := database.New("sqlite", filepath.Join(t.TempDir(), "official-pricing-live.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "official-pricing-live.db"))
 	if err != nil {
 		t.Fatalf("create isolated sqlite: %v", err)
 	}

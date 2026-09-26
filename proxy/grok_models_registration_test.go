@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/codex2api/auth"
-	"github.com/codex2api/database"
+	"github.com/wuekevin/axisrelay/auth"
+	"github.com/wuekevin/axisrelay/database"
 )
 
 // 未声明 models 白名单的 Grok 账号应把默认 Grok 模型集(含 grok-4.6)注册进 /v1/models。

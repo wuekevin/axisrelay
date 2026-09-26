@@ -10,7 +10,7 @@ package database
 // 为此采用**确定性 AEAD**(nonce 由 HMAC(key, field||plaintext) 派生):同一明文恒
 // 得同一密文 → 变更检测语义不变;密文非空 → 存在性检查不变。
 //
-// 开关:环境变量 CODEX_CRED_ENCRYPTION_KEY。未设置时所有函数是 no-op,行为与不加密
+// 开关:环境变量 AXISRELAY_CRED_ENCRYPTION_KEY。未设置时所有函数是 no-op,行为与不加密
 // 完全一致(存量明文账号照常工作)。设置后:新写入的敏感字段加密,读取端透明解密;
 // 存量明文行因无 enc: 前缀被原样返回,继续可用(渐进迁移,改写时自动转密文)。
 //
@@ -49,7 +49,7 @@ var (
 // credCipherKey 惰性读取并派生密钥(SHA-256(env 值)→ 32 字节)。未设置返回 nil。
 func credCipherKey() []byte {
 	credKeyOnce.Do(func() {
-		if v := strings.TrimSpace(os.Getenv("CODEX_CRED_ENCRYPTION_KEY")); v != "" {
+		if v := strings.TrimSpace(os.Getenv("AXISRELAY_CRED_ENCRYPTION_KEY")); v != "" {
 			sum := sha256.Sum256([]byte(v))
 			credKey = sum[:]
 		}

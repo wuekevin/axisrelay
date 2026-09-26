@@ -10,7 +10,7 @@ import (
 )
 
 func TestSchedulerOutboxRoundTripAndCleanup(t *testing.T) {
-	db, err := New("sqlite", filepath.Join(t.TempDir(), "scheduler-outbox.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "scheduler-outbox.db"))
 	if err != nil {
 		t.Fatalf("New(sqlite): %v", err)
 	}
@@ -49,7 +49,7 @@ func TestSchedulerOutboxRoundTripAndCleanup(t *testing.T) {
 }
 
 func TestSchedulerOutboxEventRollbackIsAtomic(t *testing.T) {
-	db, err := New("sqlite", filepath.Join(t.TempDir(), "scheduler-outbox-rollback.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "scheduler-outbox-rollback.db"))
 	if err != nil {
 		t.Fatalf("New(sqlite): %v", err)
 	}
@@ -75,7 +75,7 @@ func TestSchedulerOutboxEventRollbackIsAtomic(t *testing.T) {
 }
 
 func TestSchedulerOutboxTriggersExcludeAPIKeyUsageOnlyUpdates(t *testing.T) {
-	db, err := New("sqlite", filepath.Join(t.TempDir(), "scheduler-outbox-triggers.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "scheduler-outbox-triggers.db"))
 	if err != nil {
 		t.Fatalf("New(sqlite): %v", err)
 	}
@@ -114,7 +114,7 @@ func TestSchedulerOutboxTriggersExcludeAPIKeyUsageOnlyUpdates(t *testing.T) {
 }
 
 func TestSchedulerOutboxTriggersExcludeAccountUsageSnapshots(t *testing.T) {
-	db, err := New("sqlite", filepath.Join(t.TempDir(), "scheduler-account-trigger.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "scheduler-account-trigger.db"))
 	if err != nil {
 		t.Fatalf("New(sqlite): %v", err)
 	}
@@ -151,7 +151,7 @@ func TestSchedulerOutboxTriggersExcludeAccountUsageSnapshots(t *testing.T) {
 }
 
 func TestSchedulerBatchAccountProjectionHelpers(t *testing.T) {
-	db, err := New("sqlite", filepath.Join(t.TempDir(), "scheduler-batch-projection.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "scheduler-batch-projection.db"))
 	if err != nil {
 		t.Fatalf("New(sqlite): %v", err)
 	}
@@ -208,7 +208,7 @@ func TestSchedulerBatchAccountProjectionHelpers(t *testing.T) {
 }
 
 func TestCleanupSchedulerOutboxThroughRespectsWatermark(t *testing.T) {
-	db, err := New("sqlite", filepath.Join(t.TempDir(), "scheduler-outbox-through.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "scheduler-outbox-through.db"))
 	if err != nil {
 		t.Fatalf("New(sqlite): %v", err)
 	}
@@ -242,7 +242,7 @@ func TestCleanupSchedulerOutboxThroughRespectsWatermark(t *testing.T) {
 }
 
 func TestListSchedulerOutboxEventsByIDs(t *testing.T) {
-	db, err := New("sqlite", filepath.Join(t.TempDir(), "scheduler-outbox-byids.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "scheduler-outbox-byids.db"))
 	if err != nil {
 		t.Fatalf("New(sqlite): %v", err)
 	}

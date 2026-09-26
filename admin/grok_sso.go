@@ -10,8 +10,8 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/codex2api/auth"
-	"github.com/codex2api/security"
+	"github.com/wuekevin/axisrelay/auth"
+	"github.com/wuekevin/axisrelay/security"
 	"github.com/gin-gonic/gin"
 )
 

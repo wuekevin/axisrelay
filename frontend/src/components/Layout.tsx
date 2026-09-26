@@ -23,24 +23,24 @@ type NavDef = {
 }
 
 const navDefs: NavDef[] = [
-  { to: '/', labelKey: 'nav.dashboard', icon: <LayoutDashboard className="size-[18px]" />, end: true },
-  { to: '/accounts', labelKey: 'nav.accounts', icon: <Users className="size-[18px]" /> },
-  { to: '/api-keys', labelKey: 'nav.apiKeys', icon: <KeyRound className="size-[18px]" /> },
-  { to: '/proxies', labelKey: 'nav.proxies', icon: <Globe className="size-[18px]" /> },
-  { to: '/images/studio', labelKey: 'nav.images', icon: <ImageIcon className="size-[18px]" />, activePrefix: '/images' },
-  { to: '/quality-test', labelKey: 'nav.qualityTest', icon: <FlaskConical className="size-[18px]" /> },
-  { to: '/prompt-filter/overview', labelKey: 'nav.promptFilter', icon: <ShieldAlert className="size-[18px]" />, activePrefix: '/prompt-filter' },
-  { to: '/ops/overview', labelKey: 'nav.ops', icon: <Server className="size-[18px]" />, activePrefix: '/ops' },
-  { to: '/usage', labelKey: 'nav.usage', icon: <Activity className="size-[18px]" /> },
-  { to: '/model-pricing', labelKey: 'nav.modelPricing', icon: <CircleDollarSign className="size-[18px]" /> },
-  { to: '/payload-rules/editor', labelKey: 'nav.payloadRules', icon: <Braces className="size-[18px]" />, activePrefix: '/payload-rules' },
-  { to: '/theme', labelKey: 'nav.theme', icon: <Palette className="size-[18px]" /> },
-  { to: '/settings', labelKey: 'nav.settings', icon: <Settings className="size-[18px]" /> },
-  { to: '/docs', labelKey: 'nav2.docs', icon: <BookOpen className="size-[18px]" /> },
+  { to: '/admin/gateway', labelKey: 'nav.dashboard', icon: <LayoutDashboard className="size-[18px]" />, end: true },
+  { to: '/admin/gateway/accounts', labelKey: 'nav.accounts', icon: <Users className="size-[18px]" /> },
+  { to: '/admin/gateway/api-keys', labelKey: 'nav.apiKeys', icon: <KeyRound className="size-[18px]" /> },
+  { to: '/admin/gateway/proxies', labelKey: 'nav.proxies', icon: <Globe className="size-[18px]" /> },
+  { to: '/admin/gateway/images/studio', labelKey: 'nav.images', icon: <ImageIcon className="size-[18px]" />, activePrefix: '/admin/gateway/images' },
+  { to: '/admin/gateway/quality-test', labelKey: 'nav.qualityTest', icon: <FlaskConical className="size-[18px]" /> },
+  { to: '/admin/gateway/prompt-filter/overview', labelKey: 'nav.promptFilter', icon: <ShieldAlert className="size-[18px]" />, activePrefix: '/admin/gateway/prompt-filter' },
+  { to: '/admin/gateway/ops/overview', labelKey: 'nav.ops', icon: <Server className="size-[18px]" />, activePrefix: '/admin/gateway/ops' },
+  { to: '/admin/gateway/usage', labelKey: 'nav.usage', icon: <Activity className="size-[18px]" /> },
+  { to: '/admin/gateway/model-pricing', labelKey: 'nav.modelPricing', icon: <CircleDollarSign className="size-[18px]" /> },
+  { to: '/admin/gateway/payload-rules/editor', labelKey: 'nav.payloadRules', icon: <Braces className="size-[18px]" />, activePrefix: '/admin/gateway/payload-rules' },
+  { to: '/admin/gateway/theme', labelKey: 'nav.theme', icon: <Palette className="size-[18px]" /> },
+  { to: '/admin/gateway/settings', labelKey: 'nav.settings', icon: <Settings className="size-[18px]" /> },
+  { to: '/admin/gateway/docs', labelKey: 'nav2.docs', icon: <BookOpen className="size-[18px]" /> },
 ]
 
 // Explicit mobile primary order: dashboard → accounts → usage → ops.
-const MOBILE_PRIMARY_PATHS = ['/', '/accounts', '/usage', '/ops/overview'] as const
+const MOBILE_PRIMARY_PATHS = ['/admin/gateway', '/admin/gateway/accounts', '/admin/gateway/usage', '/admin/gateway/ops/overview'] as const
 const mobilePrimaryPathSet = new Set<string>(MOBILE_PRIMARY_PATHS)
 const mobilePrimaryNav = MOBILE_PRIMARY_PATHS
   .map((path) => navDefs.find((item) => item.to === path))
@@ -87,7 +87,7 @@ export default function Layout({ children }: PropsWithChildren) {
   const versionButtonRef = useRef<HTMLButtonElement | null>(null)
   const [versionPopoverPos, setVersionPopoverPos] = useState<{ top: number; left: number } | null>(null)
   const releaseURL = updateInfo?.release_url || (latestVersion
-    ? `https://github.com/james-6-23/codex2api/releases/tag/${encodeURIComponent(latestVersion)}`
+    ? `https://github.com/wuekevin/axisrelay/releases/tag/${encodeURIComponent(latestVersion)}`
     : undefined)
   const canApplyUpdate = hasUpdate && Boolean(updateInfo) && updateInfo?.supported !== false
   const updateUnavailableReason = updateInfo?.unsupported_reason
@@ -292,9 +292,9 @@ export default function Layout({ children }: PropsWithChildren) {
 
   // 表格重度页（账号管理 / 使用统计）在超宽屏上放开 96rem 限宽，减少横向滚动
   const isFullWidthRoute =
-    location.pathname === '/usage' ||
-    location.pathname === '/accounts' ||
-    location.pathname.startsWith('/accounts/')
+    location.pathname === '/admin/gateway/usage' ||
+    location.pathname === '/admin/gateway/accounts' ||
+    location.pathname.startsWith('/admin/gateway/accounts/')
 
   const mobileMoreActive = useMemo(
     () => mobileMoreNav.some((item) => isNavActive(item)),
@@ -563,7 +563,7 @@ export default function Layout({ children }: PropsWithChildren) {
                   <Languages className="size-[18px]" />
                 </button>
                 <a
-                  href="https://github.com/james-6-23/codex2api"
+                  href="https://github.com/wuekevin/axisrelay"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center justify-center size-9 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/70 transition-colors duration-150"

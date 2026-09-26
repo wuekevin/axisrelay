@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/codex2api/database"
+	"github.com/wuekevin/axisrelay/database"
 )
 
 func newPremium5hTestAccount(plan string, resetAt time.Time) *Account {
@@ -180,7 +180,7 @@ func TestClearAbsentUsageSnapshot5hRejectsStaleObservation(t *testing.T) {
 
 func TestClearAbsentUsageSnapshot5hClearsPersistedPremiumCooldown(t *testing.T) {
 	ctx := context.Background()
-	db, err := database.New("sqlite", filepath.Join(t.TempDir(), "codex2api.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "axisrelay.db"))
 	if err != nil {
 		t.Fatalf("database.New: %v", err)
 	}
@@ -217,7 +217,7 @@ func TestClearAbsentUsageSnapshot5hClearsPersistedPremiumCooldown(t *testing.T) 
 
 func TestClearAbsentUsageSnapshot5hSkipsPersistenceWithoutLocalState(t *testing.T) {
 	ctx := context.Background()
-	db, err := database.New("sqlite", filepath.Join(t.TempDir(), "codex2api.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "axisrelay.db"))
 	if err != nil {
 		t.Fatalf("database.New: %v", err)
 	}

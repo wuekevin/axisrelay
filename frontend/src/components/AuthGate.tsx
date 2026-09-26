@@ -42,8 +42,8 @@ interface SetupCheck {
 
 const MIN_SECRET_LEN = 8
 const MAX_SECRET_LEN = 256
-const SETUP_SERVICE_URL_KEY = 'codex2api:first_setup_service_url'
-const SETUP_REVIEW_DONE_KEY = 'codex2api:first_setup_review_done_v1'
+const SETUP_SERVICE_URL_KEY = 'axisrelay:first_setup_service_url'
+const SETUP_REVIEW_DONE_KEY = 'axisrelay:first_setup_review_done_v1'
 
 const COPY = {
   zh: {
@@ -96,7 +96,7 @@ const COPY = {
     errMismatch: '两次输入不一致',
     errServer: '初始化失败，请稍后再试',
     loginSubtitle: '请输入管理密钥登录',
-    loginPlaceholder: '请输入 ADMIN_SECRET',
+    loginPlaceholder: '请输入 AXISRELAY_ADMIN_SECRET',
     loginError: '密钥错误，请重新输入',
     loginButton: '登录',
     loadingText: '加载中…',
@@ -151,7 +151,7 @@ const COPY = {
     errMismatch: 'The two entries do not match',
     errServer: 'Initialization failed, please retry',
     loginSubtitle: 'Enter your admin secret to sign in',
-    loginPlaceholder: 'Enter ADMIN_SECRET',
+    loginPlaceholder: 'Enter AXISRELAY_ADMIN_SECRET',
     loginError: 'Invalid secret, please try again',
     loginButton: 'Sign in',
     loadingText: 'Loading…',

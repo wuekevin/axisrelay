@@ -31,6 +31,8 @@ func (db *DB) SeedGrokMaintenanceJobs(ctx context.Context, dueAt time.Time) erro
 	upstreamExpr := `LOWER(COALESCE(credentials->>'upstream_type',''))`
 	if db.isSQLite() {
 		upstreamExpr = `LOWER(COALESCE(json_extract(credentials,'$.upstream_type'),''))`
+	} else if db.isMySQL() {
+		upstreamExpr = `LOWER(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(credentials,'$.upstream_type')),''))`
 	}
 	query := fmt.Sprintf(`
 		INSERT INTO maintenance_jobs(entity_id,job_kind,due_at,updated_at)
@@ -38,6 +40,13 @@ func (db *DB) SeedGrokMaintenanceJobs(ctx context.Context, dueAt time.Time) erro
 		WHERE status<>'deleted' AND COALESCE(error_message,'')<>'deleted'
 		  AND COALESCE(enabled,true) AND %s='grok'
 		ON CONFLICT(entity_id,job_kind) DO NOTHING`, upstreamExpr)
+	if db.isMySQL() {
+		query = fmt.Sprintf(`
+			INSERT IGNORE INTO maintenance_jobs(entity_id,job_kind,due_at,updated_at)
+			SELECT id,$1,$2,CURRENT_TIMESTAMP FROM accounts
+			WHERE status<>'deleted' AND COALESCE(error_message,'')<>'deleted'
+			  AND COALESCE(enabled,true) AND %s='grok'`, upstreamExpr)
+	}
 	_, err := db.conn.ExecContext(ctx, query, MaintenanceJobGrokFreshness, db.timeArg(dueAt))
 	return err
 }
@@ -45,8 +54,12 @@ func (db *DB) SeedGrokMaintenanceJobs(ctx context.Context, dueAt time.Time) erro
 func scanMaintenanceJob(scanner interface{ Scan(...interface{}) error }) (MaintenanceJob, error) {
 	var job MaintenanceJob
 	var dueRaw, leaseRaw interface{}
-	if err := scanner.Scan(&job.EntityID, &job.JobKind, &dueRaw, &job.LeaseOwner, &leaseRaw, &job.Attempts, &job.LastError); err != nil {
+	var lastError sql.NullString
+	if err := scanner.Scan(&job.EntityID, &job.JobKind, &dueRaw, &job.LeaseOwner, &leaseRaw, &job.Attempts, &lastError); err != nil {
 		return job, err
+	}
+	if lastError.Valid {
+		job.LastError = lastError.String
 	}
 	var err error
 	job.DueAt, err = parseDBTimeValue(dueRaw)
@@ -76,7 +89,53 @@ func (db *DB) ClaimMaintenanceJobs(ctx context.Context, jobKind, owner string, n
 		limit = 100
 	}
 	leaseUntil := now.Add(lease)
-	if !db.isSQLite() {
+	if db.isMySQL() {
+		tx, err := db.conn.BeginTx(ctx, nil)
+		if err != nil {
+			return nil, err
+		}
+		defer tx.Rollback()
+		rows, err := tx.QueryContext(ctx, `SELECT entity_id,job_kind,due_at,lease_owner,lease_until,attempts,last_error
+			FROM maintenance_jobs
+			WHERE job_kind=$1 AND due_at<=$2 AND (lease_until IS NULL OR lease_until<=$2)
+			ORDER BY due_at,entity_id LIMIT $3 FOR UPDATE SKIP LOCKED`, jobKind, db.timeArg(now), limit)
+		if err != nil {
+			return nil, err
+		}
+		candidates := make([]MaintenanceJob, 0, limit)
+		for rows.Next() {
+			job, err := scanMaintenanceJob(rows)
+			if err != nil {
+				_ = rows.Close()
+				return nil, err
+			}
+			candidates = append(candidates, job)
+		}
+		if err := rows.Close(); err != nil {
+			return nil, err
+		}
+		if err := rows.Err(); err != nil {
+			return nil, err
+		}
+		jobs := make([]MaintenanceJob, 0, len(candidates))
+		for _, candidate := range candidates {
+			if _, err := tx.ExecContext(ctx, `UPDATE maintenance_jobs
+				SET lease_owner=$1,lease_until=$2,attempts=attempts+1,updated_at=CURRENT_TIMESTAMP
+				WHERE entity_id=$3 AND job_kind=$4`, owner, db.timeArg(leaseUntil), candidate.EntityID, candidate.JobKind); err != nil {
+				return nil, err
+			}
+			candidate.LeaseOwner = owner
+			candidate.LeaseUntil = sql.NullTime{Time: leaseUntil, Valid: true}
+			candidate.Attempts++
+			jobs = append(jobs, candidate)
+		}
+		if err := tx.Commit(); err != nil {
+			return nil, err
+		}
+		return jobs, nil
+	}
+
+	if !db.isSQLite() && !db.isMySQL() {
 		rows, err := db.conn.QueryContext(ctx, `
 			WITH due AS (
 				SELECT entity_id,job_kind FROM maintenance_jobs

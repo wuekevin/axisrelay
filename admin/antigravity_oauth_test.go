@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/codex2api/auth"
 	"github.com/gin-gonic/gin"
+	"github.com/wuekevin/axisrelay/auth"
 )
 
 func newAntigravityOAuthTestSession(id, state string) *antigravityOAuthSession {
@@ -62,8 +62,8 @@ func TestAntigravityOAuthClaimIsOneShotAndStateExact(t *testing.T) {
 }
 
 func TestStartAntigravityOAuthUsesBuiltinOfficialClientWhenUnconfigured(t *testing.T) {
-	t.Setenv("ANTIGRAVITY_OAUTH_CLIENTS", "")
-	t.Setenv("ANTIGRAVITY_OAUTH_CLIENT_KEY", "")
+	t.Setenv("AXISRELAY_ANTIGRAVITY_OAUTH_CLIENTS", "")
+	t.Setenv("AXISRELAY_ANTIGRAVITY_OAUTH_CLIENT_KEY", "")
 	auth.SetConfiguredAntigravityOAuth(auth.AntigravityOAuthSettings{})
 	t.Cleanup(func() { auth.SetConfiguredAntigravityOAuth(auth.AntigravityOAuthSettings{}) })
 	gin.SetMode(gin.TestMode)
@@ -102,7 +102,7 @@ func TestStartAntigravityOAuthUsesBuiltinOfficialClientWhenUnconfigured(t *testi
 }
 
 func TestStartAntigravityOAuthCreatesStateBoundPKCESession(t *testing.T) {
-	t.Setenv("ANTIGRAVITY_OAUTH_CLIENTS", "test|test-client|test-secret")
+	t.Setenv("AXISRELAY_ANTIGRAVITY_OAUTH_CLIENTS", "test|test-client|test-secret")
 	gin.SetMode(gin.TestMode)
 	db := newTestAdminDB(t)
 	h := &Handler{db: db}

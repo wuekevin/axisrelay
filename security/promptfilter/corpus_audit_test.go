@@ -11,12 +11,12 @@ import (
 	"testing"
 )
 
-// PROMPT_FILTER_CORPUS enables an opt-in local corpus audit without embedding
+// AXISRELAY_PROMPT_FILTER_CORPUS enables an opt-in local corpus audit without embedding
 // private or offensive corpus text in the repository or test output.
 func TestOptionalLocalCorpusAudit(t *testing.T) {
-	root := strings.TrimSpace(os.Getenv("PROMPT_FILTER_CORPUS"))
+	root := strings.TrimSpace(os.Getenv("AXISRELAY_PROMPT_FILTER_CORPUS"))
 	if root == "" {
-		t.Skip("PROMPT_FILTER_CORPUS is not set")
+		t.Skip("AXISRELAY_PROMPT_FILTER_CORPUS is not set")
 	}
 	cfg := DefaultConfig()
 	cfg.Enabled = true
@@ -50,7 +50,7 @@ func TestOptionalLocalCorpusAudit(t *testing.T) {
 			blocked++
 		} else if candidate {
 			injectionMisses++
-			if os.Getenv("PROMPT_FILTER_CORPUS_REPORT_MISSES") == "1" {
+			if os.Getenv("AXISRELAY_PROMPT_FILTER_CORPUS_REPORT_MISSES") == "1" {
 				if rel, err := filepath.Rel(root, path); err == nil {
 					t.Logf("injection candidate allowed: %s", rel)
 				}

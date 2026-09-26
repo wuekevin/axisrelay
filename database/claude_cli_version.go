@@ -31,10 +31,15 @@ func (db *DB) UpdateClaudeSyncedCLIVersion(ctx context.Context, version string) 
 		return errors.New("database unavailable")
 	}
 	return db.withSQLiteWriteLock(ctx, func() error {
-		_, err := db.conn.ExecContext(ctx, `
+		query := `
 			INSERT INTO system_settings (id, claude_synced_cli_version) VALUES (1, $1)
-			ON CONFLICT (id) DO UPDATE SET claude_synced_cli_version = EXCLUDED.claude_synced_cli_version`,
-			strings.TrimSpace(version))
+			ON CONFLICT (id) DO UPDATE SET claude_synced_cli_version = EXCLUDED.claude_synced_cli_version`
+		if db.isMySQL() {
+			query = `
+				INSERT INTO system_settings (id, claude_synced_cli_version) VALUES (1, $1)
+				ON DUPLICATE KEY UPDATE claude_synced_cli_version = VALUES(claude_synced_cli_version)`
+		}
+		_, err := db.conn.ExecContext(ctx, query, strings.TrimSpace(version))
 		return err
 	})
 }
@@ -76,7 +81,7 @@ func (db *DB) UpdateAccountCustomHeaders(ctx context.Context, id int64, headers 
 			return fmt.Errorf("序列化 credentials 失败: %w", err)
 		}
 		update := `UPDATE accounts SET credentials = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2`
-		if !db.isSQLite() {
+		if !db.isSQLite() && !db.isMySQL() {
 			update = `UPDATE accounts SET credentials = $1::jsonb, updated_at = CURRENT_TIMESTAMP WHERE id = $2`
 		}
 		if _, err := tx.ExecContext(ctx, update, credJSON, id); err != nil {

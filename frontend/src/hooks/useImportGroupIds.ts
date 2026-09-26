@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { AccountGroup } from '../types'
 
-const STORAGE_KEY = 'codex2api.importGroupIds'
+const STORAGE_KEY = 'axisrelay.importGroupIds'
 
 function readStored(): number[] {
   try {

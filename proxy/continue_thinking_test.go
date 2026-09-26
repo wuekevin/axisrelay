@@ -374,7 +374,7 @@ func TestFoldTerminalOutputKeepsOnlyLastRoundEncryptedContent(t *testing.T) {
 
 // TestFoldTerminalOutputKeepAllEncryptedEscapeHatch 验证逃生阀恢复旧行为。
 func TestFoldTerminalOutputKeepAllEncryptedEscapeHatch(t *testing.T) {
-	t.Setenv("CODEX_CONTINUE_KEEP_ALL_ENCRYPTED", "1")
+	t.Setenv("AXISRELAY_CONTINUE_KEEP_ALL_ENCRYPTED", "1")
 	c := &foldCollector{
 		nextResp: []*http.Response{sseResponse(
 			evCreated(),

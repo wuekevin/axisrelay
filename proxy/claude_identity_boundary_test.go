@@ -10,11 +10,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/codex2api/auth"
-	"github.com/codex2api/config"
-	"github.com/codex2api/database"
 	"github.com/gin-gonic/gin"
 	"github.com/tidwall/gjson"
+	"github.com/wuekevin/axisrelay/auth"
+	"github.com/wuekevin/axisrelay/config"
+	"github.com/wuekevin/axisrelay/database"
 )
 
 func TestClaudeSessionIdentityPrecedenceAndIsolation(t *testing.T) {
@@ -126,7 +126,7 @@ func installClaudeBoundaryTransport(t *testing.T, account *auth.Account, transpo
 }
 
 func TestClaudeOutboundIdentityMatchesAcrossSelectedAccounts(t *testing.T) {
-	t.Setenv("CODEX_TRANSPORT_MODE", "standard")
+	t.Setenv("AXISRELAY_TRANSPORT_MODE", "standard")
 	const session = "11111111-2222-7333-8444-555555555555"
 	ctx := WithClaudeSessionID(context.Background(), session)
 	body := []byte(`{"model":"claude-sonnet-4-6","max_tokens":32,"messages":[{"role":"user","content":"hi"}],"metadata":{"trace":"keep","user_id":"{\"device_id\":\"old-device\",\"account_uuid\":\"old-account\",\"session_id\":\"old-session\",\"parent_session_id\":\"old-session\",\"extra\":9007199254740993}"}}`)
@@ -163,7 +163,7 @@ func TestClaudeOutboundIdentityMatchesAcrossSelectedAccounts(t *testing.T) {
 }
 
 func TestClaudeHandlerSessionStaysStableAcrossFailover(t *testing.T) {
-	t.Setenv("CODEX_TRANSPORT_MODE", "standard")
+	t.Setenv("AXISRELAY_TRANSPORT_MODE", "standard")
 	previous := CurrentRuntimeSettings()
 	t.Cleanup(func() { ApplyRuntimeSettings(previous) })
 	settings := &database.SystemSettings{MaxConcurrency: 2, MaxRetries: 1}

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+	"time"
 )
 
 // Renewal history stores immutable display snapshots, never tokens or proxy credentials.
@@ -54,6 +55,9 @@ type CodexTurnStateHistoryPage struct {
 }
 
 func (db *DB) ensureCodexTurnStateHistorySchema(ctx context.Context) error {
+	if db.isMySQL() {
+		return nil
+	}
 	idType := "BIGSERIAL PRIMARY KEY"
 	if db.isSQLite() {
 		idType = "INTEGER PRIMARY KEY AUTOINCREMENT"
@@ -78,6 +82,16 @@ func (db *DB) ensureCodexTurnStateHistorySchema(ctx context.Context) error {
 	return nil
 }
 
+func (db *DB) turnStateHistoryTimeArg(value int64, nullable bool) interface{} {
+	if !db.isMySQL() {
+		return value
+	}
+	if nullable && value <= 0 {
+		return nil
+	}
+	return time.UnixMilli(value).UTC()
+}
+
 func renewalHistoryProxyURL(raw string) string {
 	if strings.TrimSpace(raw) == "" {
 		return ""
@@ -91,6 +105,15 @@ func renewalHistoryProxyURL(raw string) string {
 
 func (db *DB) StartCodexTurnStateHistory(ctx context.Context, record CodexTurnStateRenewalRecord) (int64, error) {
 	record.ProxyURL = renewalHistoryProxyURL(record.ProxyURL)
+	if db.isMySQL() {
+		res, err := db.conn.ExecContext(ctx, `INSERT INTO codex_turn_state_renewal_history
+ (account_id,account_name,plan_type,model,attempt,max_attempts,proxy_id,proxy_name,proxy_url,proxy_ip,route,started_at,expires_before)
+ VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`, record.AccountID, record.AccountName, record.PlanType, record.Model, record.Attempt, record.MaxAttempts, record.ProxyID, record.ProxyName, record.ProxyURL, record.ProxyIP, record.Route, db.turnStateHistoryTimeArg(record.StartedAt, false), db.turnStateHistoryTimeArg(record.ExpiresBefore, false))
+		if err != nil {
+			return 0, err
+		}
+		return res.LastInsertId()
+	}
 	var id int64
 	err := db.conn.QueryRowContext(ctx, `INSERT INTO codex_turn_state_renewal_history
  (account_id,account_name,plan_type,model,attempt,max_attempts,proxy_id,proxy_name,proxy_url,proxy_ip,route,started_at,expires_before)
@@ -99,6 +122,11 @@ func (db *DB) StartCodexTurnStateHistory(ctx context.Context, record CodexTurnSt
 }
 
 func (db *DB) FinishCodexTurnStateHistory(ctx context.Context, id int64, status, reason string, finishedAt, durationMS, expiresAfter int64) error {
+	if db.isMySQL() {
+		_, err := db.conn.ExecContext(ctx, `UPDATE codex_turn_state_renewal_history
+ SET status=$2,reason=$3,finished_at=$4,duration_ms=$5,expires_after=$6 WHERE id=$1 AND status='running'`, id, status, reason, db.turnStateHistoryTimeArg(finishedAt, true), durationMS, db.turnStateHistoryTimeArg(expiresAfter, true))
+		return err
+	}
 	_, err := db.conn.ExecContext(ctx, `UPDATE codex_turn_state_renewal_history
  SET status=$2,reason=$3,finished_at=$4,duration_ms=$5,expires_after=$6 WHERE id=$1 AND status='running'`, id, status, reason, finishedAt, durationMS, expiresAfter)
 	return err
@@ -107,6 +135,11 @@ func (db *DB) FinishCodexTurnStateHistory(ctx context.Context, id int64, status,
 // A killed process cannot finalize its record. Never leave it permanently running
 // or infer success from a later template; the request deadline was 60 seconds.
 func (db *DB) RecoverCodexTurnStateHistory(ctx context.Context, now int64) error {
+	if db.isMySQL() {
+		_, err := db.conn.ExecContext(ctx, `UPDATE codex_turn_state_renewal_history SET status='interrupted',reason='worker_interrupted',finished_at=$1
+ WHERE status='running' AND started_at<$2`, db.turnStateHistoryTimeArg(now, false), db.turnStateHistoryTimeArg(now-120000, false))
+		return err
+	}
 	_, err := db.conn.ExecContext(ctx, `UPDATE codex_turn_state_renewal_history SET status='interrupted',reason='worker_interrupted',finished_at=$1
  WHERE status='running' AND started_at<$2`, now, now-120000)
 	return err
@@ -151,7 +184,15 @@ func (db *DB) ListCodexTurnStateHistory(ctx context.Context, page, size int, fil
 	if err := db.conn.QueryRowContext(ctx, `SELECT count(*) FROM codex_turn_state_renewal_history`+where, args...).Scan(&result.Total); err != nil {
 		return result, err
 	}
-	query := `SELECT id,account_id,account_name,plan_type,model,attempt,max_attempts,proxy_id,proxy_name,proxy_url,proxy_ip,route,started_at,finished_at,duration_ms,status,reason,expires_before,expires_after FROM codex_turn_state_renewal_history` + where + fmt.Sprintf(` ORDER BY id DESC LIMIT $%d OFFSET $%d`, len(args)+1, len(args)+2)
+	selectColumns := "id,account_id,account_name,plan_type,model,attempt,max_attempts,proxy_id,proxy_name,COALESCE(proxy_url,''),proxy_ip,route,started_at,finished_at,duration_ms,status,COALESCE(reason,''),expires_before,expires_after"
+	if db.isMySQL() {
+		selectColumns = "id,account_id,account_name,plan_type,model,attempt,max_attempts,proxy_id,proxy_name,COALESCE(proxy_url,''),proxy_ip,route," +
+			"CAST(UNIX_TIMESTAMP(started_at)*1000 AS SIGNED)," +
+			"COALESCE(CAST(UNIX_TIMESTAMP(finished_at)*1000 AS SIGNED),0),duration_ms,status,COALESCE(reason,'')," +
+			"CAST(UNIX_TIMESTAMP(expires_before)*1000 AS SIGNED)," +
+			"COALESCE(CAST(UNIX_TIMESTAMP(expires_after)*1000 AS SIGNED),0)"
+	}
+	query := `SELECT ` + selectColumns + ` FROM codex_turn_state_renewal_history` + where + fmt.Sprintf(` ORDER BY id DESC LIMIT $%d OFFSET $%d`, len(args)+1, len(args)+2)
 	args = append(args, size, (page-1)*size)
 	rows, err := db.conn.QueryContext(ctx, query, args...)
 	if err != nil {

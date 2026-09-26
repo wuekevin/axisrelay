@@ -7,17 +7,17 @@ func TestDeviceProfileConfigFromEnv(t *testing.T) {
 		switch key {
 		case "STABILIZE_DEVICE_PROFILE":
 			return "true"
-		case "CODEX_USER_AGENT":
+		case "AXISRELAY_USER_AGENT":
 			return "codex_cli_rs/0.120.0 (Mac OS 15.5.0; arm64) Apple_Terminal/464"
-		case "CODEX_PACKAGE_VERSION":
+		case "AXISRELAY_PACKAGE_VERSION":
 			return "0.120.0"
-		case "CODEX_RUNTIME_VERSION":
+		case "AXISRELAY_RUNTIME_VERSION":
 			return "0.120.0"
-		case "CODEX_OS":
+		case "AXISRELAY_OS":
 			return "MacOS"
-		case "CODEX_ARCH":
+		case "AXISRELAY_ARCH":
 			return "arm64"
-		case "CODEX_BETA_FEATURES":
+		case "AXISRELAY_BETA_FEATURES":
 			return "multi_agent"
 		default:
 			return ""

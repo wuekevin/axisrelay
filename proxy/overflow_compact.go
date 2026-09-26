@@ -54,7 +54,7 @@ const overflowCompactOmittedMarker = "[Earlier conversation turns were omitted b
 const overflowCompactDigestPrefix = "[Verbatim excerpt of those turns, heavily truncated and possibly incomplete:]\n"
 
 func overflowCompactTailBytes() int {
-	if v := strings.TrimSpace(os.Getenv("CODEX_OVERFLOW_COMPACT_TAIL_KB")); v != "" {
+	if v := strings.TrimSpace(os.Getenv("AXISRELAY_OVERFLOW_COMPACT_TAIL_KB")); v != "" {
 		if n, err := strconv.Atoi(v); err == nil && n > 0 {
 			return n * 1024
 		}
@@ -63,7 +63,7 @@ func overflowCompactTailBytes() int {
 }
 
 func overflowCompactSummaryInputBytes() int {
-	if v := strings.TrimSpace(os.Getenv("CODEX_OVERFLOW_COMPACT_SUMMARY_INPUT_KB")); v != "" {
+	if v := strings.TrimSpace(os.Getenv("AXISRELAY_OVERFLOW_COMPACT_SUMMARY_INPUT_KB")); v != "" {
 		if n, err := strconv.Atoi(v); err == nil && n > 0 {
 			return n * 1024
 		}

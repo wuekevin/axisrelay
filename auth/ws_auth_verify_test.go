@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/codex2api/database"
+	"github.com/wuekevin/axisrelay/database"
 )
 
 // TestVerifyAccountAuthAsync 验证 WS 异常关闭后的鉴权验证探针：
