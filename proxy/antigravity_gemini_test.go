@@ -9,9 +9,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/gin-gonic/gin"
 	"github.com/wuekevin/axisrelay/auth"
 	"github.com/wuekevin/axisrelay/database"
-	"github.com/gin-gonic/gin"
 )
 
 func TestGeminiNativeToAntigravityEnvelope(t *testing.T) {
@@ -255,7 +255,7 @@ func TestExecuteAntigravityGeminiRequestRejectsAPIKeyAccount(t *testing.T) {
 }
 
 func TestAntigravityNativeGeminiSSEBodyUnwrapsChunks(t *testing.T) {
-	input := "data: {\"response\":{\"candidates\":[{\"content\":{\"parts\":[{\"text\":\"partial\"}]}}]}}\n\ndata: [DONE]\n\n"
+	input := "data: {\"response\":{\"candidates\":[{\"content\":{\"parts\":[{\"text\":\"partial\"}]},\"finishReason\":\"STOP\"}]}}\n\ndata: [DONE]\n\n"
 	body := newAntigravityNativeGeminiSSEResponseBody(io.NopCloser(strings.NewReader(input)), nil)
 	out, err := io.ReadAll(body)
 	if err != nil {
