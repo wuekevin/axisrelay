@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/codex2api/auth"
+	"github.com/wuekevin/axisrelay/auth"
 )
 
 // WhamDailyUsageURL 是 ChatGPT 后端按天返回工作区用量统计的端点。

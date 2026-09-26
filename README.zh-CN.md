@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/banner.svg" alt="Codex2API" width="100%">
+  <img src="assets/banner.svg" alt="AxisRelay" width="100%">
 </p>
 
 <p align="center">
@@ -11,21 +11,21 @@
   <img src="https://img.shields.io/badge/Gin-1.12-00ACD7?style=for-the-badge" alt="Gin">
   <img src="https://img.shields.io/badge/React-19-61DAFB?style=for-the-badge&logo=react&logoColor=111827" alt="React">
   <img src="https://img.shields.io/badge/Vite-8-646CFF?style=for-the-badge&logo=vite&logoColor=white" alt="Vite">
-  <img src="https://img.shields.io/badge/DB-PostgreSQL%20%7C%20SQLite-4169E1?style=for-the-badge&logo=postgresql&logoColor=white" alt="Database">
+  <img src="https://img.shields.io/badge/DB-MySQL%208%20%7C%20PostgreSQL-4479A1?style=for-the-badge&logo=mysql&logoColor=white" alt="Database">
   <img src="https://img.shields.io/badge/Cache-Redis%20%7C%20Memory-DC382D?style=for-the-badge&logo=redis&logoColor=white" alt="Cache">
   <img src="https://img.shields.io/badge/API-OpenAI%20%7C%20Anthropic-10A37F?style=for-the-badge" alt="API">
   <img src="https://img.shields.io/badge/Docker-Ready-2496ED?style=for-the-badge&logo=docker&logoColor=white" alt="Docker">
 </p>
 
-**把 Codex 账号池变成可观测、可调度、可运维的 OpenAI / Anthropic 兼容网关。** Codex2API 不是一个薄转发层，而是一套面向长期运行的 Codex 接入中枢：对外提供 `/v1/chat/completions`、`/v1/responses`、`/v1/messages`、Images 和 Models 等接口，对内维护 Refresh Token / Access Token 账号池、健康度评分、动态并发、限流恢复、用量统计和后台运维。
+**把 Codex 账号池变成可观测、可调度、可运维的 OpenAI / Anthropic 兼容网关。** AxisRelay 不是一个薄转发层，而是一套面向长期运行的 Codex 接入中枢：对外提供 `/v1/chat/completions`、`/v1/responses`、`/v1/messages`、Images 和 Models 等接口，对内维护 Refresh Token / Access Token 账号池、健康度评分、动态并发、限流恢复、用量统计和后台运维。
 
-它可以跑在完整的 **PostgreSQL + Redis** 生产形态，也可以用 **SQLite + 内存缓存** 单容器轻量部署。你可以把它接到 Codex CLI、Claude Code、OpenAI SDK 或任何兼容客户端上，用一个统一 Base URL 管理多账号、代理池、API Key、Prompt 检查、生图工作台和运行时配置。
+默认使用 **MySQL 8 + Redis**，同时保留 PostgreSQL 兼容能力。你可以把它接到 Codex CLI、Claude Code、OpenAI SDK 或任何兼容客户端上，用一个统一 Base URL 管理多账号、代理池、API Key、Prompt 检查、生图工作台和运行时配置。
 
 <table>
 <tr><td width="210"><b>统一兼容入口</b></td><td>同时覆盖 OpenAI 风格 Chat Completions / Responses / Images、Anthropic Messages、无前缀兼容路由和 Codex 原生 Responses 转发，客户端侧少改配置即可接入。</td></tr>
 <tr><td><b>账号池调度核心</b></td><td>围绕账号状态、健康层级、调度分、动态并发、冷却恢复和近期用量做选择，自动避开不可用账号，减少单账号打满和反复失败。支持 <code>round_robin</code> 和 <code>remaining_quota</code> 两种调度模式，以及单账号信用计费标记。</td></tr>
 <tr><td><b>可视化管理后台</b></td><td>内置 React / Vite 管理台，提供账号导入测试、API Key、代理池、生图（文生图 + 图生图）、Prompt 检查、用量统计、运维概览、调度看板和系统设置。</td></tr>
-<tr><td><b>两种部署形态</b></td><td>生产环境用 PostgreSQL + Redis，单机测试用 SQLite + Memory；Docker 镜像、源码构建、本地开发和一键交互部署脚本都已准备好。SQLite 模式默认绑定 <code>127.0.0.1</code> 以提升安全性。</td></tr>
+<tr><td><b>生产数据层</b></td><td>MySQL 8 为主数据库，Redis 为默认缓存；PostgreSQL 保留兼容。Docker 镜像、源码构建、本地开发和一键交互部署脚本统一使用 <code>AXISRELAY_*</code> 配置命名空间。</td></tr>
 <tr><td><b>计费与可观测性</b></td><td>单账号 5h/7d 窗口化 USD 费用追踪、信用配额支持、API Key 用量追踪、OAuth PKCE 获取 Token、Prompt 过滤，以及含请求日志与趋势图表的用量仪表盘。</td></tr>
 </table>
 
@@ -33,8 +33,8 @@
 
 ## 在线 Demo
 
-- Demo 地址：[https://codex2api-latest-vu8j.onrender.com](https://codex2api-latest-vu8j.onrender.com)
-- Demo 密码：`codex2api`
+- Demo 地址：[https://axisrelay-latest-vu8j.onrender.com](https://axisrelay-latest-vu8j.onrender.com)
+- Demo 密码：`axisrelay`
 
 > Demo 环境仅用于体验管理后台界面和基础功能，请勿上传真实 Refresh Token、Access Token、API Key 或其他敏感信息。
 
@@ -109,16 +109,16 @@
 **场景 1：尚未克隆仓库（一行远程拉起）**
 
 ```bash
-bash <(curl -sSL https://raw.githubusercontent.com/james-6-23/codex2api/main/deploy.sh)
+bash <(curl -sSL https://raw.githubusercontent.com/wuekevin/axisrelay/main/deploy.sh)
 ```
 
-脚本会自动检测当前目录是否是 `codex2api` 仓库，若不是则克隆到 `./codex2api`，进入目录后再执行部署。
+脚本会自动检测当前目录是否是 `axisrelay` 仓库，若不是则克隆到 `./axisrelay`，进入目录后再执行部署。
 
 **场景 2：已经 `git clone` 到本地**
 
 ```bash
-git clone https://github.com/james-6-23/codex2api.git
-cd codex2api
+git clone https://github.com/wuekevin/axisrelay.git
+cd axisrelay
 bash deploy.sh
 ```
 
@@ -129,25 +129,23 @@ bash deploy.sh
 | 1) 仅本机访问 | `127.0.0.1` | 服务放在 nginx / Caddy 等反向代理后端，外网无法直接访问端口 |
 | 2) 全部网络 (默认) | `0.0.0.0` | 直接通过服务器 IP 对外暴露，部署完成后会展示本机 / 内网 / 公网地址 |
 
-绑定地址会写入 `.env` 的 `BIND_HOST`，后续可手动修改后 `docker compose up -d` 重启生效。
+绑定地址会写入 `.env` 的 `AXISRELAY_BIND_HOST`，后续可手动修改后 `docker compose up -d` 重启生效。
 
 **可选环境变量**（用于自定义自举行为）
 
 | 变量 | 默认 | 说明 |
 | --- | --- | --- |
-| `CODEX2API_REPO_URL` | `https://github.com/james-6-23/codex2api.git` | 克隆使用的仓库地址 |
-| `CODEX2API_REPO_BRANCH` | `main` | 克隆使用的分支 |
-| `CODEX2API_DIR_NAME` | `codex2api` | 克隆到本地的目录名 |
-| `CODEX2API_SKIP_GIT_PULL` | 空 | 设为 `1` 或 `true` 时跳过部署前自动拉取最新代码 |
+| `AXISRELAY_REPO_URL` | `https://github.com/wuekevin/axisrelay.git` | 克隆使用的仓库地址 |
+| `AXISRELAY_REPO_BRANCH` | `main` | 克隆使用的分支 |
+| `AXISRELAY_DIR_NAME` | `axisrelay` | 克隆到本地的目录名 |
+| `AXISRELAY_SKIP_GIT_PULL` | 空 | 设为 `1` 或 `true` 时跳过部署前自动拉取最新代码 |
 
 ### 部署模式总览
 
 | 模式 | 文件 | 适用场景 |
 | --- | --- | --- |
-| Docker 镜像部署 | `docker-compose.yml` | **推荐**，服务器 / 测试环境，直接拉取预构建镜像 |
-| 本地源码容器构建 | `docker-compose.local.yml` | 本地改代码后做完整容器验证 |
-| SQLite 轻量部署 | `docker-compose.sqlite.yml` | 单机轻量部署，不依赖 PostgreSQL / Redis |
-| SQLite 本地源码构建 | `docker-compose.sqlite.local.yml` | 本地改代码后验证 SQLite 轻量模式 |
+| Docker 镜像部署 | `docker-compose.yml` | **推荐**，MySQL 8 + Redis，直接拉取预构建镜像 |
+| 本地源码容器构建 | `docker-compose.local.yml` | MySQL 8 + Redis，本地改代码后做完整容器验证 |
 | 本地开发 | `go run .` + `npm run dev` | 前后端联调与调试 |
 
 ### 部署命令速查
@@ -155,12 +153,12 @@ bash deploy.sh
 标准镜像版：
 
 ```bash
-git clone https://github.com/james-6-23/codex2api.git
-cd codex2api
+git clone https://github.com/wuekevin/axisrelay.git
+cd axisrelay
 cp .env.example .env
 docker compose pull
 docker compose up -d
-docker compose logs -f codex2api
+docker compose logs -f axisrelay
 ```
 
 标准本地构建版：
@@ -168,40 +166,18 @@ docker compose logs -f codex2api
 ```bash
 cp .env.example .env
 docker compose -f docker-compose.local.yml up -d --build
-docker compose -f docker-compose.local.yml logs -f codex2api
-```
-
-SQLite 镜像版：
-
-```bash
-cp .env.sqlite.example .env
-docker compose -f docker-compose.sqlite.yml pull
-docker compose -f docker-compose.sqlite.yml up -d
-docker compose -f docker-compose.sqlite.yml logs -f codex2api
-```
-
-SQLite 本地构建版：
-
-```bash
-cp .env.sqlite.example .env
-docker compose -f docker-compose.sqlite.local.yml up -d --build
-docker compose -f docker-compose.sqlite.local.yml logs -f codex2api
+docker compose -f docker-compose.local.yml logs -f axisrelay
 ```
 
 补充说明：
 
-- 标准版和 SQLite 版都读取 `.env`
-- 切换部署模式前，需要先用对应的示例文件覆盖当前 `.env`
-- 标准镜像版项目名固定为 `codex2api`，数据卷固定为 `codex2api_pgdata`、`codex2api_redisdata`
-- 标准本地构建版项目名固定为 `codex2api-local`，数据卷固定为 `codex2api-local_pgdata`、`codex2api-local_redisdata`
-- SQLite 镜像版项目名固定为 `codex2api-sqlite`，数据卷固定为 `codex2api-sqlite_sqlite-data`
-- SQLite 本地构建版项目名固定为 `codex2api-sqlite-local`，数据卷固定为 `codex2api-sqlite-local_sqlite-data-local`
-- 标准版容器名：`codex2api`
-- SQLite 镜像版容器名：`codex2api-sqlite`
-- SQLite 本地构建版容器名：`codex2api-sqlite-local`
-- SQLite 轻量版只启动 `codex2api` 单容器，数据保存在 `/data/codex2api.db`
-- **SQLite compose 文件默认绑定 `127.0.0.1`，仅本机可访问。** 如需暴露给外部，请在 `.env` 中设置 `BIND_HOST=0.0.0.0` 或修改 compose 文件中的端口绑定。标准版 compose 文件默认绑定 `0.0.0.0`（所有网络接口）。
-- 生图工作台图库默认保存在 `/data/images`，上传的后台背景默认保存在 `/data/backgrounds`，标准版和 SQLite 版 Docker 配置都会持久化 `/data`
+- 两个标准 compose 都读取 `.env` 并启动 MySQL 8 + Redis
+- `AXISRELAY_DATABASE_DRIVER` 默认使用 `mysql`；手工/外部数据库部署可显式切换为 `postgres`
+- 标准镜像版项目名固定为 `axisrelay`，数据卷固定为 MySQL、Redis 与图片资源卷
+- 标准本地构建版项目名固定为 `axisrelay-local`，使用独立的 MySQL、Redis 与图片资源卷
+- 标准版容器名：`axisrelay`
+- 标准 compose 默认绑定 `0.0.0.0`；仅允许本机反向代理访问时可设置 `AXISRELAY_BIND_HOST=127.0.0.1`
+- 生图工作台图库默认保存在 `/data/images`，上传的后台背景默认保存在 `/data/backgrounds`，Docker 配置会持久化 `/data`
 - `docker compose down` 默认不会删除命名卷；只有 `docker compose down -v`、`docker volume rm` 或 `docker volume prune` 才会删除持久化数据
 - 不同部署模式的数据卷彼此隔离；切换 compose 文件后看到空数据，通常是切到了另一组卷，而不是原卷被自动删除
 
@@ -216,7 +192,7 @@ docker compose -f docker-compose.sqlite.local.yml logs -f codex2api
 
 ## Antigravity 渠道（API Key 路径为实验性）
 
-Antigravity 作为独立 Google 渠道管理，支持浏览器/导入 OAuth 凭据以及 Google API Key 账号。管理端提供含密钥的 JSON/ZIP 凭据导出、脱敏状态读取、显式控制面同步与有界能力探测。OAuth 请求使用 Cloud Code `v1internal` 适配器。API Key 请求指向 Generative Language `v1beta/interactions`，但普通调度默认关闭，只有显式设置 `ANTIGRAVITY_ENABLE_EXPERIMENTAL_INTERACTIONS=true` 才会放行。当前环境尚未成功运行真实上游集成测试，因此 API Key 路径仍为实验性，不能宣称已具备生产可用性。运行方法、安全风险与认证清单见 [docs/ANTIGRAVITY.md](docs/ANTIGRAVITY.md)。
+Antigravity 作为独立 Google 渠道管理，支持浏览器/导入 OAuth 凭据以及 Google API Key 账号。管理端提供含密钥的 JSON/ZIP 凭据导出、脱敏状态读取、显式控制面同步与有界能力探测。OAuth 请求使用 Cloud Code `v1internal` 适配器。API Key 请求指向 Generative Language `v1beta/interactions`，但普通调度默认关闭，只有显式设置 `AXISRELAY_ANTIGRAVITY_ENABLE_EXPERIMENTAL_INTERACTIONS=true` 才会放行。当前环境尚未成功运行真实上游集成测试，因此 API Key 路径仍为实验性，不能宣称已具备生产可用性。运行方法、安全风险与认证清单见 [docs/ANTIGRAVITY.md](docs/ANTIGRAVITY.md)。
 
 ## 完整文档
 
@@ -237,19 +213,19 @@ Antigravity 作为独立 Google 渠道管理，支持浏览器/导入 OAuth 凭�
 ## 升级与本地开发
 
 ```bash
-git pull && docker compose pull && docker compose up -d && docker compose logs -f codex2api
+git pull && docker compose pull && docker compose up -d && docker compose logs -f axisrelay
 ```
 
 > **⚠️ 重要：升级前请先备份数据库！**
 >
 > ```bash
-> docker exec codex2api-postgres pg_dump -U codex2api codex2api > backup_$(date +%Y%m%d_%H%M%S).sql
+> docker exec axisrelay-mysql mysqldump -uaxisrelay -p"$AXISRELAY_DATABASE_PASSWORD" axisrelay > backup_$(date +%Y%m%d_%H%M%S).sql
 > ```
 >
 > 如果升级后数据异常，可通过以下命令恢复：
 >
 > ```bash
-> docker exec -i codex2api-postgres psql -U codex2api codex2api < backup_xxx.sql
+> docker exec -i axisrelay-mysql mysql -uaxisrelay -p"$AXISRELAY_DATABASE_PASSWORD" axisrelay < backup_xxx.sql
 > ```
 
 如非必要，不建议在升级时执行 `docker compose down`；标准升级直接 `pull + up -d` 即可复用现有容器和命名卷。
@@ -284,29 +260,27 @@ Vite 会自动代理 `/api` 和 `/health` 到后端，开发时访问 `http://lo
 
 | 变量 | 说明 |
 | --- | --- |
-| `CODEX_PORT` | HTTP 端口，默认 `8080` |
-| `CODEX_MAX_REQUEST_BODY_SIZE_MB` | HTTP 请求体上限，单位 MB，默认 `48` |
-| `ADMIN_SECRET` | 管理后台登录密钥；设置后首次访问 `/admin` 会弹出密码输入框 |
-| `DATABASE_DRIVER` | 数据库驱动，支持 `postgres` / `sqlite` |
-| `DATABASE_PATH` | SQLite 数据文件路径，`DATABASE_DRIVER=sqlite` 时生效 |
-| `DATABASE_HOST` | PostgreSQL 主机，`DATABASE_DRIVER=postgres` 时生效 |
-| `DATABASE_PORT` | PostgreSQL 端口，默认 `5432` |
-| `DATABASE_USER` | PostgreSQL 用户 |
-| `DATABASE_PASSWORD` | PostgreSQL 密码 |
-| `DATABASE_NAME` | PostgreSQL 数据库名 |
-| `DATABASE_SSLMODE` | PostgreSQL SSL 模式，默认 `disable` |
-| `CACHE_DRIVER` | 缓存驱动，支持 `redis` / `memory` |
-| `REDIS_ADDR` | Redis 地址，例如 `redis:6379`、`redis://default:pass@host:6379/0`、`rediss://default:pass@host:6379/0`，`CACHE_DRIVER=redis` 时生效 |
-| `REDIS_USERNAME` | Redis ACL 用户名，可选；URL 中带用户名时可不填 |
-| `REDIS_PASSWORD` | Redis 密码 |
-| `REDIS_DB` | Redis DB 库号 |
-| `REDIS_TLS` | 是否为 `host:port` 形式的 Redis 启用 TLS；使用 `rediss://` 时会自动启用 |
-| `REDIS_INSECURE_SKIP_VERIFY` | 跳过 Redis TLS 证书校验，默认 `false`，仅用于自签证书或排障 |
+| `AXISRELAY_PORT` | HTTP 端口，默认 `8080` |
+| `AXISRELAY_MAX_REQUEST_BODY_SIZE_MB` | HTTP 请求体上限，单位 MB，默认 `48` |
+| `AXISRELAY_ADMIN_SECRET` | 管理后台登录密钥；设置后首次访问 `/admin` 会弹出密码输入框 |
+| `AXISRELAY_DATABASE_DRIVER` | 数据库驱动：`mysql`（默认）或 `postgres` |
+| `AXISRELAY_DATABASE_HOST` | 数据库主机 |
+| `AXISRELAY_DATABASE_PORT` | 数据库端口；MySQL 默认 `3306`，PostgreSQL 默认 `5432` |
+| `AXISRELAY_DATABASE_USER` | 数据库用户 |
+| `AXISRELAY_DATABASE_PASSWORD` | 数据库密码 |
+| `AXISRELAY_DATABASE_NAME` | 数据库名 |
+| `AXISRELAY_CACHE_DRIVER` | 缓存驱动，支持 `redis` / `memory` |
+| `AXISRELAY_REDIS_ADDR` | Redis 地址，例如 `redis:6379`、`redis://default:pass@host:6379/0`、`rediss://default:pass@host:6379/0`，`AXISRELAY_CACHE_DRIVER=redis` 时生效 |
+| `AXISRELAY_REDIS_USERNAME` | Redis ACL 用户名，可选；URL 中带用户名时可不填 |
+| `AXISRELAY_REDIS_PASSWORD` | Redis 密码 |
+| `AXISRELAY_REDIS_DB` | Redis DB 库号 |
+| `AXISRELAY_REDIS_TLS` | 是否为 `host:port` 形式的 Redis 启用 TLS；使用 `rediss://` 时会自动启用 |
+| `AXISRELAY_REDIS_INSECURE_SKIP_VERIFY` | 跳过 Redis TLS 证书校验，默认 `false`，仅用于自签证书或排障 |
 | `TZ` | 时区，例如 `Asia/Shanghai` |
 
-> Aiven、Upstash 等云 Redis 通常要求 TLS。推荐直接将 `REDIS_ADDR` 配置为平台提供的 `rediss://...` URL；如果只填写 `host:port`，请同时设置 `REDIS_TLS=true`。
+> Aiven、Upstash 等云 Redis 通常要求 TLS。推荐直接将 `AXISRELAY_REDIS_ADDR` 配置为平台提供的 `rediss://...` URL；如果只填写 `host:port`，请同时设置 `AXISRELAY_REDIS_TLS=true`。
 
-标准版 `.env.example` 已显式声明 `DATABASE_DRIVER=postgres` 与 `CACHE_DRIVER=redis`；SQLite 轻量版请改用 `.env.sqlite.example`。
+标准版 `.env.example` 已显式声明 `AXISRELAY_DATABASE_DRIVER=mysql` 与 `AXISRELAY_CACHE_DRIVER=redis`。
 
 ### 业务运行配置
 
@@ -336,8 +310,8 @@ Redis 模式下，共享上下文只要没有超过重建上限，即使大于 L
 
 - **对外 API Key**：以数据库中的 API Keys 为准。如果没有配置任何 Key，则 `/v1/*` 跳过鉴权。
 - **管理后台 Admin Secret**：
-  - 如果 `.env` 中设置了 `ADMIN_SECRET`，则优先使用环境变量。
-  - 如果未设置 `ADMIN_SECRET`，则回退到数据库中的 `AdminSecret`。
+  - 如果 `.env` 中设置了 `AXISRELAY_ADMIN_SECRET`，则优先使用环境变量。
+  - 如果未设置 `AXISRELAY_ADMIN_SECRET`，则回退到数据库中的 `AdminSecret`。
   - 鉴权生效时，首次访问 `/admin` 会弹出密码输入框；前端登录成功后通过 `X-Admin-Key` 请求头访问 `/api/admin/*`。
 
 ---
@@ -419,7 +393,7 @@ curl -X POST http://localhost:8080/api/admin/accounts/import \
 
 #### OAuth PKCE 授权
 
-Codex2API 支持通过 OAuth PKCE 流程获取 Refresh Token，适用于无法手动提取 Token 的场景：
+AxisRelay 支持通过 OAuth PKCE 流程获取 Refresh Token，适用于无法手动提取 Token 的场景：
 
 ```bash
 # 步骤 1：生成授权 URL
@@ -470,7 +444,7 @@ curl -X POST http://localhost:8080/api/admin/oauth/exchange-code \
 
 - 对外提供统一的 OpenAI 风格入口，屏蔽上游多账号差异
 - 对内维护基于 `Refresh Token` 的账号池、`Access Token` 生命周期和运行时调度
-- 通过 PostgreSQL + Redis 或 SQLite + 内存缓存实现配置持久化与运行态协调
+- 通过 MySQL 8 + Redis 实现主配置持久化与运行态协调，同时保留 PostgreSQL 兼容
 - 通过 `/admin` 管理台提供全面的运维观测能力
 
 ### 架构概览
@@ -499,7 +473,7 @@ curl -X POST http://localhost:8080/api/admin/oauth/exchange-code \
 4. 先按 `SchedulerPriority` 从高到低分层，再按 `healthy > warm > risky > banned` 排序；同优先级、同层级内按调度分和并发数择优
 5. 15% 概率随机打散，降低热点与饥饿
 
-多个最终用户共享同一个下游 API Key 时，可传 `X-Codex2API-Affinity-Key` 作为稳定的用户或对话标识。Codex2API 只将其哈希后用于本地账号亲和，不会转发给上游。
+多个最终用户共享同一个下游 API Key 时，可传 `X-AxisRelay-Affinity-Key` 作为稳定的用户或对话标识。AxisRelay 只将其哈希后用于本地账号亲和，不会转发给上游。
 
 **动态并发规则：**
 
@@ -563,7 +537,7 @@ curl -X POST http://localhost:8080/api/admin/oauth/exchange-code \
 ## 目录结构
 
 ```text
-codex2api/
+axisrelay/
 ├─ main.go                      # 程序入口
 ├─ Dockerfile                   # 多阶段镜像构建
 ├─ docker-compose.yml           # 镜像部署模板
@@ -597,7 +571,7 @@ codex2api/
 
 ## 交流群
 
-- QQ 交流群：[点击链接加入群聊【codex2api】](https://qun.qq.com/universal-share/share?ac=1&authKey=6vwawW4MeqdACT7PajnHlf2lLkjfuNXEMSos67l9FBiAJ8t%2BKeaXJXB0dgsnhFa1&busi_data=eyJncm91cENvZGUiOiI4MTY3Mzk4NDIiLCJ0b2tlbiI6ImU1YW1KR3dNaXZoUXZDUWpYTWVncmdmMXhQV1RwQ21tbEhkdjB5VW45aWVPSjhFM2grMkRHNGdhWnhEU29oS08iLCJ1aW4iOiIxMTYzNDc2OTQ5In0%3D&data=adSomD6r40Al25rBr8PocFCKumQR5oxi1kq5jXjXxeJ49Z5cj4QLzbNf6vfIQKWMORrJntrZtcoyQuHg2ksUeA&svctype=4&tempid=h5_group_info)（群号：816739842）
+- QQ 交流群：[点击链接加入群聊【axisrelay】](https://qun.qq.com/universal-share/share?ac=1&authKey=6vwawW4MeqdACT7PajnHlf2lLkjfuNXEMSos67l9FBiAJ8t%2BKeaXJXB0dgsnhFa1&busi_data=eyJncm91cENvZGUiOiI4MTY3Mzk4NDIiLCJ0b2tlbiI6ImU1YW1KR3dNaXZoUXZDUWpYTWVncmdmMXhQV1RwQ21tbEhkdjB5VW45aWVPSjhFM2grMkRHNGdhWnhEU29oS08iLCJ1aW4iOiIxMTYzNDc2OTQ5In0%3D&data=adSomD6r40Al25rBr8PocFCKumQR5oxi1kq5jXjXxeJ49Z5cj4QLzbNf6vfIQKWMORrJntrZtcoyQuHg2ksUeA&svctype=4&tempid=h5_group_info)（群号：816739842）
 - Telegram 群组：[加入 Telegram 群组](https://t.me/+9hJAA3ZWQxxmMzE5)
 
 欢迎加群交流部署、使用与二次开发相关问题。
@@ -614,11 +588,11 @@ codex2api/
 
 ## Star History
 
-<a href="https://star-history.dera.page/#james-6-23/codex2api&Date">
+<a href="https://star-history.dera.page/#wuekevin/axisrelay&Date">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://star-history.dera.page/svg?repos=james-6-23/codex2api&type=Date&theme=dark" />
-    <source media="(prefers-color-scheme: light)" srcset="https://star-history.dera.page/svg?repos=james-6-23/codex2api&type=Date" />
-    <img alt="Star History Chart" src="https://star-history.dera.page/svg?repos=james-6-23/codex2api&type=Date" />
+    <source media="(prefers-color-scheme: dark)" srcset="https://star-history.dera.page/svg?repos=wuekevin/axisrelay&type=Date&theme=dark" />
+    <source media="(prefers-color-scheme: light)" srcset="https://star-history.dera.page/svg?repos=wuekevin/axisrelay&type=Date" />
+    <img alt="Star History Chart" src="https://star-history.dera.page/svg?repos=wuekevin/axisrelay&type=Date" />
   </picture>
 </a>
 

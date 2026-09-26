@@ -356,10 +356,10 @@ function splitFilesIntoBatches(files: File[], batchMax: number): File[][] {
   return batches.length > 0 ? batches : [[]];
 }
 
-const ACCOUNT_ANALYSIS_VISIBILITY_KEY = "codex2api:accounts:analysis-visible";
+const ACCOUNT_ANALYSIS_VISIBILITY_KEY = "axisrelay:accounts:analysis-visible";
 const ACCOUNT_EMAIL_DOMAIN_VISIBILITY_KEY =
-  "codex2api:accounts:email-domain-tags-visible";
-const ACCOUNT_VISIBLE_COLUMNS_KEY = "codex2api:accounts:visible-columns";
+  "axisrelay:accounts:email-domain-tags-visible";
+const ACCOUNT_VISIBLE_COLUMNS_KEY = "axisrelay:accounts:visible-columns";
 const ACCOUNT_TABLE_COLUMNS = [
   "sequence",
   "email",
@@ -466,7 +466,7 @@ function persistAccountVisibleColumns(
   }
 }
 
-const ACCOUNT_VIEW_MODE_KEY = "codex2api:accounts:view-mode";
+const ACCOUNT_VIEW_MODE_KEY = "axisrelay:accounts:view-mode";
 type AccountViewMode = "table" | "grid";
 type AccountCardVariant = "mobile" | "grid" | "personal";
 type EmailDomainStat = {
@@ -495,7 +495,7 @@ function persistAccountViewMode(mode: AccountViewMode) {
 
 // 账号管理页面级模式：号池模式（pool，默认，完整管理布局）/ 自用模式
 // （personal，主体列表改为每行 2 列卡片）。
-const ACCOUNT_PAGE_MODE_KEY = "codex2api:accounts:page-mode";
+const ACCOUNT_PAGE_MODE_KEY = "axisrelay:accounts:page-mode";
 type AccountPageMode = "pool" | "personal";
 
 // 自用模式自动判定阈值：用户从未手动设置过时，号池账号数 < 该值则默认自用模式。
@@ -1725,7 +1725,7 @@ export default function Accounts() {
     if (params.get("pending") !== "1") return;
     const path = location.pathname.replace(/\/+$/, "");
     if (path.endsWith("/accounts/grok") || path.endsWith("/accounts/invite")) {
-      navigate({ pathname: "/accounts", search: "?pending=1" }, { replace: true });
+      navigate({ pathname: "/admin/gateway/accounts", search: "?pending=1" }, { replace: true });
       return;
     }
     const timer = window.setTimeout(() => {
@@ -1744,18 +1744,18 @@ export default function Accounts() {
   const { channels: visibleChannels, isChannelVisible } = useVisibleChannels();
   // 设置页隐藏了某个渠道后，直接打开它的账号路由要回落到 Codex 视图。
   useEffect(() => {
-    if (!isChannelVisible(providerView)) navigate("/accounts", { replace: true });
+    if (!isChannelVisible(providerView)) navigate("/admin/gateway/accounts", { replace: true });
   }, [isChannelVisible, navigate, providerView]);
   const setProviderView = useCallback(
     (view: UpstreamChannel) => {
       navigate(
         view === "grok"
-          ? "/accounts/grok"
+          ? "/admin/gateway/accounts/grok"
           : view === "antigravity"
-            ? "/accounts/antigravity"
+            ? "/admin/gateway/accounts/antigravity"
             : view === "claude"
-              ? "/accounts/claude"
-              : "/accounts",
+              ? "/admin/gateway/accounts/claude"
+              : "/admin/gateway/accounts",
       );
     },
     [navigate],
@@ -1765,7 +1765,7 @@ export default function Accounts() {
   const showInvite = normalizedPath.endsWith("/accounts/invite");
   const setShowInvite = useCallback(
     (open: boolean) => {
-      navigate(open ? "/accounts/invite" : "/accounts");
+      navigate(open ? "/admin/gateway/accounts/invite" : "/admin/gateway/accounts");
     },
     [navigate],
   );
@@ -4583,11 +4583,11 @@ export default function Accounts() {
         const blob = new Blob([JSON.stringify(data, null, 2)], {
           type: "application/json",
         });
-        downloadBlob(blob, `codex2api-codex-${ts}-${data.length}.json`);
+        downloadBlob(blob, `axisrelay-codex-${ts}-${data.length}.json`);
       } else {
         const text = data.map((e) => e.refresh_token).join("\n");
         const blob = new Blob([text], { type: "text/plain" });
-        downloadBlob(blob, `codex2api-codex-rt-${ts}-${data.length}.txt`);
+        downloadBlob(blob, `axisrelay-codex-rt-${ts}-${data.length}.txt`);
       }
       showToast(t("accounts.exportSuccess", { count: data.length }));
     } catch (error) {
@@ -6153,7 +6153,7 @@ export default function Accounts() {
         {grokSelfServicePending > 0 ? (
           <button
             type="button"
-            onClick={() => navigate("/accounts?pending=1")}
+            onClick={() => navigate("/admin/gateway/accounts?pending=1")}
             className="mb-3 flex w-full items-center gap-2.5 rounded-xl border border-amber-500/40 bg-amber-500/[0.06] px-3 py-2.5 text-left shadow-sm transition-colors hover:bg-amber-500/[0.1]"
           >
             <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-amber-500/15 text-amber-600 dark:text-amber-300">
@@ -11204,8 +11204,8 @@ export default function Accounts() {
               setInviteGuide((p) => ({ ...p, show: false }));
               navigate(
                 accountEmail
-                  ? `/accounts/invite?account=${encodeURIComponent(accountEmail)}`
-                  : "/accounts/invite",
+                  ? `/admin/gateway/accounts/invite?account=${encodeURIComponent(accountEmail)}`
+                  : "/admin/gateway/accounts/invite",
               );
             }}
           />
@@ -11644,7 +11644,7 @@ function RecycleBinView({
         const blob = new Blob([JSON.stringify(data, null, 2)], {
           type: "application/json",
         });
-        downloadBlob(blob, `codex2api-recycle-${ts}-${data.length}.json`);
+        downloadBlob(blob, `axisrelay-recycle-${ts}-${data.length}.json`);
       } else {
         // TXT：每行一个邮箱（无邮箱则用 account_id 兜底），不导出 token。
         const lines = data
@@ -11664,7 +11664,7 @@ function RecycleBinView({
         });
         downloadBlob(
           blob,
-          `codex2api-recycle-emails-${ts}-${lines.length}.txt`,
+          `axisrelay-recycle-emails-${ts}-${lines.length}.txt`,
         );
       }
       showToast(t("accounts.exportSuccess", { count: exportedCount }));
@@ -12187,7 +12187,7 @@ function RecycleBinView({
   );
 }
 
-const RECYCLE_BIN_AUTO_RESTORE_KEY = "codex2api_recycle_bin_auto_restore";
+const RECYCLE_BIN_AUTO_RESTORE_KEY = "axisrelay_recycle_bin_auto_restore";
 
 // recycleBinRowToAccountRow 将回收站行转换为 TestConnectionModal 需要的最小 AccountRow。
 function recycleBinRowToAccountRow(row: RecycleBinAccountRow): AccountRow {

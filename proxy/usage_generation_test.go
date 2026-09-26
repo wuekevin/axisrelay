@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/codex2api/auth"
-	"github.com/codex2api/database"
+	"github.com/wuekevin/axisrelay/auth"
+	"github.com/wuekevin/axisrelay/database"
 )
 
 func TestPopulateUsageCredentialGenerationUsesDispatchedGrokAccount(t *testing.T) {
@@ -50,7 +50,7 @@ func TestPopulateUsageCredentialGenerationUsesDispatchedGrokAccount(t *testing.T
 
 func TestLogUsagePersistsGrokCredentialGeneration(t *testing.T) {
 	ctx := context.Background()
-	db, err := database.New("sqlite", filepath.Join(t.TempDir(), "usage-generation.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "usage-generation.db"))
 	if err != nil {
 		t.Fatalf("database.New: %v", err)
 	}

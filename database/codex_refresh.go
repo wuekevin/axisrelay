@@ -48,6 +48,9 @@ type CodexRefreshAttempt struct {
 }
 
 func (db *DB) ensureCodexRefreshSchema(ctx context.Context) error {
+	if db.isMySQL() {
+		return nil
+	}
 	_, err := db.conn.ExecContext(ctx, `CREATE TABLE IF NOT EXISTS codex_oauth_refresh_attempts (
 		rt_fingerprint TEXT PRIMARY KEY,
 		attempt_id TEXT NOT NULL,
@@ -60,6 +63,9 @@ func (db *DB) codexRefreshRows(ctx context.Context, tx *sql.Tx, rt string) ([]Ac
 	field, upstream := "credentials->>'refresh_token'", "credentials->>'upstream_type'"
 	if db.isSQLite() {
 		field, upstream = "json_extract(credentials, '$.refresh_token')", "json_extract(credentials, '$.upstream_type')"
+	} else if db.isMySQL() {
+		field = "JSON_UNQUOTE(JSON_EXTRACT(credentials, '$.refresh_token'))"
+		upstream = "JSON_UNQUOTE(JSON_EXTRACT(credentials, '$.upstream_type'))"
 	}
 	query := `SELECT id, credentials, credential_generation FROM accounts WHERE status <> 'deleted' AND
 		COALESCE(` + upstream + `, '') IN ('', 'codex') AND ` + field + ` IN ($1, $2) ORDER BY id`
@@ -99,8 +105,14 @@ func (db *DB) BeginCodexRefresh(ctx context.Context, accountID, generation int64
 			return err
 		}
 		defer tx.Rollback()
-		res, err := tx.ExecContext(ctx, `INSERT INTO codex_oauth_refresh_attempts(rt_fingerprint, attempt_id, started_at)
-			VALUES ($1,$2,$3) ON CONFLICT(rt_fingerprint) DO NOTHING`, attempt.Fingerprint, attempt.ID, time.Now().Unix())
+		query := `INSERT INTO codex_oauth_refresh_attempts(rt_fingerprint, attempt_id, started_at)
+			VALUES ($1,$2,$3) ON CONFLICT(rt_fingerprint) DO NOTHING`
+		startedAt := interface{}(time.Now().Unix())
+		if db.isMySQL() {
+			query = `INSERT IGNORE INTO codex_oauth_refresh_attempts(rt_fingerprint, attempt_id, started_at) VALUES ($1,$2,$3)`
+			startedAt = db.timeArg(time.Now().UTC())
+		}
+		res, err := tx.ExecContext(ctx, query, attempt.Fingerprint, attempt.ID, startedAt)
 		if err != nil {
 			return err
 		}
@@ -243,7 +255,7 @@ func (db *DB) writeCodexRefreshCredentials(ctx context.Context, tx *sql.Tx, row 
 		generation++
 	}
 	value := "$1"
-	if !db.isSQLite() {
+	if !db.isSQLite() && !db.isMySQL() {
 		value += "::jsonb"
 	}
 	status := ""

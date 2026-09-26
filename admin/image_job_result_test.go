@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/codex2api/database"
-	"github.com/codex2api/internal/signedasset"
+	"github.com/wuekevin/axisrelay/database"
+	"github.com/wuekevin/axisrelay/internal/signedasset"
 	"github.com/gin-gonic/gin"
 	"github.com/tidwall/gjson"
 )

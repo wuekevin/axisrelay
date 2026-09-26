@@ -11,9 +11,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/codex2api/cache"
-	"github.com/codex2api/proxy"
-	"github.com/codex2api/security"
+	"github.com/wuekevin/axisrelay/cache"
+	"github.com/wuekevin/axisrelay/proxy"
+	"github.com/wuekevin/axisrelay/security"
 	"github.com/gin-gonic/gin"
 )
 

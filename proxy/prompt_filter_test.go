@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/codex2api/auth"
-	"github.com/codex2api/database"
-	"github.com/codex2api/security/promptfilter"
+	"github.com/wuekevin/axisrelay/auth"
+	"github.com/wuekevin/axisrelay/database"
+	"github.com/wuekevin/axisrelay/security/promptfilter"
 	"github.com/gin-gonic/gin"
 )
 
@@ -96,7 +96,7 @@ func TestReviewPromptFilterVerdictCapturesModerationDecisionThreshold(t *testing
 }
 
 func TestCleanModelReviewIsPersistedForReviewHistory(t *testing.T) {
-	db, err := database.New("sqlite", filepath.Join(t.TempDir(), "codex2api.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "axisrelay.db"))
 	if err != nil {
 		t.Fatalf("database.New: %v", err)
 	}

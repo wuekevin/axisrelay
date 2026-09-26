@@ -13,11 +13,11 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/codex2api/api"
-	"github.com/codex2api/auth"
-	"github.com/codex2api/database"
-	"github.com/codex2api/security"
-	"github.com/codex2api/security/promptfilter"
+	"github.com/wuekevin/axisrelay/api"
+	"github.com/wuekevin/axisrelay/auth"
+	"github.com/wuekevin/axisrelay/database"
+	"github.com/wuekevin/axisrelay/security"
+	"github.com/wuekevin/axisrelay/security/promptfilter"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 	"github.com/tidwall/gjson"
@@ -30,7 +30,7 @@ const (
 	responsesWSOverloadWriteTimeout       = time.Second
 	responsesWSFriendlyUpstreamErr        = "上游服务临时繁忙，请稍后重试"
 	newAPIPolicyWebSocketEventField       = "__newapi_policy_event_id"
-	newAPIPolicyWebSocketCapabilityHeader = "X-Codex2API-Policy-Event-ID"
+	newAPIPolicyWebSocketCapabilityHeader = "X-AxisRelay-Policy-Event-ID"
 	newAPIPolicyWebSocketCapabilityV1     = "v1"
 	responsesWSInboundQueueCapacity       = 16
 )

@@ -8,12 +8,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/codex2api/database"
+	"github.com/wuekevin/axisrelay/database"
 )
 
 func newGrokRuntimeFactTestAccount(t *testing.T, seedSettings bool) (*database.DB, *Store, *Account, int64, string, time.Time) {
 	t.Helper()
-	db, err := database.New("sqlite", filepath.Join(t.TempDir(), "grok-runtime-facts.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "grok-runtime-facts.db"))
 	if err != nil {
 		t.Fatalf("database.New: %v", err)
 	}

@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/codex2api/cache"
+	"github.com/wuekevin/axisrelay/cache"
 )
 
 func requireSessionBinding(t *testing.T, store *Store, key string, accountID int64) {
@@ -190,7 +190,7 @@ func TestNextForSessionKeepsAffinityForEnabledPoolProxy(t *testing.T) {
 }
 
 func TestBindSessionAffinityUsesConfigurableTTL(t *testing.T) {
-	t.Setenv("CODEX_SESSION_AFFINITY_TTL", "2h")
+	t.Setenv("AXISRELAY_SESSION_AFFINITY_TTL", "2h")
 	account := &Account{DBID: 1, AccessToken: "tok-1", ProxyURL: "http://proxy-1"}
 	store := &Store{accounts: []*Account{account}}
 

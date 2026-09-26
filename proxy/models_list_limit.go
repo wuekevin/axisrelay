@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/codex2api/database"
+	"github.com/wuekevin/axisrelay/database"
 )
 
 var ErrModelsListResponseTooLarge = errors.New("models list response exceeds configured read limit")

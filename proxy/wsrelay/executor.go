@@ -14,11 +14,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/codex2api/auth"
-	"github.com/codex2api/proxy"
 	"github.com/gorilla/websocket"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
+	"github.com/wuekevin/axisrelay/auth"
+	"github.com/wuekevin/axisrelay/proxy"
 )
 
 // ==================== WebSocket 执行器常量 ====================
@@ -32,7 +32,7 @@ const (
 )
 
 func shouldSendWebsocketUserAgent() bool {
-	switch strings.ToLower(strings.TrimSpace(os.Getenv("CODEX_WS_SEND_USER_AGENT"))) {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("AXISRELAY_WS_SEND_USER_AGENT"))) {
 	case "0", "false", "no", "n", "off":
 		return false
 	default:
@@ -44,7 +44,7 @@ func shouldSendWebsocketUserAgent() bool {
 // 用完即毁）。这是杜绝一切连接级状态跨请求/跨用户泄漏的硬隔离逃生阀，代价是
 // 逐请求握手（高 RPM 下可能触发上游握手限流 503）。
 func statelessOneShotEnabled() bool {
-	switch strings.ToLower(strings.TrimSpace(os.Getenv("CODEX_WS_STATELESS_ONESHOT"))) {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("AXISRELAY_WS_STATELESS_ONESHOT"))) {
 	case "1", "true", "yes", "y", "on":
 		return true
 	default:
@@ -180,7 +180,7 @@ func (e *Executor) ExecuteRequestViaWebsocket(
 	// Session_id/Conversation_id 是逐连接冻结的，绝不能携带任何单个请求的身份
 	// （见 resolveHandshakeSessionID）。
 	//
-	// CODEX_WS_STATELESS_ONESHOT=1 时禁用槽位复用：每个无会话请求独享一条连接、
+	// AXISRELAY_WS_STATELESS_ONESHOT=1 时禁用槽位复用：每个无会话请求独享一条连接、
 	// 用完即毁（彻底杜绝任何连接级状态跨请求泄漏，代价是逐请求握手）。
 	// 续链亲和：上游无服务端存储时，previous_response_id 的上下文只存活在产出
 	// 该响应的那条 WS 连接里。带续链 ID 的请求优先取回原连接（独占成功才用），
@@ -708,7 +708,7 @@ func (r *WsResponse) Close() error {
 // 这类连接的池键每请求唯一，归还池后不可能再被按键复用，只会占用账号连接名额
 // 直到空闲超时；唯一的保留价值是 response_id 续链亲和（上游无服务端存储时，
 // previous_response_id 的上下文只存活在产出响应的那条连接里），因此有存活绑定时
-// 仍归还池。CODEX_WS_STATELESS_ONESHOT 模式显式承诺用完即毁，无条件销毁。
+// 仍归还池。AXISRELAY_WS_STATELESS_ONESHOT 模式显式承诺用完即毁，无条件销毁。
 func (r *WsResponse) shouldDiscardOneShotConn() bool {
 	if r.conn == nil || r.conn.session == nil || !proxy.IsStatelessWebsocketSessionID(r.conn.session.ID) {
 		return false

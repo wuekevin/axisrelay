@@ -14,9 +14,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/codex2api/auth"
-	"github.com/codex2api/config"
-	"github.com/codex2api/database"
+	"github.com/wuekevin/axisrelay/auth"
+	"github.com/wuekevin/axisrelay/config"
+	"github.com/wuekevin/axisrelay/database"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 	"github.com/tidwall/gjson"
@@ -732,7 +732,7 @@ func TestResponsesWebSocketContinuousRetryDeadlineWritesOneErrorAndCloses1013(t 
 			Body:       &continuousRetryDeadlineBlockingBody{ctx: ctx, started: activeRead},
 		}, nil
 	}
-	db, err := database.New("sqlite", filepath.Join(t.TempDir(), "codex2api.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "axisrelay.db"))
 	if err != nil {
 		t.Fatalf("open sqlite: %v", err)
 	}

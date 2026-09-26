@@ -35,10 +35,10 @@ func isReasoningTruncationTokens(tokens int) bool {
 	return tokens >= reasoningTruncationStep-2 && (tokens+2)%reasoningTruncationStep == 0
 }
 
-// continueKeepAllEncrypted 逃生阀：CODEX_CONTINUE_KEEP_ALL_ENCRYPTED=1 时恢复
+// continueKeepAllEncrypted 逃生阀：AXISRELAY_CONTINUE_KEEP_ALL_ENCRYPTED=1 时恢复
 // 「折叠输出保留每轮全部 encrypted_content」的旧行为（issue #353 之前）。
 func continueKeepAllEncrypted() bool {
-	switch strings.ToLower(strings.TrimSpace(os.Getenv("CODEX_CONTINUE_KEEP_ALL_ENCRYPTED"))) {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("AXISRELAY_CONTINUE_KEEP_ALL_ENCRYPTED"))) {
 	case "1", "true", "yes", "y", "on":
 		return true
 	default:

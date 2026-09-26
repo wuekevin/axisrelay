@@ -12,10 +12,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/codex2api/auth"
-	"github.com/codex2api/database"
-	"github.com/codex2api/proxy"
-	"github.com/codex2api/security/promptfilter"
+	"github.com/wuekevin/axisrelay/auth"
+	"github.com/wuekevin/axisrelay/database"
+	"github.com/wuekevin/axisrelay/proxy"
+	"github.com/wuekevin/axisrelay/security/promptfilter"
 	"github.com/gin-gonic/gin"
 )
 
@@ -141,7 +141,7 @@ func TestPromptReviewConnectionTestsAllKeysConcurrentlyWithoutReturningSecrets(t
 
 func TestDeletePromptReviewAPIKeyRemovesOnlySelectedKey(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	db, err := database.New("sqlite", filepath.Join(t.TempDir(), "review-keys.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "review-keys.db"))
 	if err != nil {
 		t.Fatalf("New(sqlite): %v", err)
 	}

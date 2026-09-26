@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/codex2api/auth"
+	"github.com/wuekevin/axisrelay/auth"
 )
 
 // claudeSlowFirstTokenLogThreshold 是 Claude 路径"首字缓慢"日志的阈值。生产观测：

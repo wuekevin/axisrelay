@@ -2,7 +2,6 @@ package auth
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"io"
 	"net/http"
@@ -14,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/codex2api/database"
+	"github.com/wuekevin/axisrelay/database"
 )
 
 func useAntigravityTestEndpoints(t *testing.T, baseURL string) {
@@ -35,7 +34,7 @@ func newAntigravityRefreshTestAccount(t *testing.T, credentials map[string]any) 
 
 func newAntigravityRefreshTestAccountAtPath(t *testing.T, dbPath string, credentials map[string]any) (*Store, *database.DB, *Account, int64) {
 	t.Helper()
-	db, err := database.New("sqlite", dbPath)
+	db, err := newTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatalf("database.New: %v", err)
 	}
@@ -563,17 +562,18 @@ func TestRefreshAntigravityAccountPublishesDurableCredentialWhenCooldownCleanupF
 	if err := db.SetCooldown(context.Background(), accountID, "unauthorized", time.Now().Add(time.Hour)); err != nil {
 		t.Fatal(err)
 	}
-	raw, err := sql.Open("sqlite", dbPath)
+	raw, err := openRawTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer raw.Close()
 	trigger := fmt.Sprintf(`
 		CREATE TRIGGER fail_antigravity_cooldown_cleanup
-		BEFORE UPDATE OF cooldown_reason ON accounts
-		WHEN OLD.id = %d AND OLD.cooldown_reason = 'unauthorized' AND NEW.cooldown_reason = ''
+		BEFORE UPDATE ON accounts FOR EACH ROW
 		BEGIN
-			SELECT RAISE(ABORT, 'forced cooldown cleanup failure');
+			IF OLD.id = %d AND OLD.cooldown_reason = 'unauthorized' AND NEW.cooldown_reason = '' THEN
+				SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'forced cooldown cleanup failure';
+			END IF;
 		END`, accountID)
 	if _, err := raw.Exec(trigger); err != nil {
 		t.Fatal(err)
@@ -631,17 +631,18 @@ func TestRefreshAntigravityAccountRemovesRuntimeWhenRotatedCredentialCASFails(t 
 	store, db, account, accountID := newAntigravityRefreshTestAccountAtPath(t, dbPath, map[string]any{
 		"antigravity_client_id": "client", "antigravity_client_secret": "secret",
 	})
-	raw, err := sql.Open("sqlite", dbPath)
+	raw, err := openRawTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer raw.Close()
 	trigger := fmt.Sprintf(`
 		CREATE TRIGGER fail_antigravity_credential_cas
-		BEFORE UPDATE OF credentials ON accounts
-		WHEN OLD.id = %d
+		BEFORE UPDATE ON accounts FOR EACH ROW
 		BEGIN
-			SELECT RAISE(ABORT, 'forced credential CAS failure');
+			IF OLD.id = %d THEN
+				SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'forced credential CAS failure';
+			END IF;
 		END`, accountID)
 	if _, err := raw.Exec(trigger); err != nil {
 		t.Fatal(err)

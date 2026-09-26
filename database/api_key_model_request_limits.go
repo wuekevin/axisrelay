@@ -201,6 +201,13 @@ func modelRequestUsage(rule APIKeyModelRequestLimit, used int64, start, end time
 	return APIKeyModelRequestUsage{RuleID: rule.ID, Model: rule.Model, Window: rule.Window, Limit: rule.MaxRequests, Used: used, Remaining: remaining, WindowStart: start, ResetAt: end, Timezone: rule.Timezone}
 }
 
+func (db *DB) modelRequestTimeArg(value time.Time) interface{} {
+	if db.isMySQL() {
+		return db.timeArg(value)
+	}
+	return value.Unix()
+}
+
 // ConsumeAPIKeyModelRequest atomically checks and charges every matching rule.
 // A logical request ID is counted at most once per rule, including after a retry
 // crosses a week boundary. Call only at dispatch; failed/uncertain dispatches count.
@@ -254,7 +261,7 @@ func (db *DB) ConsumeAPIKeyModelRequest(ctx context.Context, keyID int64, reques
 				return err
 			}
 			var used int64
-			err = tx.QueryRowContext(ctx, `SELECT used_requests FROM api_key_model_request_counters WHERE api_key_id=$1 AND rule_id=$2 AND window_start=$3`, keyID, rule.ID, start.Unix()).Scan(&used)
+			err = tx.QueryRowContext(ctx, `SELECT used_requests FROM api_key_model_request_counters WHERE api_key_id=$1 AND rule_id=$2 AND window_start=$3`, keyID, rule.ID, db.modelRequestTimeArg(start)).Scan(&used)
 			if err != nil && !errors.Is(err, sql.ErrNoRows) {
 				return err
 			}
@@ -265,10 +272,14 @@ func (db *DB) ConsumeAPIKeyModelRequest(ctx context.Context, keyID int64, reques
 			charges = append(charges, charge{rule: rule, start: start, end: end})
 		}
 		for _, item := range charges {
-			if _, err := tx.ExecContext(ctx, `INSERT INTO api_key_model_request_counters (api_key_id,rule_id,window_start,reset_at,used_requests) VALUES ($1,$2,$3,$4,1) ON CONFLICT (api_key_id,rule_id,window_start) DO UPDATE SET used_requests=api_key_model_request_counters.used_requests+1`, keyID, item.rule.ID, item.start.Unix(), item.end.Unix()); err != nil {
+			counterUpsert := `INSERT INTO api_key_model_request_counters (api_key_id,rule_id,window_start,reset_at,used_requests) VALUES ($1,$2,$3,$4,1) ON CONFLICT (api_key_id,rule_id,window_start) DO UPDATE SET used_requests=api_key_model_request_counters.used_requests+1`
+			if db.isMySQL() {
+				counterUpsert = `INSERT INTO api_key_model_request_counters (api_key_id,rule_id,window_start,reset_at,used_requests) VALUES ($1,$2,$3,$4,1) ON DUPLICATE KEY UPDATE used_requests=used_requests+1,reset_at=VALUES(reset_at)`
+			}
+			if _, err := tx.ExecContext(ctx, counterUpsert, keyID, item.rule.ID, db.modelRequestTimeArg(item.start), db.modelRequestTimeArg(item.end)); err != nil {
 				return err
 			}
-			if _, err := tx.ExecContext(ctx, `INSERT INTO api_key_model_request_ledger (api_key_id,rule_id,request_id,window_start,created_at) VALUES ($1,$2,$3,$4,$5)`, keyID, item.rule.ID, requestID, item.start.Unix(), now.Unix()); err != nil {
+			if _, err := tx.ExecContext(ctx, `INSERT INTO api_key_model_request_ledger (api_key_id,rule_id,request_id,window_start,created_at) VALUES ($1,$2,$3,$4,$5)`, keyID, item.rule.ID, requestID, db.modelRequestTimeArg(item.start), db.modelRequestTimeArg(now)); err != nil {
 				return err
 			}
 		}
@@ -293,7 +304,7 @@ func (db *DB) GetAPIKeyModelRequestUsage(ctx context.Context, keyID int64, rules
 			return nil, err
 		}
 		var used int64
-		err = db.conn.QueryRowContext(ctx, `SELECT used_requests FROM api_key_model_request_counters WHERE api_key_id=$1 AND rule_id=$2 AND window_start=$3`, keyID, rule.ID, start.Unix()).Scan(&used)
+		err = db.conn.QueryRowContext(ctx, `SELECT used_requests FROM api_key_model_request_counters WHERE api_key_id=$1 AND rule_id=$2 AND window_start=$3`, keyID, rule.ID, db.modelRequestTimeArg(start)).Scan(&used)
 		if err != nil && !errors.Is(err, sql.ErrNoRows) {
 			return nil, err
 		}

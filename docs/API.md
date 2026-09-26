@@ -1,6 +1,6 @@
-# Codex2API API 文档
+# AxisRelay API 文档
 
-本文档详细描述 Codex2API 的所有 API 端点、请求/响应格式以及错误码说明。
+本文档详细描述 AxisRelay 的所有 API 端点、请求/响应格式以及错误码说明。
 
 ## 目录
 
@@ -33,7 +33,7 @@
 
 ## 概述
 
-Codex2API 提供兼容 OpenAI 风格的 API 接口，同时包含完整的管理后台 API。
+AxisRelay 提供兼容 OpenAI 风格的 API 接口，同时包含完整的管理后台 API。
 
 Anthropic `/v1/messages` 在没有可用 Claude OAuth 账号时，才将官方 `speed:"fast"` 映射为上游 Codex `service_tier:"priority"`；Claude OAuth 账号优先走原生 Anthropic Messages 透传，不经过该转换。Anthropic 请求侧 `service_tier`（Priority Tier）不在此映射范围内。用量日志的 `service_tier` / `fast` 过滤反映该解析结果。
 
@@ -74,15 +74,15 @@ Authorization: Bearer sk-xxxxxxxxxxxxxxxxxxxxxxxx
 多个最终用户共享同一个 API Key 时，可选传入稳定的本地亲和标识：
 
 ```http
-X-Codex2API-Affinity-Key: tenant-user-or-conversation-id
+X-AxisRelay-Affinity-Key: tenant-user-or-conversation-id
 ```
 
-该请求头优先于其他会话亲和信号。Codex2API 会先对原始值做 SHA-256 派生，只保留本地路由标识；原始值不会保存，也不会转发给上游。
+该请求头优先于其他会话亲和信号。AxisRelay 会先对原始值做 SHA-256 派生，只保留本地路由标识；原始值不会保存，也不会转发给上游。
 
 **配置方式:**
 
 1. 通过管理后台 `/admin/settings` 页面配置
-2. 普通公共接口仅在没有配置任何 API Key 且显式开启 `CODEX_ALLOW_ANONYMOUS=true` 时允许匿名访问；默认禁止。异步图片任务要求后台创建的 API Key。
+2. 普通公共接口仅在没有配置任何 API Key 且显式开启 `AXISRELAY_ALLOW_ANONYMOUS=true` 时允许匿名访问；默认禁止。异步图片任务要求后台创建的 API Key。
 
 ### Admin Secret 认证
 
@@ -102,7 +102,7 @@ Authorization: Bearer your-admin-secret
 
 **配置方式:**
 
-- 环境变量: `ADMIN_SECRET`
+- 环境变量: `AXISRELAY_ADMIN_SECRET`
 - 数据库: 通过管理后台设置
 
 ---
@@ -222,8 +222,8 @@ Messages 的 `tool_use.input` 必须使用对象，因此自由文本工具输�
 | include              | array        | 否   | 包含的额外字段                                                                                     |
 | previous_response_id | string       | 否   | 上一响应 ID，用于上下文连续                                                                        |
 
-`previous_response_id` 的上下文先查当前进程的有界 L1。已认证请求按 API Key ID 隔离；未配置任何 API Key、显式启用 `CODEX_ALLOW_ANONYMOUS=true` 后放行的请求共用 `anon` 命名空间。Redis 模式在 L1 未命中时可从共享后端重建；后端值未超过重建上限但超过 L1 准入预算时仍可服务本次请求，只是不提升到 L1。Memory 模式没有共享 response context 后备，依赖上下文被判定为超限、已淘汰或缺失时可能返回 HTTP `409 response_context_unavailable`。共享后端暂时不可用且请求依赖该上下文时可能返回 HTTP `503 service_unavailable`。如果账号池存在可用的 relay-style 后备，网关可保留原始 `previous_response_id` 继续转发，而不是立即返回上述错误。客户端原生 Responses WebSocket 入口在上游连接正常时保留 `previous_response_id` 并只发送当轮增量，轮次开始时保留仍有效的 L1 祖先引用，快照合并与序列化在响应成功提交后才执行并写入本地缓存，共享后端（Redis）写入在后台完成，不占首字路径。缓存会收集 `response.output_item.done`，因此最终 `response.output` 为空时也能保留消息、`phase`、工具调用/结果及 Lite `additional_tools` 声明。`response.completed` 和 `response.incomplete` 成功提交后均可写入，仍受写入策略、TTL 和容量限制约束；按需写入模式下，`store` 未显式为 `false` 的 WebSocket 会话从根轮起即有写入资格；显式 `store:false` 的会话（如 Codex CLI 全量上下文）不写缓存，其历史无法事后恢复。续链失效、换号或转为 HTTP 时，只有能够恢复所需上下文才继续发送；缺失、超限或不可移植的加密状态返回 `response_context_unavailable` 错误帧，共享后端故障返回 `service_unavailable`，随后关闭连接（409 使用 1008，后端暂时不可用使用 1011）。客户端应重发完整上下文并开始新的响应链。
-祖先在轮次开始前已过期或被淘汰时，网关不会把增量伪装成完整快照；该链后续健康轮也不能自行补全历史。缓存 TTL 为 10 分钟，Memory 模式重启会丢失缓存。设置环境变量 `CODEX_WS_CONTINUATION_FAIL_OPEN=true` 可退回旧行为：上下文不可恢复时剥离 `previous_response_id` 后按原样转发，上游将看不到历史；这次有损降级产生的响应不写回放缓存，关闭逃生阀后也不会信任残缺快照。
+`previous_response_id` 的上下文先查当前进程的有界 L1。已认证请求按 API Key ID 隔离；未配置任何 API Key、显式启用 `AXISRELAY_ALLOW_ANONYMOUS=true` 后放行的请求共用 `anon` 命名空间。Redis 模式在 L1 未命中时可从共享后端重建；后端值未超过重建上限但超过 L1 准入预算时仍可服务本次请求，只是不提升到 L1。Memory 模式没有共享 response context 后备，依赖上下文被判定为超限、已淘汰或缺失时可能返回 HTTP `409 response_context_unavailable`。共享后端暂时不可用且请求依赖该上下文时可能返回 HTTP `503 service_unavailable`。如果账号池存在可用的 relay-style 后备，网关可保留原始 `previous_response_id` 继续转发，而不是立即返回上述错误。客户端原生 Responses WebSocket 入口在上游连接正常时保留 `previous_response_id` 并只发送当轮增量，轮次开始时保留仍有效的 L1 祖先引用，快照合并与序列化在响应成功提交后才执行并写入本地缓存，共享后端（Redis）写入在后台完成，不占首字路径。缓存会收集 `response.output_item.done`，因此最终 `response.output` 为空时也能保留消息、`phase`、工具调用/结果及 Lite `additional_tools` 声明。`response.completed` 和 `response.incomplete` 成功提交后均可写入，仍受写入策略、TTL 和容量限制约束；按需写入模式下，`store` 未显式为 `false` 的 WebSocket 会话从根轮起即有写入资格；显式 `store:false` 的会话（如 Codex CLI 全量上下文）不写缓存，其历史无法事后恢复。续链失效、换号或转为 HTTP 时，只有能够恢复所需上下文才继续发送；缺失、超限或不可移植的加密状态返回 `response_context_unavailable` 错误帧，共享后端故障返回 `service_unavailable`，随后关闭连接（409 使用 1008，后端暂时不可用使用 1011）。客户端应重发完整上下文并开始新的响应链。
+祖先在轮次开始前已过期或被淘汰时，网关不会把增量伪装成完整快照；该链后续健康轮也不能自行补全历史。缓存 TTL 为 10 分钟，Memory 模式重启会丢失缓存。设置环境变量 `AXISRELAY_WS_CONTINUATION_FAIL_OPEN=true` 可退回旧行为：上下文不可恢复时剥离 `previous_response_id` 后按原样转发，上游将看不到历史；这次有损降级产生的响应不写回放缓存，关闭逃生阀后也不会信任残缺快照。
 
 对于原生 WebSocket 的结构化输出，`gpt-6-astra` 和 `gpt-5.6-luna` 在显式启用 Responses Lite 时保留 JSON Schema 的 `minLength` / `maxLength`。Lite 信号可来自 `client_metadata.ws_request_header_x_openai_internal_codex_responses_lite=true`、`X-OpenAI-Internal-Codex-Responses-Lite: true` 请求头，或由 Payload Rules 注入该元数据标记。该放行仅用于结构化输出；已有工具参数清洗继续使用保守规则。长度约束在入口准备阶段暂时保留，最终出站前才根据最终模型、规则改写后的 Lite 信号、账号 Lite 能力和实际传输统一处理。其他模型、最终未启用 Lite、HTTP 和 Compact 请求沿用原有清洗策略，HTTP 降级请求不会携带不适用的约束。
 
@@ -287,11 +287,11 @@ Messages 的 `tool_use.input` 必须使用对象，因此自由文本工具输�
 
 **端点:** `POST /v1/images/generations`
 
-**说明:** OpenAI Images 兼容入口。外部请求使用 `gpt-image-2`、`gpt-image-2.5-flare` 或 `gpt-image-2.5-sunburst`（支持日期快照及 `-2k` / `-4k` 档位后缀），内部按 `CLIProxyAPI/` 与 `sub2api/` 的链路转换为 Codex `/responses`：主模型默认 `gpt-5.6-luna`（优先使用「系统设置 → Codex → 生图设置」中的文本模型，未配置时沿用环境变量 `CODEX_IMAGES_MAIN_MODEL`；被上游拒绝时按 `gpt-5.5` → `gpt-5.6-terra` → `gpt-5.6-sol` → `gpt-6-astra` 顺序换驱动重试），图像模型写入 `tools[0].model`。
+**说明:** OpenAI Images 兼容入口。外部请求使用 `gpt-image-2`、`gpt-image-2.5-flare` 或 `gpt-image-2.5-sunburst`（支持日期快照及 `-2k` / `-4k` 档位后缀），内部按 `CLIProxyAPI/` 与 `sub2api/` 的链路转换为 Codex `/responses`：主模型默认 `gpt-5.6-luna`（优先使用「系统设置 → Codex → 生图设置」中的文本模型，未配置时沿用环境变量 `AXISRELAY_IMAGES_MAIN_MODEL`；被上游拒绝时按 `gpt-5.5` → `gpt-5.6-terra` → `gpt-5.6-sol` → `gpt-6-astra` 顺序换驱动重试），图像模型写入 `tools[0].model`。
 
 GPT Image 2.5 支持 `auto`、`low`、`medium`、`high`、`xhigh`、`max`。质量参数原样传给图片工具；工作台切回旧型号时会将 `xhigh` / `max` 调整为 `high`。省略模型仍默认使用 `gpt-image-2`。`-2k` / `-4k` 是本项目的尺寸与超分别名，发往上游前会剥掉该后缀。
 
-直接使用 `/v1/responses` 时，文本主控放在顶层 `model`，图片模型放在 `tools[].model`；显式文本主控优先于后台生图设置及 `CODEX_IMAGES_MAIN_MODEL`。顶层 `model` 直接填图像模型时，则使用后台配置的文本主控。工具模型省略时仍补为 `gpt-image-2`。
+直接使用 `/v1/responses` 时，文本主控放在顶层 `model`，图片模型放在 `tools[].model`；显式文本主控优先于后台生图设置及 `AXISRELAY_IMAGES_MAIN_MODEL`。顶层 `model` 直接填图像模型时，则使用后台配置的文本主控。工具模型省略时仍补为 `gpt-image-2`。
 
 Images 入口的 2.5 token 计费区分文本输入、图片输入与各自缓存：内置费率分别为 $5、$8、$1.25、$2 / 百万 token，图片输出 $30 / 百万 token（[官方价格](https://developers.openai.com/api/docs/models/gpt-image-2.5-sunburst)，2026-09-09 核对）。Flare/Sunburst 各有独立定价键，日期快照和尺寸别名使用对应基础型号费率；自定义覆盖优先。usage 日志新增 `image_input_tokens`、`image_output_tokens`、`cached_image_input_tokens`，是总输入/输出/缓存的子集，不重复计费。历史日志无法补回未记录的图片 token 明细。
 
@@ -549,7 +549,7 @@ Codex 的流式 remote compact v2（`POST /v1/responses`，`stream:true`，`inpu
 
 网关记录成功返回的压缩状态来源。已知 Grok 压缩状态只回到创建它的账号，并按项原样保留密文；来源账号不可用时返回 `503 compaction_upstream_unavailable`，不会改用其他账号。未知来源或来源缓存不可用时仍沿用既有调度和外来密文降级规则，不保证保留这些压缩项中的上下文。上游拒绝已知来源的 Grok 压缩状态时，网关保留错误，不通过删除该状态重试来掩盖上下文丢失。
 
-上述来源绑定适用于上游原生不透明状态。网关生成的兼容摘要使用 `codex2api-emulated-compaction-v1:` 前缀和 Base64 封装，是可解码的文本摘要，不是上游加密密文。续聊时会还原成摘要消息并恢复正常调度，无需依赖原账号或来源缓存；摘要请求的 token 用量沿用上游返回值计入本次请求。
+上述来源绑定适用于上游原生不透明状态。网关生成的兼容摘要使用 `axisrelay-emulated-compaction-v1:` 前缀和 Base64 封装，是可解码的文本摘要，不是上游加密密文。续聊时会还原成摘要消息并恢复正常调度，无需依赖原账号或来源缓存；摘要请求的 token 用量沿用上游返回值计入本次请求。
 
 ### 6. Health Check
 
@@ -993,7 +993,7 @@ API Key 账号还可选配置两项客户端请求特征（默认都不启用，
   `PATCH /api/admin/accounts/:id/scheduler` 的 `custom_headers` 对 API Key 账号执行同样校验，
   传 `null` 清空。
 - `claude_fingerprint_mode`：Claude Code 客户端身份仿真。空（默认）= 透传，只保留下游
-  `User-Agent`（缺失时为 `Codex2API`）；`force` = 始终携带 Claude Code CLI 的基础身份头
+  `User-Agent`（缺失时为 `AxisRelay`）；`force` = 始终携带 Claude Code CLI 的基础身份头
   （`User-Agent: claude-cli/<版本> (external, cli)`、`X-App`、`X-Stainless-*`、
   `X-Stainless-Retry-Count/Timeout`、`anthropic-dangerous-direct-browser-access`）；
   `preserve` = 下游是真实 Claude Code CLI 时保留其身份头、缺失才补齐，非 CLI 客户端按 `force` 处理。
@@ -1621,7 +1621,7 @@ data: {"type":"complete","current":3,"total":3,"success":2,"failed":1}
 
 #### POST /api/admin/accounts/migrate
 
-从远程 codex2api 实例迁移账号。
+从远程 axisrelay 实例迁移账号。
 
 **请求:**
 
@@ -1676,8 +1676,8 @@ data: {"type":"complete","current":3,"total":3,"success":2,"failed":1}
 
 获取使用日志。
 
-HTTP `/v1/*` 响应的 `X-Codex2API-Request-ID` 对应下方可检索的 `request_id`，浏览器可通过 CORS 读取。
-既有 `X-Request-ID` 是请求上下文/访问日志 ID，可能回显客户端传入值，与该网关追踪 ID 独立；排查用量请使用 `X-Codex2API-Request-ID`。
+HTTP `/v1/*` 响应的 `X-AxisRelay-Request-ID` 对应下方可检索的 `request_id`，浏览器可通过 CORS 读取。
+既有 `X-Request-ID` 是请求上下文/访问日志 ID，可能回显客户端传入值，与该网关追踪 ID 独立；排查用量请使用 `X-AxisRelay-Request-ID`。
 自动压缩用量的 `parent_request_id` 优先引用父请求的网关追踪 ID；`/v1/live` 结算沿用建连请求的追踪信息。
 
 **查询参数:**

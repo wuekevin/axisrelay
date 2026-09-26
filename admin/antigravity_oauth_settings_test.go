@@ -6,14 +6,14 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/codex2api/auth"
+	"github.com/wuekevin/axisrelay/auth"
 )
 
 // resetAntigravityOAuthSettingsEnv 清空环境变量与包级配置态，避免用例间串扰。
 func resetAntigravityOAuthSettingsEnv(t *testing.T) {
 	t.Helper()
-	t.Setenv("ANTIGRAVITY_OAUTH_CLIENTS", "")
-	t.Setenv("ANTIGRAVITY_OAUTH_CLIENT_KEY", "")
+	t.Setenv("AXISRELAY_ANTIGRAVITY_OAUTH_CLIENTS", "")
+	t.Setenv("AXISRELAY_ANTIGRAVITY_OAUTH_CLIENT_KEY", "")
 	auth.SetConfiguredAntigravityOAuth(auth.AntigravityOAuthSettings{})
 	t.Cleanup(func() { auth.SetConfiguredAntigravityOAuth(auth.AntigravityOAuthSettings{}) })
 }
@@ -123,7 +123,7 @@ func TestSettingsAntigravityOAuthUpdateRejectsInvalidPayload(t *testing.T) {
 
 func TestSettingsAntigravityOAuthGetExposesEnvClientsReadOnly(t *testing.T) {
 	resetAntigravityOAuthSettingsEnv(t)
-	t.Setenv("ANTIGRAVITY_OAUTH_CLIENTS", "envkey|env-id|env-secret")
+	t.Setenv("AXISRELAY_ANTIGRAVITY_OAUTH_CLIENTS", "envkey|env-id|env-secret")
 	handler, _, _ := newResponseCacheSettingsAdminHandler(t)
 
 	get := invokeResponseCacheSettingsAdmin(t, handler, http.MethodGet, nil)

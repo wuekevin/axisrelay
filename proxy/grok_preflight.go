@@ -163,7 +163,7 @@ func prepareGrokUpstreamBodyWithCompaction(body []byte, preservedCompaction comp
 	return result
 }
 
-const grokGiantToolInstructionMarker = "[codex2api giant-tool-call guard]"
+const grokGiantToolInstructionMarker = "[axisrelay giant-tool-call guard]"
 
 func addGrokGiantToolInstructions(body []byte) ([]byte, bool) {
 	if !bytes.Contains(bytes.ToLower(body), []byte(`"apply_patch"`)) || bytes.Contains(body, []byte(grokGiantToolInstructionMarker)) {

@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/codex2api/database"
+	"github.com/wuekevin/axisrelay/database"
 )
 
 func TestGroupBaseConcurrencyInheritanceAndHotUpdates(t *testing.T) {
@@ -113,8 +113,8 @@ func TestGroupBaseConcurrencyHotUpdateRefreshesFastScheduler(t *testing.T) {
 }
 
 func TestStoreInitLoadsGroupBaseConcurrencyOverrides(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "codex2api.db")
-	db, err := database.New("sqlite", dbPath)
+	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
+	db, err := newTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatalf("database.New: %v", err)
 	}

@@ -82,7 +82,7 @@ const IMAGE_ASSET_PAGE_SIZE = 16
 const IMAGE_JOB_HISTORY_PAGE_SIZE = 20
 const IMAGE_JOB_STATUSES = ['queued', 'running', 'succeeded', 'failed'] as const
 type ImageJobStatusFilter = 'all' | typeof IMAGE_JOB_STATUSES[number]
-const IMAGE_ASSET_CACHE_DB = 'codex2api-image-assets'
+const IMAGE_ASSET_CACHE_DB = 'axisrelay-image-assets'
 const IMAGE_ASSET_CACHE_STORE = 'assets'
 const IMAGE_ASSET_CACHE_VERSION = 1
 const IMAGE_MODEL_2K_SUFFIX = '-2k'
@@ -629,7 +629,7 @@ export default function ImageStudio() {
 
   useEffect(() => {
     if (view && !IMAGE_VIEWS.includes(view as ImageView)) {
-      navigate('/images/studio', { replace: true })
+      navigate('/admin/gateway/images/studio', { replace: true })
     }
   }, [navigate, view])
 
@@ -838,7 +838,7 @@ export default function ImageStudio() {
 
   const applyTemplate = (template: ImagePromptTemplate) => {
     fillTemplate(template)
-    navigate('/images/studio')
+    navigate('/admin/gateway/images/studio')
   }
 
   const selectTemplateForGeneration = (value: string) => {
@@ -1034,7 +1034,7 @@ export default function ImageStudio() {
       setImageToImageMode(false)
       setInputImageDataURLs([])
     }
-    navigate('/images/studio')
+    navigate('/admin/gateway/images/studio')
     void submitJob({
       prompt: job.prompt,
       model: nextModel,
@@ -1063,7 +1063,7 @@ export default function ImageStudio() {
       setModel(nextModel)
       setSize(current => normalizeImageSizeForModel(nextModel, current))
       setOutputFormat(asset.output_format || 'png')
-      navigate('/images/studio')
+      navigate('/admin/gateway/images/studio')
       void submitJob({ prompt: asset.revised_prompt, model: nextModel, output_format: asset.output_format || 'png' })
     }
   }
@@ -1632,7 +1632,7 @@ export default function ImageStudio() {
       <div className="studio-timeline-heading">
         <h2><History className="size-3.5 text-muted-foreground" />{t('images.recentJobs')}</h2>
         <div className="flex items-center gap-1">
-          <Button size="xs" variant="ghost" onClick={() => navigate('/images/history')}>
+          <Button size="xs" variant="ghost" onClick={() => navigate('/admin/gateway/images/history')}>
             {t('images.viewAllJobs')}<ArrowUpRight className="size-3" />
           </Button>
           <Button size="icon-xs" variant="ghost" aria-label={t('images.workspace.refreshJobs')} onClick={() => void loadJobs()}>
@@ -1686,7 +1686,7 @@ export default function ImageStudio() {
 
   const selectHistoryJob = (job: ImageGenerationJob) => {
     setCurrentJob(job)
-    navigate('/images/studio')
+    navigate('/admin/gateway/images/studio')
     void api.getImageJob(job.id, { includeCache: true }).then(res => setCurrentJob(res.job)).catch(() => {
       // The selected history row is already enough if the refresh fails.
     })
@@ -1733,7 +1733,7 @@ export default function ImageStudio() {
           </div>
         ) : (
           <StudioCollectionEmpty icon={historyFiltersActive ? Search : History} title={t(historyFiltersActive ? 'images.collections.noMatches' : 'images.collections.emptyHistoryTitle')} description={t(historyFiltersActive ? 'images.collections.noPageMatches' : 'images.collections.emptyHistoryDescription')}>
-            <Button size="sm" variant="outline" onClick={historyFiltersActive ? resetHistoryFilters : () => navigate('/images/studio')}>{t(historyFiltersActive ? 'images.collections.resetFilters' : 'images.collections.startCreating')}<ArrowRight className="size-3.5" /></Button>
+            <Button size="sm" variant="outline" onClick={historyFiltersActive ? resetHistoryFilters : () => navigate('/admin/gateway/images/studio')}>{t(historyFiltersActive ? 'images.collections.resetFilters' : 'images.collections.startCreating')}<ArrowRight className="size-3.5" /></Button>
           </StudioCollectionEmpty>
         )}
       </div>
@@ -1744,7 +1744,7 @@ export default function ImageStudio() {
   const galleryView = (
     <section className="studio-collection">
       <StudioCollectionHero eyebrow="YOUR GALLERY" title={t('images.collections.galleryTitle')} description={t('images.collections.galleryDescription')}
-        actions={<Button size="sm" onClick={() => navigate('/images/studio')}><Plus className="size-3.5" />{t('images.collections.continueCreating')}</Button>}>
+        actions={<Button size="sm" onClick={() => navigate('/admin/gateway/images/studio')}><Plus className="size-3.5" />{t('images.collections.continueCreating')}</Button>}>
         <div className="studio-collection-stats"><div className="studio-collection-stat"><span><Images className="size-3.5" />{t('images.collections.totalImages')}</span><strong>{assetTotal}</strong><small>{t('images.collections.savedImages')}</small></div></div>
       </StudioCollectionHero>
       <div>
@@ -1772,7 +1772,7 @@ export default function ImageStudio() {
           </div>
         ) : (
           <StudioCollectionEmpty icon={galleryFiltersActive ? Search : Images} title={t(galleryFiltersActive ? 'images.collections.noMatches' : 'images.collections.emptyGalleryTitle')} description={t(galleryFiltersActive ? 'images.collections.noPageMatches' : 'images.collections.emptyGalleryDescription')}>
-            <Button size="sm" variant="outline" onClick={galleryFiltersActive ? resetGalleryFilters : () => navigate('/images/studio')}>{t(galleryFiltersActive ? 'images.collections.resetFilters' : 'images.collections.startCreating')}<ArrowRight className="size-3.5" /></Button>
+            <Button size="sm" variant="outline" onClick={galleryFiltersActive ? resetGalleryFilters : () => navigate('/admin/gateway/images/studio')}>{t(galleryFiltersActive ? 'images.collections.resetFilters' : 'images.collections.startCreating')}<ArrowRight className="size-3.5" /></Button>
           </StudioCollectionEmpty>
         )}
       </div>
@@ -1864,25 +1864,25 @@ function ImageStudioTabs({ activeView }: { activeView: ImageView }) {
     {
       view: 'studio' as const,
       label: t('images.views.studio'),
-      to: '/images/studio',
+      to: '/admin/gateway/images/studio',
       icon: Wand2,
     },
     {
       view: 'prompts' as const,
       label: t('images.views.prompts'),
-      to: '/images/prompts',
+      to: '/admin/gateway/images/prompts',
       icon: LayoutTemplate,
     },
     {
       view: 'gallery' as const,
       label: t('images.views.gallery'),
-      to: '/images/gallery',
+      to: '/admin/gateway/images/gallery',
       icon: Images,
     },
     {
       view: 'history' as const,
       label: t('images.views.history'),
-      to: '/images/history',
+      to: '/admin/gateway/images/history',
       icon: History,
     },
   ]

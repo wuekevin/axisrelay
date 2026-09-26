@@ -15,15 +15,15 @@ import (
 	"strings"
 	"time"
 
-	"github.com/codex2api/api"
-	"github.com/codex2api/auth"
 	"github.com/gin-gonic/gin"
 	"github.com/tidwall/gjson"
+	"github.com/wuekevin/axisrelay/api"
+	"github.com/wuekevin/axisrelay/auth"
 )
 
 const (
 	compactionProvenanceCacheNamespace = "compaction-provenance"
-	compactionAffinityTTLEnv           = "CODEX_COMPACTION_AFFINITY_TTL"
+	compactionAffinityTTLEnv           = "AXISRELAY_COMPACTION_AFFINITY_TTL"
 	nativeCodexCompactionDomain        = "codex:openai"
 	defaultCompactionProvenanceTTL     = 7 * 24 * time.Hour
 	compactionProvenanceRecordVersion  = 1

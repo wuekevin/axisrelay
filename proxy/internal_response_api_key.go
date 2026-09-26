@@ -3,8 +3,8 @@ package proxy
 import (
 	"context"
 
-	"github.com/codex2api/database"
-	"github.com/codex2api/security"
+	"github.com/wuekevin/axisrelay/database"
+	"github.com/wuekevin/axisrelay/security"
 )
 
 // ExecuteInternalResponseForAPIKey performs an administrative model request

@@ -13,14 +13,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/codex2api/api"
-	"github.com/codex2api/auth"
-	"github.com/codex2api/cache"
-	"github.com/codex2api/config"
-	"github.com/codex2api/database"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 	"github.com/tidwall/gjson"
+	"github.com/wuekevin/axisrelay/api"
+	"github.com/wuekevin/axisrelay/auth"
+	"github.com/wuekevin/axisrelay/cache"
+	"github.com/wuekevin/axisrelay/config"
+	"github.com/wuekevin/axisrelay/database"
 )
 
 // Reconstructed protocol fixture: no captured prompts, IDs, or credentials.
@@ -325,7 +325,7 @@ func TestResponsesWSContinuationFailOpenEscapeHatch(t *testing.T) {
 	if _, apiErr := degradeResponsesWSContinuationBody(body, "key:1"); apiErr == nil {
 		t.Fatal("fail-closed default was bypassed")
 	}
-	t.Setenv("CODEX_WS_CONTINUATION_FAIL_OPEN", "true")
+	t.Setenv("AXISRELAY_WS_CONTINUATION_FAIL_OPEN", "true")
 	degraded, apiErr := degradeResponsesWSContinuationBody(body, "key:1")
 	if apiErr != nil {
 		t.Fatalf("fail-open escape hatch still failed: %v", apiErr)

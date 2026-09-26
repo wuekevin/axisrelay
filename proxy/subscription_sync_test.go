@@ -12,8 +12,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/codex2api/auth"
-	"github.com/codex2api/database"
+	"github.com/wuekevin/axisrelay/auth"
+	"github.com/wuekevin/axisrelay/database"
 )
 
 const testWorkspaceUUID = "288c5d93-a113-4ed3-b6a9-08b6a4d35417"
@@ -135,8 +135,8 @@ func TestMaybeSyncSubscriptionExpiry_SyncsAndThrottles(t *testing.T) {
 	defer server.Close()
 	defer SetSubscriptionsURLForTest(server.URL)()
 
-	dbPath := filepath.Join(t.TempDir(), "codex2api.db")
-	db, err := database.New("sqlite", dbPath)
+	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
+	db, err := newTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatalf("database.New: %v", err)
 	}
@@ -228,8 +228,8 @@ func TestQueryChatGPTSubscriptionRoutesThroughResin(t *testing.T) {
 func newSubscriptionSyncTestStore(t *testing.T, plan string) (*auth.Store, *database.DB, int64) {
 	t.Helper()
 	ctx := context.Background()
-	dbPath := filepath.Join(t.TempDir(), "codex2api.db")
-	db, err := database.New("sqlite", dbPath)
+	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
+	db, err := newTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatalf("database.New: %v", err)
 	}

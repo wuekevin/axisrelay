@@ -5,12 +5,10 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
-
-	"github.com/codex2api/database"
 )
 
 func TestStartDBBackgroundTaskWithParentCancelsAndDrains(t *testing.T) {
-	db, err := database.New("sqlite", filepath.Join(t.TempDir(), "admin-background.sqlite"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "admin-background.sqlite"))
 	if err != nil {
 		t.Fatalf("database.New: %v", err)
 	}

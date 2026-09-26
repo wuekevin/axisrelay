@@ -9,10 +9,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/codex2api/auth"
-	"github.com/codex2api/proxy"
 	"github.com/gorilla/websocket"
 	"github.com/tidwall/gjson"
+	"github.com/wuekevin/axisrelay/auth"
+	"github.com/wuekevin/axisrelay/proxy"
 )
 
 func wsTurnStateToken(blocks int) string {
@@ -29,8 +29,8 @@ func turnStateTemplateExecutor(t *testing.T, state string) (*Executor, *auth.Acc
 	next.CodexTurnStateTemplateCache = true
 	next.CodexTurnStateAccountMode = proxy.CodexTurnStateAccountModePersonal
 	proxy.ApplyRuntimeSettings(next)
-	t.Setenv("CODEX_TURN_STATE_INJECT_MODE", "replace-only")
-	t.Setenv("CODEX_TURN_STATE_DRY_RUN", "false")
+	t.Setenv("AXISRELAY_TURN_STATE_INJECT_MODE", "replace-only")
+	t.Setenv("AXISRELAY_TURN_STATE_DRY_RUN", "false")
 	proxy.ClearCodexTurnStateTemplatesForAccount(1)
 	t.Cleanup(func() {
 		proxy.ApplyRuntimeSettings(previous)

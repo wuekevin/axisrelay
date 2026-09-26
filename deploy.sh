@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ============================================================
-#  codex2api 交互式部署脚本
+#  axisrelay 交互式部署脚本
 #  用法: bash deploy.sh
 # ============================================================
 
@@ -78,16 +78,16 @@ gen_secret() {
   fi
 }
 
-# ---------- 自举：确保位于 codex2api 仓库目录 ----------
+# ---------- 自举：确保位于 axisrelay 仓库目录 ----------
 # 触发条件:
 #   1) 通过 `bash <(curl ...)` 远程拉起 (BASH_SOURCE 不是真实文件)
 #   2) 或当前目录缺少必要的 compose / deploy.sh 文件
 # 行为:
 #   - 若已在仓库目录: 直接返回
-#   - 否则: clone 仓库到 ./codex2api，切入并 exec ./deploy.sh
-REPO_URL="${CODEX2API_REPO_URL:-https://github.com/james-6-23/codex2api.git}"
-REPO_BRANCH="${CODEX2API_REPO_BRANCH:-main}"
-REPO_DIR_NAME="${CODEX2API_DIR_NAME:-codex2api}"
+#   - 否则: clone 仓库到 ./axisrelay，切入并 exec ./deploy.sh
+REPO_URL="${AXISRELAY_REPO_URL:-https://github.com/wuekevin/axisrelay.git}"
+REPO_BRANCH="${AXISRELAY_REPO_BRANCH:-main}"
+REPO_DIR_NAME="${AXISRELAY_DIR_NAME:-axisrelay}"
 EXISTING_ENV_FILE=".env"
 
 env_default() {
@@ -128,9 +128,9 @@ env_default() {
 
 known_compose_service_exists() {
   local compose_file
-  for compose_file in docker-compose.yml docker-compose.sqlite.yml docker-compose.local.yml docker-compose.sqlite.local.yml; do
+  for compose_file in docker-compose.yml docker-compose.local.yml docker-compose.mysqlredis.yml; do
     [[ -f "$compose_file" ]] || continue
-    if [[ -n "$($COMPOSE_CMD -f "$compose_file" ps -q codex2api 2>/dev/null || true)" ]]; then
+    if [[ -n "$($COMPOSE_CMD -f "$compose_file" ps -q axisrelay 2>/dev/null || true)" ]]; then
       EXISTING_COMPOSE_FILE="$compose_file"
       return 0
     fi
@@ -179,19 +179,19 @@ step_deployment_route() {
   success "部署线路: 完整部署向导"
 }
 
-is_codex2api_repo() {
+is_axisrelay_repo() {
   [[ -f "docker-compose.yml" ]] && [[ -f "deploy.sh" ]] \
-    && grep -q '^name: codex2api' docker-compose.yml 2>/dev/null
+    && grep -q '^name: axisrelay' docker-compose.yml 2>/dev/null
 }
 
 bootstrap_repo() {
   # 已经在仓库目录里：什么都不做
-  if is_codex2api_repo; then
-    success "检测到当前目录为 codex2api 仓库"
+  if is_axisrelay_repo; then
+    success "检测到当前目录为 axisrelay 仓库"
     return 0
   fi
 
-  warn "当前目录不是 codex2api 仓库，进入自动拉取流程"
+  warn "当前目录不是 axisrelay 仓库，进入自动拉取流程"
 
   if ! command -v git >/dev/null 2>&1; then
     error "未找到 git，请先安装 git 后重试"
@@ -212,8 +212,8 @@ bootstrap_repo() {
 
   cd "$REPO_DIR_NAME" || error "无法进入 $REPO_DIR_NAME 目录"
 
-  if ! is_codex2api_repo; then
-    error "克隆后仍未识别为 codex2api 仓库，请手动检查"
+  if ! is_axisrelay_repo; then
+    error "克隆后仍未识别为 axisrelay 仓库，请手动检查"
   fi
 
   success "已切换到 $(pwd)"
@@ -224,8 +224,8 @@ bootstrap_repo() {
 }
 
 update_repo_code() {
-  if [[ "${CODEX2API_SKIP_GIT_PULL:-}" == "1" || "${CODEX2API_SKIP_GIT_PULL:-}" == "true" ]]; then
-    warn "已跳过自动拉取最新代码 (CODEX2API_SKIP_GIT_PULL=${CODEX2API_SKIP_GIT_PULL})"
+  if [[ "${AXISRELAY_SKIP_GIT_PULL:-}" == "1" || "${AXISRELAY_SKIP_GIT_PULL:-}" == "true" ]]; then
+    warn "已跳过自动拉取最新代码 (AXISRELAY_SKIP_GIT_PULL=${AXISRELAY_SKIP_GIT_PULL})"
     return 0
   fi
 
@@ -279,7 +279,7 @@ preflight() {
 step_port() {
   echo ""
   printf "${BOLD}${CYAN}━━━ 1/6 服务端口 ━━━${NC}\n"
-  ask "服务监听端口" "$(env_default CODEX_PORT "$(env_default PORT "8080")")" PORT
+  ask "服务监听端口" "$(env_default AXISRELAY_PORT "$(env_default PORT "8080")")" PORT
 
   if ! [[ "$PORT" =~ ^[0-9]+$ ]] || (( PORT < 1 || PORT > 65535 )); then
     error "无效端口号: $PORT"
@@ -296,7 +296,7 @@ step_bind() {
   echo "  2) 全部网络    — 绑定 0.0.0.0，可通过内网/公网 IP 访问 (默认)"
   echo ""
   local bind_default bind_choice_default
-  bind_default="$(env_default BIND_HOST "0.0.0.0")"
+  bind_default="$(env_default AXISRELAY_BIND_HOST "0.0.0.0")"
   case "$bind_default" in
     127.*|localhost)
       bind_choice_default="1"
@@ -309,12 +309,12 @@ step_bind() {
 
   case "$BIND_CHOICE" in
     1|local|loopback|127*)
-      BIND_HOST="127.0.0.1"
+      AXISRELAY_BIND_HOST="127.0.0.1"
       BIND_MODE="loopback"
       success "监听范围: 仅本机 (127.0.0.1)"
       ;;
     2|all|public|0*)
-      BIND_HOST="0.0.0.0"
+      AXISRELAY_BIND_HOST="0.0.0.0"
       BIND_MODE="all"
       success "监听范围: 全部网络 (0.0.0.0)"
       ;;
@@ -324,63 +324,23 @@ step_bind() {
   esac
 }
 
-# ---------- 第三步：数据库模式 ----------
+# ---------- 第三步：数据库 ----------
 step_database() {
   echo ""
-  printf "${BOLD}${CYAN}━━━ 3/6 数据库模式 ━━━${NC}\n"
+  printf "${BOLD}${CYAN}━━━ 3/6 数据库配置 ━━━${NC}\n"
   echo ""
-  echo "  1) SQLite   — 轻量单文件，适合个人 / 测试"
-  echo "  2) PG+Redis — PostgreSQL + Redis，适合生产 / 多并发"
-  echo ""
-  local db_default db_choice_default
-  db_default="$(env_default DATABASE_DRIVER "sqlite")"
-  db_default="$(printf "%s" "$db_default" | tr '[:upper:]' '[:lower:]')"
-  case "$db_default" in
-    postgres|postgresql|pg)
-      db_choice_default="2"
-      ;;
-    *)
-      db_choice_default="1"
-      ;;
-  esac
-  ask "请选择 (1 或 2)" "$db_choice_default" DB_CHOICE
-
-  case "$DB_CHOICE" in
-    1|sqlite|SQLite)
-      DB_MODE="sqlite"
-      success "数据库模式: SQLite (轻量)"
-      step_sqlite_config
-      ;;
-    2|pg|postgres|PG)
-      DB_MODE="postgres"
-      success "数据库模式: PostgreSQL + Redis"
-      step_pg_config
-      ;;
-    *)
-      error "无效选择: $DB_CHOICE"
-      ;;
-  esac
+  DB_MODE="mysql"
+  success "数据库模式: MySQL 8.0"
+  step_mysql_config
 }
 
-step_sqlite_config() {
+step_mysql_config() {
   echo ""
-  ask "SQLite 数据文件路径 (容器内)" "$(env_default DATABASE_PATH "/data/codex2api.db")" SQLITE_PATH
-}
-
-step_pg_config() {
-  echo ""
-  info "PostgreSQL 配置 (Docker 内置，通常保持默认即可)"
-  ask "数据库用户名" "$(env_default DATABASE_USER "$(env_default POSTGRES_USER "codex2api")")" PG_USER
-  ask "数据库名称"   "$(env_default DATABASE_NAME "$(env_default POSTGRES_DB "codex2api")")" PG_DB
-  echo ""
-  ask_secret "数据库密码" "$(env_default DATABASE_PASSWORD "$(env_default POSTGRES_PASSWORD "")")" PG_PASS
-  if [[ -z "$PG_PASS" ]]; then
-    PG_PASS=$(gen_secret)
-    success "已自动生成数据库密码"
-  fi
-  echo ""
-  info "Redis 配置"
-  ask_secret "Redis 密码 (留空则无密码)" "$(env_default REDIS_PASSWORD "")" REDIS_PASS
+  ask "MySQL 主机" "$(env_default AXISRELAY_DATABASE_HOST "mysql")" DB_HOST
+  ask "MySQL 端口" "$(env_default AXISRELAY_DATABASE_PORT "3306")" DB_PORT
+  ask "MySQL 用户" "$(env_default AXISRELAY_DATABASE_USER "axisrelay")" DB_USER
+  ask_secret "MySQL 密码" "$(env_default AXISRELAY_DATABASE_PASSWORD "axisrelay")" DB_PASSWORD
+  ask "MySQL 数据库名" "$(env_default AXISRELAY_DATABASE_NAME "axisrelay")" DB_NAME
 }
 
 # ---------- 第四步：密钥 ----------
@@ -389,14 +349,13 @@ step_secrets() {
   printf "${BOLD}${CYAN}━━━ 4/6 安全密钥 ━━━${NC}\n"
   echo ""
 
-  ask_secret "管理后台密钥 (ADMIN_SECRET)" "$(env_default ADMIN_SECRET "")" ADMIN_SECRET
-  if [[ -z "$ADMIN_SECRET" ]]; then
-    ADMIN_SECRET=$(gen_secret)
+  ask_secret "管理后台密钥 (AXISRELAY_ADMIN_SECRET)" "$(env_default AXISRELAY_ADMIN_SECRET "")" AXISRELAY_ADMIN_SECRET
+  if [[ -z "$AXISRELAY_ADMIN_SECRET" ]]; then
+    AXISRELAY_ADMIN_SECRET=$(gen_secret)
     success "已自动生成管理密钥"
   fi
 
   echo ""
-  ask "下游 API 密钥 (CODEX_API_KEYS, 多个用逗号分隔, 留空不启用)" "$(env_default CODEX_API_KEYS "")" API_KEYS
 }
 
 # ---------- 第五步：构建方式 ----------
@@ -436,21 +395,11 @@ step_confirm() {
     echo "  监听范围:   0.0.0.0 (全部网络)"
   fi
   echo "  数据库:     $DB_MODE"
-  if [[ "$DB_MODE" == "sqlite" ]]; then
-    echo "  数据路径:   $SQLITE_PATH"
-    echo "  缓存:       memory"
-  else
-    echo "  PG 用户:    $PG_USER"
-    echo "  PG 数据库:  $PG_DB"
-    echo "  Redis:      内置容器"
-  fi
+  echo "  数据库主机: $DB_HOST:$DB_PORT"
+  echo "  数据库名:   $DB_NAME"
+  echo "  缓存:       redis"
   echo "  构建方式:   $( [[ "$BUILD_MODE" == "image" ]] && echo "拉取镜像" || echo "本地构建" )"
-  echo "  管理密钥:   ${ADMIN_SECRET}"
-  if [[ -n "${API_KEYS:-}" ]]; then
-    echo "  API 密钥:   已设置"
-  else
-    echo "  API 密钥:   未启用"
-  fi
+  echo "  管理密钥:   ${AXISRELAY_ADMIN_SECRET}"
   echo ""
   ask "确认部署? (y/n)" "y" CONFIRM
   if [[ "$CONFIRM" != "y" && "$CONFIRM" != "Y" ]]; then
@@ -469,91 +418,44 @@ generate_env() {
     warn "已备份原 .env 文件"
   fi
 
-  if [[ "$DB_MODE" == "sqlite" ]]; then
-    cat > .env << EOF
+  cat > .env << EOF
 # ============================
-#  codex2api 配置 (SQLite 模式)
+#  AxisRelay 配置 (MySQL + Redis)
 #  由 deploy.sh 自动生成于 $(date '+%Y-%m-%d %H:%M:%S')
 # ============================
 
 # 服务端口
-CODEX_PORT=${PORT}
+AXISRELAY_PORT=${PORT}
 
 # 端口绑定地址 (127.0.0.1=仅本机, 0.0.0.0=全部网络)
-BIND_HOST=${BIND_HOST}
+AXISRELAY_BIND_HOST=${AXISRELAY_BIND_HOST}
 
 # 管理后台密钥
-ADMIN_SECRET=${ADMIN_SECRET}
+AXISRELAY_ADMIN_SECRET=${AXISRELAY_ADMIN_SECRET}
 
-# 数据库 — SQLite
-DATABASE_DRIVER=sqlite
-DATABASE_PATH=${SQLITE_PATH}
-
-# 缓存 — 内存
-CACHE_DRIVER=memory
-
-# 时区
-TZ=Asia/Shanghai
-EOF
-  else
-    cat > .env << EOF
-# ============================
-#  codex2api 配置 (PG + Redis 模式)
-#  由 deploy.sh 自动生成于 $(date '+%Y-%m-%d %H:%M:%S')
-# ============================
-
-# 服务端口
-CODEX_PORT=${PORT}
-
-# 端口绑定地址 (127.0.0.1=仅本机, 0.0.0.0=全部网络)
-BIND_HOST=${BIND_HOST}
-
-# 管理后台密钥
-ADMIN_SECRET=${ADMIN_SECRET}
-
-# 数据库 — PostgreSQL
-DATABASE_DRIVER=postgres
-DATABASE_HOST=postgres
-DATABASE_PORT=5432
-DATABASE_USER=${PG_USER}
-DATABASE_PASSWORD=${PG_PASS}
-DATABASE_NAME=${PG_DB}
-DATABASE_SSLMODE=disable
-POSTGRES_USER=${PG_USER}
-POSTGRES_PASSWORD=${PG_PASS}
-POSTGRES_DB=${PG_DB}
+# 数据库 — MySQL 8.0
+AXISRELAY_DATABASE_DRIVER=mysql
+AXISRELAY_DATABASE_HOST=${DB_HOST}
+AXISRELAY_DATABASE_PORT=${DB_PORT}
+AXISRELAY_DATABASE_USER=${DB_USER}
+AXISRELAY_DATABASE_PASSWORD=${DB_PASSWORD}
+AXISRELAY_DATABASE_NAME=${DB_NAME}
 
 # 缓存 — Redis
-CACHE_DRIVER=redis
-REDIS_ADDR=redis:6379
-REDIS_USERNAME=
-REDIS_PASSWORD=${REDIS_PASS:-}
-REDIS_DB=0
-REDIS_TLS=false
-REDIS_INSECURE_SKIP_VERIFY=false
+AXISRELAY_CACHE_DRIVER=redis
+AXISRELAY_REDIS_ADDR=redis:6379
 
 # 时区
 TZ=Asia/Shanghai
 EOF
-  fi
 
-  # 追加 API Keys
-  if [[ -n "${API_KEYS:-}" ]]; then
-    echo "" >> .env
-    echo "# 下游 API 密钥鉴权" >> .env
-    echo "CODEX_API_KEYS=${API_KEYS}" >> .env
-  fi
 
   success ".env 已生成"
 }
 
 # ---------- 选择 compose 文件 ----------
 resolve_compose_file() {
-  if [[ "$DB_MODE" == "sqlite" && "$BUILD_MODE" == "local" ]]; then
-    COMPOSE_FILE="docker-compose.sqlite.local.yml"
-  elif [[ "$DB_MODE" == "sqlite" ]]; then
-    COMPOSE_FILE="docker-compose.sqlite.yml"
-  elif [[ "$BUILD_MODE" == "local" ]]; then
+  if [[ "$BUILD_MODE" == "local" ]]; then
     COMPOSE_FILE="docker-compose.local.yml"
   else
     COMPOSE_FILE="docker-compose.yml"
@@ -641,7 +543,7 @@ deploy() {
     fi
   fi
   echo ""
-  echo "  管理密钥 : ${ADMIN_SECRET}"
+  echo "  管理密钥 : ${AXISRELAY_ADMIN_SECRET}"
   echo "  查看日志 : $(compose_cmd_display) logs -f"
   echo "  停止服务 : $(compose_cmd_display) down"
   echo ""
@@ -649,7 +551,7 @@ deploy() {
     warn "服务对外开放，请确认防火墙/安全组已放行 ${PORT} 端口"
   fi
   if [[ "$BIND_MODE" == "loopback" ]]; then
-    info "如需对外暴露，可重新运行 deploy.sh 选择「全部网络」，或在 .env 中将 BIND_HOST 改为 0.0.0.0"
+    info "如需对外暴露，可重新运行 deploy.sh 选择「全部网络」，或在 .env 中将 AXISRELAY_BIND_HOST 改为 0.0.0.0"
   fi
   echo ""
 }

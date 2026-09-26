@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/codex2api/proxy"
+	"github.com/wuekevin/axisrelay/proxy"
 	"github.com/gin-gonic/gin"
 	"github.com/tidwall/gjson"
 )

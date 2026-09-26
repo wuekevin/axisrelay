@@ -9,7 +9,7 @@ import (
 )
 
 func TestResetAPIKeyQuotaPreservesHistoricalUsage(t *testing.T) {
-	db, err := New("sqlite", filepath.Join(t.TempDir(), "quota.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "quota.db"))
 	if err != nil {
 		t.Fatalf("New(sqlite): %v", err)
 	}
@@ -49,7 +49,7 @@ func TestResetAPIKeyQuotaPreservesHistoricalUsage(t *testing.T) {
 }
 
 func TestResetAllAPIKeyQuotasResetsEveryKey(t *testing.T) {
-	db, err := New("sqlite", filepath.Join(t.TempDir(), "quota-all.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "quota-all.db"))
 	if err != nil {
 		t.Fatalf("New(sqlite): %v", err)
 	}
@@ -104,7 +104,7 @@ func TestResetAllAPIKeyQuotasResetsEveryKey(t *testing.T) {
 }
 
 func TestResetAPIKeyQuotaRestartsOnlyFiveHourAndSevenDayWindows(t *testing.T) {
-	db, err := New("sqlite", filepath.Join(t.TempDir(), "quota-windows.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "quota-windows.db"))
 	if err != nil {
 		t.Fatalf("New(sqlite): %v", err)
 	}

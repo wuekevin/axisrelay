@@ -122,32 +122,6 @@ func TestPromptRiskAdaptiveTrustAutomaticallyPromotesStableLowRiskPerson(t *test
 	}
 }
 
-func TestPromptRiskAdaptiveTrustMigratesLegacySQLitePolicyTable(t *testing.T) {
-	db := newPromptPolicySQLiteTestDB(t)
-	ctx := context.Background()
-	if _, err := db.conn.ExecContext(ctx, `CREATE TABLE IF NOT EXISTS prompt_risk_trust_policies (
-		id INTEGER PRIMARY KEY AUTOINCREMENT, subject_type TEXT NOT NULL, subject_key TEXT NOT NULL UNIQUE,
-		status TEXT NOT NULL DEFAULT 'active', reason TEXT NOT NULL DEFAULT '', risk_threshold INTEGER NOT NULL DEFAULT 35,
-		valid_until TIMESTAMP NOT NULL, last_evaluated_at TIMESTAMP NULL, last_risk_score INTEGER NOT NULL DEFAULT 0,
-		last_risk_level TEXT NOT NULL DEFAULT 'low', bypass_count INTEGER NOT NULL DEFAULT 0, last_bypass_at TIMESTAMP NULL,
-		created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-	)`); err != nil {
-		t.Fatalf("create legacy trust table: %v", err)
-	}
-	if err := db.ensurePromptRiskTrustTables(ctx); err != nil {
-		t.Fatalf("ensurePromptRiskTrustTables: %v", err)
-	}
-	columns, err := db.sqliteTableColumns(ctx, "prompt_risk_trust_policies")
-	if err != nil {
-		t.Fatalf("sqliteTableColumns: %v", err)
-	}
-	for _, name := range []string{"source", "model_review_count", "last_model_review_at"} {
-		if _, ok := columns[name]; !ok {
-			t.Fatalf("legacy trust table missing migrated column %q", name)
-		}
-	}
-}
-
 func TestPromptRiskAdaptiveTrustPostgresMigrationDDL(t *testing.T) {
 	promptPolicyDDLDriverOnce.Do(func() { sql.Register("prompt-policy-ddl-capture", promptPolicyDDLDriver{}) })
 	promptPolicyDDLQueryMu.Lock()

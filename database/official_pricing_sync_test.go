@@ -8,7 +8,7 @@ import (
 )
 
 func TestOfficialPricingSyncConfigLifecycleSQLite(t *testing.T) {
-	db, err := New("sqlite", ":memory:")
+	db, err := newTestDatabase(t, ":memory:")
 	if err != nil {
 		t.Fatalf("New sqlite: %v", err)
 	}
@@ -61,7 +61,7 @@ func TestOfficialPricingSyncConfigLifecycleSQLite(t *testing.T) {
 }
 
 func TestOfficialPricingSyncConfigRejectsEmptySources(t *testing.T) {
-	db, err := New("sqlite", ":memory:")
+	db, err := newTestDatabase(t, ":memory:")
 	if err != nil {
 		t.Fatalf("New sqlite: %v", err)
 	}

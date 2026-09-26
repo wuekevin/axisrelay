@@ -65,7 +65,7 @@ func (legacySecretMigrationCaptureConn) ExecContext(_ context.Context, query str
 }
 
 func TestPromptFilterNewAPIBindingCRUDAndSecretRotationSQLite(t *testing.T) {
-	db, err := New("sqlite", filepath.Join(t.TempDir(), "bindings.sqlite"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "bindings.sqlite"))
 	if err != nil {
 		t.Fatalf("New sqlite: %v", err)
 	}
@@ -141,7 +141,7 @@ func TestPromptFilterNewAPIBindingCRUDAndSecretRotationSQLite(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Get rotated binding: %v", err)
 	}
-	if rotated.Secret != newSecret || rotated.PreviousSecret != binding.Secret || rotated.PreviousSecretExpiresAt == nil || !rotated.PreviousSecretExpiresAt.Equal(previousExpiresAt) {
+	if rotated.Secret != newSecret || rotated.PreviousSecret != binding.Secret || rotated.PreviousSecretExpiresAt == nil || !rotated.PreviousSecretExpiresAt.Equal(previousExpiresAt.Truncate(time.Millisecond)) {
 		t.Fatalf("rotated binding = %#v", rotated)
 	}
 	if err := db.ReplacePromptFilterNewAPIBindingSecret(ctx, apiKeyID, binding.Secret, 0); err != nil {
@@ -230,7 +230,7 @@ func TestPromptFilterNewAPIBindingPostgresMigrationDDL(t *testing.T) {
 }
 
 func TestPromptFilterNewAPIBindingMigrationNeutralizesLegacyPolicyOverrides(t *testing.T) {
-	db, err := New("sqlite", filepath.Join(t.TempDir(), "binding-policy-retirement.sqlite"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "binding-policy-retirement.sqlite"))
 	if err != nil {
 		t.Fatalf("New sqlite: %v", err)
 	}
@@ -263,39 +263,45 @@ func TestPromptFilterNewAPIBindingMigrationNeutralizesLegacyPolicyOverrides(t *t
 	}
 }
 
-func TestSQLiteMigrationDropsLegacyPromptFilterSecretsAndKeepsBindings(t *testing.T) {
+func TestMySQLMigrationDropsLegacyPromptFilterSecretsAndKeepsBindings(t *testing.T) {
 	dbPath := filepath.Join(t.TempDir(), "legacy-prompt-filter-secret.sqlite")
-	db, err := New("sqlite", dbPath)
+	db, err := newTestDatabase(t, dbPath)
 	if err != nil {
-		t.Fatalf("New sqlite: %v", err)
+		t.Fatalf("New mysql: %v", err)
 	}
 	ctx := context.Background()
 	if _, err := db.conn.ExecContext(ctx, `
 		CREATE TABLE prompt_filter_secrets (
-			name TEXT PRIMARY KEY,
+			name VARCHAR(191) NOT NULL PRIMARY KEY,
 			secret TEXT NOT NULL
-		);
-		INSERT INTO prompt_filter_secrets (name, secret)
-		VALUES ('newapi', 'legacy-global-secret');
+		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 	`); err != nil {
 		db.Close()
 		t.Fatalf("create legacy secret table: %v", err)
 	}
+	if _, err := db.conn.ExecContext(ctx, `INSERT INTO prompt_filter_secrets (name, secret) VALUES ('newapi', 'legacy-global-secret')`); err != nil {
+		db.Close()
+		t.Fatalf("seed legacy secret table: %v", err)
+	}
+	if _, err := db.conn.ExecContext(ctx, `DELETE FROM schema_migrations WHERE version=18`); err != nil {
+		db.Close()
+		t.Fatalf("rewind legacy-secret migration: %v", err)
+	}
 	if err := db.Close(); err != nil {
-		t.Fatalf("close sqlite before migration: %v", err)
+		t.Fatalf("close mysql before migration: %v", err)
 	}
 
-	db, err = New("sqlite", dbPath)
+	db, err = newTestDatabase(t, dbPath)
 	if err != nil {
-		t.Fatalf("reopen sqlite for migration: %v", err)
+		t.Fatalf("reopen mysql for migration: %v", err)
 	}
 	defer db.Close()
 
 	var legacyTableCount int
 	if err := db.conn.QueryRowContext(ctx, `
 		SELECT COUNT(*)
-		FROM sqlite_master
-		WHERE type = 'table' AND name = 'prompt_filter_secrets'
+		FROM information_schema.tables
+		WHERE table_schema = DATABASE() AND table_name = 'prompt_filter_secrets'
 	`).Scan(&legacyTableCount); err != nil {
 		t.Fatalf("query legacy table: %v", err)
 	}
@@ -306,8 +312,8 @@ func TestSQLiteMigrationDropsLegacyPromptFilterSecretsAndKeepsBindings(t *testin
 	var bindingTableCount int
 	if err := db.conn.QueryRowContext(ctx, `
 		SELECT COUNT(*)
-		FROM sqlite_master
-		WHERE type = 'table' AND name = 'prompt_filter_newapi_bindings'
+		FROM information_schema.tables
+		WHERE table_schema = DATABASE() AND table_name = 'prompt_filter_newapi_bindings'
 	`).Scan(&bindingTableCount); err != nil {
 		t.Fatalf("query binding table: %v", err)
 	}
@@ -350,7 +356,7 @@ func TestPostgresMigrationDropsLegacyPromptFilterSecrets(t *testing.T) {
 }
 
 func TestDeleteAPIKeyDeletesPromptFilterNewAPIBinding(t *testing.T) {
-	db, err := New("sqlite", filepath.Join(t.TempDir(), "delete-binding.sqlite"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "delete-binding.sqlite"))
 	if err != nil {
 		t.Fatalf("New sqlite: %v", err)
 	}

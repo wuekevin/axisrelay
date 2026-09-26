@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/codex2api/api"
-	"github.com/codex2api/security"
+	"github.com/wuekevin/axisrelay/api"
+	"github.com/wuekevin/axisrelay/security"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 	"github.com/tidwall/gjson"
@@ -19,7 +19,7 @@ import (
 )
 
 // realtimeTextSession adapts the text subset of the OpenAI Realtime protocol
-// to the Responses WebSocket transport already supported by Codex2API. Audio
+// to the Responses WebSocket transport already supported by AxisRelay. Audio
 // buffer events are rejected explicitly rather than being silently discarded.
 type realtimeTextSession struct {
 	Model        string
@@ -199,7 +199,7 @@ func normalizeRealtimeTextClientEvent(state *realtimeTextSession, raw []byte) (a
 			state.Model = strings.Clone(model)
 		}
 		if realtimeModalitiesContainAudio(session.Get("output_modalities")) || realtimeModalitiesContainAudio(session.Get("modalities")) {
-			return nil, nil, api.NewAPIError(api.ErrCodeInvalidRequest, "Codex2API /v1/realtime currently supports text modalities only", api.ErrorTypeInvalidRequest)
+			return nil, nil, api.NewAPIError(api.ErrCodeInvalidRequest, "AxisRelay /v1/realtime currently supports text modalities only", api.ErrorTypeInvalidRequest)
 		}
 		if instructions := session.Get("instructions"); instructions.Exists() {
 			state.Instructions = strings.Clone(instructions.String())
@@ -222,7 +222,7 @@ func normalizeRealtimeTextClientEvent(state *realtimeTextSession, raw []byte) (a
 		}
 		for _, content := range item.Get("content").Array() {
 			if strings.Contains(strings.ToLower(content.Get("type").String()), "audio") {
-				return nil, nil, api.NewAPIError(api.ErrCodeInvalidRequest, "Codex2API /v1/realtime currently supports text conversation items only", api.ErrorTypeInvalidRequest)
+				return nil, nil, api.NewAPIError(api.ErrCodeInvalidRequest, "AxisRelay /v1/realtime currently supports text conversation items only", api.ErrorTypeInvalidRequest)
 			}
 		}
 		state.Items = append(state.Items, append(json.RawMessage(nil), item.Raw...))
@@ -247,7 +247,7 @@ func normalizeRealtimeTextClientEvent(state *realtimeTextSession, raw []byte) (a
 		return marshalRealtimeServerEvent(map[string]any{"type": "pong"}), nil, nil
 
 	case "input_audio_buffer.append", "input_audio_buffer.commit", "input_audio_buffer.clear":
-		return nil, nil, api.NewAPIError(api.ErrCodeInvalidRequest, "Codex2API /v1/realtime currently supports text events only", api.ErrorTypeInvalidRequest)
+		return nil, nil, api.NewAPIError(api.ErrCodeInvalidRequest, "AxisRelay /v1/realtime currently supports text events only", api.ErrorTypeInvalidRequest)
 
 	case "response.cancel":
 		// Cancellation is a logical turn boundary even though the Responses
@@ -281,7 +281,7 @@ func buildResponsesTurnFromRealtime(state *realtimeTextSession, raw []byte) ([]b
 	if modalities, ok := body["output_modalities"]; ok {
 		rawModalities, _ := json.Marshal(modalities)
 		if realtimeModalitiesContainAudio(gjson.ParseBytes(rawModalities)) {
-			return nil, fmt.Errorf("Codex2API /v1/realtime currently supports text output only")
+			return nil, fmt.Errorf("AxisRelay /v1/realtime currently supports text output only")
 		}
 		delete(body, "output_modalities")
 	}

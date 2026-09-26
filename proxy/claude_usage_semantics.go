@@ -1,7 +1,7 @@
 package proxy
 
 import (
-	"github.com/codex2api/database"
+	"github.com/wuekevin/axisrelay/database"
 	"github.com/tidwall/gjson"
 )
 

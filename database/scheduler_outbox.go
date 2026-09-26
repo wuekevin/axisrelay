@@ -139,6 +139,12 @@ func (db *DB) CleanupSchedulerOutboxThrough(ctx context.Context, olderThan time.
 		query = `DELETE FROM scheduler_outbox WHERE id IN (SELECT id FROM scheduler_outbox WHERE created_at<$1 AND id<=$2 ORDER BY id LIMIT $3)`
 		args = []interface{}{db.timeArg(olderThan), throughID, limit}
 	}
+	if db.isMySQL() {
+		query = `DELETE FROM scheduler_outbox WHERE id IN (SELECT id FROM (SELECT id FROM scheduler_outbox WHERE created_at<$1 ORDER BY id LIMIT $2) purge_batch)`
+		if throughID > 0 {
+			query = `DELETE FROM scheduler_outbox WHERE id IN (SELECT id FROM (SELECT id FROM scheduler_outbox WHERE created_at<$1 AND id<=$2 ORDER BY id LIMIT $3) purge_batch)`
+		}
+	}
 	result, err := db.conn.ExecContext(ctx, query, args...)
 	if err != nil {
 		return 0, err
@@ -157,6 +163,9 @@ func (db *DB) installSchedulerOutboxTriggers(ctx context.Context) error {
 	}
 	if db.isSQLite() {
 		return db.installSQLiteSchedulerOutboxTriggers(ctx)
+	}
+	if db.isMySQL() {
+		return db.installMySQLSchedulerOutboxTriggers(ctx)
 	}
 	return db.installPostgresSchedulerOutboxTriggers(ctx)
 }
@@ -313,9 +322,175 @@ func (db *DB) installSQLiteSchedulerOutboxTriggers(ctx context.Context) error {
 	return err
 }
 
+func (db *DB) installMySQLSchedulerOutboxTriggers(ctx context.Context) error {
+	for _, name := range []string{
+		"scheduler_outbox_accounts_insert",
+		"scheduler_outbox_accounts_update",
+		"scheduler_outbox_accounts_delete",
+		"scheduler_outbox_api_keys_insert",
+		"scheduler_outbox_api_keys_update",
+		"scheduler_outbox_api_keys_delete",
+		"scheduler_outbox_groups_insert",
+		"scheduler_outbox_groups_update",
+		"scheduler_outbox_groups_delete",
+		"scheduler_outbox_members_insert",
+		"scheduler_outbox_members_delete",
+		"scheduler_outbox_cooldowns_insert",
+		"scheduler_outbox_cooldowns_update",
+		"scheduler_outbox_cooldowns_delete",
+		"scheduler_outbox_proxies_insert",
+		"scheduler_outbox_proxies_update",
+		"scheduler_outbox_proxies_delete",
+		"scheduler_outbox_settings_update",
+		"grok_maintenance_accounts_insert",
+		"grok_maintenance_accounts_update",
+		"grok_maintenance_accounts_delete",
+	} {
+		if _, err := db.conn.ExecContext(ctx, "DROP TRIGGER IF EXISTS `"+name+"`"); err != nil {
+			return fmt.Errorf("drop MySQL trigger %s: %w", name, err)
+		}
+	}
+
+	statements := []string{
+		`CREATE TRIGGER scheduler_outbox_accounts_insert AFTER INSERT ON accounts FOR EACH ROW
+		 INSERT INTO scheduler_outbox(entity_type,entity_id,event_type) VALUES('account',NEW.id,'created')`,
+		`CREATE TRIGGER scheduler_outbox_accounts_update AFTER UPDATE ON accounts FOR EACH ROW
+		 BEGIN
+		   IF NOT (OLD.proxy_url <=> NEW.proxy_url)
+		      OR NOT (OLD.status <=> NEW.status)
+		      OR NOT (OLD.error_message <=> NEW.error_message)
+		      OR NOT (OLD.cooldown_reason <=> NEW.cooldown_reason)
+		      OR NOT (OLD.cooldown_until <=> NEW.cooldown_until)
+		      OR NOT (OLD.enabled <=> NEW.enabled)
+		      OR NOT (OLD.locked <=> NEW.locked)
+		      OR NOT (OLD.score_bias_override <=> NEW.score_bias_override)
+		      OR NOT (OLD.base_concurrency_override <=> NEW.base_concurrency_override)
+		      OR NOT (OLD.skip_warm_tier <=> NEW.skip_warm_tier)
+		      OR NOT (OLD.tags <=> NEW.tags)
+		      OR NOT (OLD.credit_enabled <=> NEW.credit_enabled)
+		      OR NOT (OLD.credit_skip_usage_window <=> NEW.credit_skip_usage_window)
+		      OR NOT (OLD.deleted_at <=> NEW.deleted_at)
+		      OR NOT (JSON_EXTRACT(OLD.credentials,'$.refresh_token') <=> JSON_EXTRACT(NEW.credentials,'$.refresh_token'))
+		      OR NOT (JSON_EXTRACT(OLD.credentials,'$.session_token') <=> JSON_EXTRACT(NEW.credentials,'$.session_token'))
+		      OR NOT (JSON_EXTRACT(OLD.credentials,'$.access_token') <=> JSON_EXTRACT(NEW.credentials,'$.access_token'))
+		      OR NOT (JSON_EXTRACT(OLD.credentials,'$.upstream_type') <=> JSON_EXTRACT(NEW.credentials,'$.upstream_type'))
+		      OR NOT (JSON_EXTRACT(OLD.credentials,'$.base_url') <=> JSON_EXTRACT(NEW.credentials,'$.base_url'))
+		      OR NOT (JSON_EXTRACT(OLD.credentials,'$.api_key') <=> JSON_EXTRACT(NEW.credentials,'$.api_key'))
+		      OR NOT (JSON_EXTRACT(OLD.credentials,'$.models') <=> JSON_EXTRACT(NEW.credentials,'$.models'))
+		      OR NOT (JSON_EXTRACT(OLD.credentials,'$.model_mapping') <=> JSON_EXTRACT(NEW.credentials,'$.model_mapping'))
+		      OR NOT (JSON_EXTRACT(OLD.credentials,'$.custom_headers') <=> JSON_EXTRACT(NEW.credentials,'$.custom_headers'))
+		      OR NOT (JSON_EXTRACT(OLD.credentials,'$.upstream_request_id_header') <=> JSON_EXTRACT(NEW.credentials,'$.upstream_request_id_header'))
+		      OR NOT (JSON_EXTRACT(OLD.credentials,'$.codex_turn_state') <=> JSON_EXTRACT(NEW.credentials,'$.codex_turn_state'))
+		      OR NOT (JSON_EXTRACT(OLD.credentials,'$.codex_turn_state_models') <=> JSON_EXTRACT(NEW.credentials,'$.codex_turn_state_models'))
+		      OR NOT (JSON_EXTRACT(OLD.credentials,'$.allowed_api_key_ids') <=> JSON_EXTRACT(NEW.credentials,'$.allowed_api_key_ids'))
+		      OR NOT (JSON_EXTRACT(OLD.credentials,'$.plan_type') <=> JSON_EXTRACT(NEW.credentials,'$.plan_type'))
+		      OR NOT (JSON_EXTRACT(OLD.credentials,'$.dispatch_count_limit') <=> JSON_EXTRACT(NEW.credentials,'$.dispatch_count_limit'))
+		      OR NOT (JSON_EXTRACT(OLD.credentials,'$.scheduler_priority') <=> JSON_EXTRACT(NEW.credentials,'$.scheduler_priority'))
+		      OR NOT (JSON_EXTRACT(OLD.credentials,'$.auth_mode') <=> JSON_EXTRACT(NEW.credentials,'$.auth_mode'))
+		      OR NOT (JSON_EXTRACT(OLD.credentials,'$.agent_runtime_id') <=> JSON_EXTRACT(NEW.credentials,'$.agent_runtime_id'))
+		      OR NOT (JSON_EXTRACT(OLD.credentials,'$.agent_private_key') <=> JSON_EXTRACT(NEW.credentials,'$.agent_private_key'))
+		      OR NOT (JSON_EXTRACT(OLD.credentials,'$.task_id') <=> JSON_EXTRACT(NEW.credentials,'$.task_id'))
+		      OR NOT (JSON_EXTRACT(OLD.credentials,'$.grok_principal_id') <=> JSON_EXTRACT(NEW.credentials,'$.grok_principal_id'))
+		      OR NOT (JSON_EXTRACT(OLD.credentials,'$.grok_oidc_issuer') <=> JSON_EXTRACT(NEW.credentials,'$.grok_oidc_issuer'))
+		   THEN
+		     INSERT INTO scheduler_outbox(entity_type,entity_id,event_type) VALUES('account',NEW.id,'updated');
+		   END IF;
+		 END`,
+		`CREATE TRIGGER scheduler_outbox_accounts_delete AFTER DELETE ON accounts FOR EACH ROW
+		 INSERT INTO scheduler_outbox(entity_type,entity_id,event_type) VALUES('account',OLD.id,'deleted')`,
+		`CREATE TRIGGER scheduler_outbox_api_keys_insert AFTER INSERT ON api_keys FOR EACH ROW
+		 INSERT INTO scheduler_outbox(entity_type,entity_id,event_type) VALUES('api_key',NEW.id,'created')`,
+		`CREATE TRIGGER scheduler_outbox_api_keys_update AFTER UPDATE ON api_keys FOR EACH ROW
+		 BEGIN
+		   IF NOT (OLD.allowed_group_ids <=> NEW.allowed_group_ids)
+		      OR NOT (OLD.limits <=> NEW.limits)
+		      OR NOT (OLD.expires_at <=> NEW.expires_at)
+		   THEN
+		     INSERT INTO scheduler_outbox(entity_type,entity_id,event_type) VALUES('api_key',NEW.id,'updated');
+		   END IF;
+		 END`,
+		`CREATE TRIGGER scheduler_outbox_api_keys_delete AFTER DELETE ON api_keys FOR EACH ROW
+		 INSERT INTO scheduler_outbox(entity_type,entity_id,event_type) VALUES('api_key',OLD.id,'deleted')`,
+		`CREATE TRIGGER scheduler_outbox_groups_insert AFTER INSERT ON account_groups FOR EACH ROW
+		 INSERT INTO scheduler_outbox(entity_type,entity_id,event_type) VALUES('group',NEW.id,'created')`,
+		`CREATE TRIGGER scheduler_outbox_groups_update AFTER UPDATE ON account_groups FOR EACH ROW
+		 INSERT INTO scheduler_outbox(entity_type,entity_id,event_type) VALUES('group',NEW.id,'updated')`,
+		`CREATE TRIGGER scheduler_outbox_groups_delete AFTER DELETE ON account_groups FOR EACH ROW
+		 INSERT INTO scheduler_outbox(entity_type,entity_id,event_type) VALUES('group',OLD.id,'deleted')`,
+		`CREATE TRIGGER scheduler_outbox_members_insert AFTER INSERT ON account_group_members FOR EACH ROW
+		 INSERT INTO scheduler_outbox(entity_type,entity_id,event_type) VALUES('account',NEW.account_id,'membership_changed')`,
+		`CREATE TRIGGER scheduler_outbox_members_delete AFTER DELETE ON account_group_members FOR EACH ROW
+		 INSERT INTO scheduler_outbox(entity_type,entity_id,event_type) VALUES('account',OLD.account_id,'membership_changed')`,
+		`CREATE TRIGGER scheduler_outbox_cooldowns_insert AFTER INSERT ON account_model_cooldowns FOR EACH ROW
+		 INSERT INTO scheduler_outbox(entity_type,entity_id,event_type) VALUES('account',NEW.account_id,'model_cooldown_changed')`,
+		`CREATE TRIGGER scheduler_outbox_cooldowns_update AFTER UPDATE ON account_model_cooldowns FOR EACH ROW
+		 BEGIN
+		   IF NOT (OLD.reset_at <=> NEW.reset_at)
+		      OR NOT (OLD.reason <=> NEW.reason)
+		      OR NOT (OLD.model <=> NEW.model)
+		   THEN
+		     INSERT INTO scheduler_outbox(entity_type,entity_id,event_type) VALUES('account',NEW.account_id,'model_cooldown_changed');
+		   END IF;
+		 END`,
+		`CREATE TRIGGER scheduler_outbox_cooldowns_delete AFTER DELETE ON account_model_cooldowns FOR EACH ROW
+		 INSERT INTO scheduler_outbox(entity_type,entity_id,event_type) VALUES('account',OLD.account_id,'model_cooldown_changed')`,
+		`CREATE TRIGGER scheduler_outbox_proxies_insert AFTER INSERT ON proxies FOR EACH ROW
+		 INSERT INTO scheduler_outbox(entity_type,entity_id,event_type) VALUES('proxy',NEW.id,'created')`,
+		`CREATE TRIGGER scheduler_outbox_proxies_update AFTER UPDATE ON proxies FOR EACH ROW
+		 INSERT INTO scheduler_outbox(entity_type,entity_id,event_type) VALUES('proxy',NEW.id,'updated')`,
+		`CREATE TRIGGER scheduler_outbox_proxies_delete AFTER DELETE ON proxies FOR EACH ROW
+		 INSERT INTO scheduler_outbox(entity_type,entity_id,event_type) VALUES('proxy',OLD.id,'deleted')`,
+		`CREATE TRIGGER scheduler_outbox_settings_update AFTER UPDATE ON system_settings FOR EACH ROW
+		 INSERT INTO scheduler_outbox(entity_type,entity_id,event_type) VALUES('settings',NEW.id,'updated')`,
+		`CREATE TRIGGER grok_maintenance_accounts_insert AFTER INSERT ON accounts FOR EACH ROW
+		 BEGIN
+		   IF LOWER(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(NEW.credentials,'$.upstream_type')),''))='grok'
+		      AND NEW.status<>'deleted' AND COALESCE(NEW.error_message,'')<>'deleted' AND COALESCE(NEW.enabled,1)<>0
+		   THEN
+		     INSERT INTO maintenance_jobs(entity_id,job_kind,due_at,updated_at)
+		     VALUES(NEW.id,'grok_freshness',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)
+		     ON DUPLICATE KEY UPDATE due_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP;
+		   END IF;
+		 END`,
+		`CREATE TRIGGER grok_maintenance_accounts_update AFTER UPDATE ON accounts FOR EACH ROW
+		 BEGIN
+		   IF NOT (OLD.credential_generation <=> NEW.credential_generation)
+		      OR NOT (JSON_EXTRACT(OLD.credentials,'$.upstream_type') <=> JSON_EXTRACT(NEW.credentials,'$.upstream_type'))
+		      OR NOT (JSON_EXTRACT(OLD.credentials,'$.base_url') <=> JSON_EXTRACT(NEW.credentials,'$.base_url'))
+		      OR NOT (JSON_EXTRACT(OLD.credentials,'$.api_key') <=> JSON_EXTRACT(NEW.credentials,'$.api_key'))
+		      OR NOT (JSON_EXTRACT(OLD.credentials,'$.refresh_token') <=> JSON_EXTRACT(NEW.credentials,'$.refresh_token'))
+		      OR NOT (JSON_EXTRACT(OLD.credentials,'$.access_token') <=> JSON_EXTRACT(NEW.credentials,'$.access_token'))
+		      OR NOT (JSON_EXTRACT(OLD.credentials,'$.models') <=> JSON_EXTRACT(NEW.credentials,'$.models'))
+		      OR NOT (JSON_EXTRACT(OLD.credentials,'$.model_mapping') <=> JSON_EXTRACT(NEW.credentials,'$.model_mapping'))
+		      OR NOT (OLD.status <=> NEW.status)
+		      OR NOT (OLD.error_message <=> NEW.error_message)
+		      OR NOT (OLD.enabled <=> NEW.enabled)
+		      OR NOT (OLD.deleted_at <=> NEW.deleted_at)
+		   THEN
+		     IF LOWER(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(NEW.credentials,'$.upstream_type')),''))='grok'
+		        AND NEW.status<>'deleted' AND COALESCE(NEW.error_message,'')<>'deleted' AND COALESCE(NEW.enabled,1)<>0
+		     THEN
+		       INSERT INTO maintenance_jobs(entity_id,job_kind,due_at,updated_at)
+		       VALUES(NEW.id,'grok_freshness',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)
+		       ON DUPLICATE KEY UPDATE due_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP;
+		     ELSE
+		       DELETE FROM maintenance_jobs WHERE entity_id=NEW.id AND job_kind='grok_freshness';
+		     END IF;
+		   END IF;
+		 END`,
+		`CREATE TRIGGER grok_maintenance_accounts_delete AFTER DELETE ON accounts FOR EACH ROW
+		 DELETE FROM maintenance_jobs WHERE entity_id=OLD.id AND job_kind='grok_freshness'`,
+	}
+	for i, statement := range statements {
+		if _, err := db.conn.ExecContext(ctx, statement); err != nil {
+			return fmt.Errorf("create MySQL scheduler trigger %d: %w", i+1, err)
+		}
+	}
+	return nil
+}
 func (db *DB) installPostgresSchedulerOutboxTriggers(ctx context.Context) error {
 	const query = `
-		CREATE OR REPLACE FUNCTION codex2api_scheduler_outbox_row() RETURNS trigger AS $$
+		CREATE OR REPLACE FUNCTION axisrelay_scheduler_outbox_row() RETURNS trigger AS $$
 		DECLARE
 			payload JSONB;
 			entity_id BIGINT;
@@ -334,7 +509,7 @@ func (db *DB) installPostgresSchedulerOutboxTriggers(ctx context.Context) error 
 		DROP TRIGGER IF EXISTS scheduler_outbox_accounts_insert ON accounts;
 		DROP TRIGGER IF EXISTS scheduler_outbox_accounts_update ON accounts;
 		DROP TRIGGER IF EXISTS scheduler_outbox_accounts_delete ON accounts;
-		CREATE TRIGGER scheduler_outbox_accounts_insert AFTER INSERT ON accounts FOR EACH ROW EXECUTE FUNCTION codex2api_scheduler_outbox_row('account','id');
+		CREATE TRIGGER scheduler_outbox_accounts_insert AFTER INSERT ON accounts FOR EACH ROW EXECUTE FUNCTION axisrelay_scheduler_outbox_row('account','id');
 		CREATE TRIGGER scheduler_outbox_accounts_update AFTER UPDATE OF credentials,proxy_url,status,error_message,cooldown_reason,cooldown_until,enabled,locked,score_bias_override,base_concurrency_override,skip_warm_tier,tags,credit_enabled,credit_skip_usage_window,deleted_at ON accounts FOR EACH ROW WHEN (
 			OLD.proxy_url IS DISTINCT FROM NEW.proxy_url OR OLD.status IS DISTINCT FROM NEW.status OR OLD.error_message IS DISTINCT FROM NEW.error_message OR
 			OLD.cooldown_reason IS DISTINCT FROM NEW.cooldown_reason OR OLD.cooldown_until IS DISTINCT FROM NEW.cooldown_until OR
@@ -365,48 +540,48 @@ func (db *DB) installPostgresSchedulerOutboxTriggers(ctx context.Context) error 
 			COALESCE(OLD.credentials->>'task_id','') IS DISTINCT FROM COALESCE(NEW.credentials->>'task_id','') OR
 			COALESCE(OLD.credentials->>'grok_principal_id','') IS DISTINCT FROM COALESCE(NEW.credentials->>'grok_principal_id','') OR
 			COALESCE(OLD.credentials->>'grok_oidc_issuer','') IS DISTINCT FROM COALESCE(NEW.credentials->>'grok_oidc_issuer','')
-		) EXECUTE FUNCTION codex2api_scheduler_outbox_row('account','id');
-		CREATE TRIGGER scheduler_outbox_accounts_delete AFTER DELETE ON accounts FOR EACH ROW EXECUTE FUNCTION codex2api_scheduler_outbox_row('account','id');
+		) EXECUTE FUNCTION axisrelay_scheduler_outbox_row('account','id');
+		CREATE TRIGGER scheduler_outbox_accounts_delete AFTER DELETE ON accounts FOR EACH ROW EXECUTE FUNCTION axisrelay_scheduler_outbox_row('account','id');
 
 		DROP TRIGGER IF EXISTS scheduler_outbox_api_keys_insert ON api_keys;
 		DROP TRIGGER IF EXISTS scheduler_outbox_api_keys_update ON api_keys;
 		DROP TRIGGER IF EXISTS scheduler_outbox_api_keys_delete ON api_keys;
-		CREATE TRIGGER scheduler_outbox_api_keys_insert AFTER INSERT ON api_keys FOR EACH ROW EXECUTE FUNCTION codex2api_scheduler_outbox_row('api_key','id');
-		CREATE TRIGGER scheduler_outbox_api_keys_update AFTER UPDATE OF allowed_group_ids,limits,expires_at ON api_keys FOR EACH ROW EXECUTE FUNCTION codex2api_scheduler_outbox_row('api_key','id');
-		CREATE TRIGGER scheduler_outbox_api_keys_delete AFTER DELETE ON api_keys FOR EACH ROW EXECUTE FUNCTION codex2api_scheduler_outbox_row('api_key','id');
+		CREATE TRIGGER scheduler_outbox_api_keys_insert AFTER INSERT ON api_keys FOR EACH ROW EXECUTE FUNCTION axisrelay_scheduler_outbox_row('api_key','id');
+		CREATE TRIGGER scheduler_outbox_api_keys_update AFTER UPDATE OF allowed_group_ids,limits,expires_at ON api_keys FOR EACH ROW EXECUTE FUNCTION axisrelay_scheduler_outbox_row('api_key','id');
+		CREATE TRIGGER scheduler_outbox_api_keys_delete AFTER DELETE ON api_keys FOR EACH ROW EXECUTE FUNCTION axisrelay_scheduler_outbox_row('api_key','id');
 
 		DROP TRIGGER IF EXISTS scheduler_outbox_groups_insert ON account_groups;
 		DROP TRIGGER IF EXISTS scheduler_outbox_groups_update ON account_groups;
 		DROP TRIGGER IF EXISTS scheduler_outbox_groups_delete ON account_groups;
-		CREATE TRIGGER scheduler_outbox_groups_insert AFTER INSERT ON account_groups FOR EACH ROW EXECUTE FUNCTION codex2api_scheduler_outbox_row('group','id');
-		CREATE TRIGGER scheduler_outbox_groups_update AFTER UPDATE ON account_groups FOR EACH ROW EXECUTE FUNCTION codex2api_scheduler_outbox_row('group','id');
-		CREATE TRIGGER scheduler_outbox_groups_delete AFTER DELETE ON account_groups FOR EACH ROW EXECUTE FUNCTION codex2api_scheduler_outbox_row('group','id');
+		CREATE TRIGGER scheduler_outbox_groups_insert AFTER INSERT ON account_groups FOR EACH ROW EXECUTE FUNCTION axisrelay_scheduler_outbox_row('group','id');
+		CREATE TRIGGER scheduler_outbox_groups_update AFTER UPDATE ON account_groups FOR EACH ROW EXECUTE FUNCTION axisrelay_scheduler_outbox_row('group','id');
+		CREATE TRIGGER scheduler_outbox_groups_delete AFTER DELETE ON account_groups FOR EACH ROW EXECUTE FUNCTION axisrelay_scheduler_outbox_row('group','id');
 
 		DROP TRIGGER IF EXISTS scheduler_outbox_members_insert ON account_group_members;
 		DROP TRIGGER IF EXISTS scheduler_outbox_members_delete ON account_group_members;
-		CREATE TRIGGER scheduler_outbox_members_insert AFTER INSERT ON account_group_members FOR EACH ROW EXECUTE FUNCTION codex2api_scheduler_outbox_row('account','account_id');
-		CREATE TRIGGER scheduler_outbox_members_delete AFTER DELETE ON account_group_members FOR EACH ROW EXECUTE FUNCTION codex2api_scheduler_outbox_row('account','account_id');
+		CREATE TRIGGER scheduler_outbox_members_insert AFTER INSERT ON account_group_members FOR EACH ROW EXECUTE FUNCTION axisrelay_scheduler_outbox_row('account','account_id');
+		CREATE TRIGGER scheduler_outbox_members_delete AFTER DELETE ON account_group_members FOR EACH ROW EXECUTE FUNCTION axisrelay_scheduler_outbox_row('account','account_id');
 
 		DROP TRIGGER IF EXISTS scheduler_outbox_cooldowns_insert ON account_model_cooldowns;
 		DROP TRIGGER IF EXISTS scheduler_outbox_cooldowns_update ON account_model_cooldowns;
 		DROP TRIGGER IF EXISTS scheduler_outbox_cooldowns_delete ON account_model_cooldowns;
-		CREATE TRIGGER scheduler_outbox_cooldowns_insert AFTER INSERT ON account_model_cooldowns FOR EACH ROW EXECUTE FUNCTION codex2api_scheduler_outbox_row('account','account_id');
+		CREATE TRIGGER scheduler_outbox_cooldowns_insert AFTER INSERT ON account_model_cooldowns FOR EACH ROW EXECUTE FUNCTION axisrelay_scheduler_outbox_row('account','account_id');
 		CREATE TRIGGER scheduler_outbox_cooldowns_update AFTER UPDATE ON account_model_cooldowns FOR EACH ROW WHEN (
 			OLD.reset_at IS DISTINCT FROM NEW.reset_at OR OLD.reason IS DISTINCT FROM NEW.reason OR OLD.model IS DISTINCT FROM NEW.model
-		) EXECUTE FUNCTION codex2api_scheduler_outbox_row('account','account_id');
-		CREATE TRIGGER scheduler_outbox_cooldowns_delete AFTER DELETE ON account_model_cooldowns FOR EACH ROW EXECUTE FUNCTION codex2api_scheduler_outbox_row('account','account_id');
+		) EXECUTE FUNCTION axisrelay_scheduler_outbox_row('account','account_id');
+		CREATE TRIGGER scheduler_outbox_cooldowns_delete AFTER DELETE ON account_model_cooldowns FOR EACH ROW EXECUTE FUNCTION axisrelay_scheduler_outbox_row('account','account_id');
 
 		DROP TRIGGER IF EXISTS scheduler_outbox_proxies_insert ON proxies;
 		DROP TRIGGER IF EXISTS scheduler_outbox_proxies_update ON proxies;
 		DROP TRIGGER IF EXISTS scheduler_outbox_proxies_delete ON proxies;
-		CREATE TRIGGER scheduler_outbox_proxies_insert AFTER INSERT ON proxies FOR EACH ROW EXECUTE FUNCTION codex2api_scheduler_outbox_row('proxy','id');
-		CREATE TRIGGER scheduler_outbox_proxies_update AFTER UPDATE ON proxies FOR EACH ROW EXECUTE FUNCTION codex2api_scheduler_outbox_row('proxy','id');
-		CREATE TRIGGER scheduler_outbox_proxies_delete AFTER DELETE ON proxies FOR EACH ROW EXECUTE FUNCTION codex2api_scheduler_outbox_row('proxy','id');
+		CREATE TRIGGER scheduler_outbox_proxies_insert AFTER INSERT ON proxies FOR EACH ROW EXECUTE FUNCTION axisrelay_scheduler_outbox_row('proxy','id');
+		CREATE TRIGGER scheduler_outbox_proxies_update AFTER UPDATE ON proxies FOR EACH ROW EXECUTE FUNCTION axisrelay_scheduler_outbox_row('proxy','id');
+		CREATE TRIGGER scheduler_outbox_proxies_delete AFTER DELETE ON proxies FOR EACH ROW EXECUTE FUNCTION axisrelay_scheduler_outbox_row('proxy','id');
 
 		DROP TRIGGER IF EXISTS scheduler_outbox_settings_update ON system_settings;
-		CREATE TRIGGER scheduler_outbox_settings_update AFTER UPDATE ON system_settings FOR EACH ROW EXECUTE FUNCTION codex2api_scheduler_outbox_row('settings','id');
+		CREATE TRIGGER scheduler_outbox_settings_update AFTER UPDATE ON system_settings FOR EACH ROW EXECUTE FUNCTION axisrelay_scheduler_outbox_row('settings','id');
 
-		CREATE OR REPLACE FUNCTION codex2api_grok_maintenance_account() RETURNS trigger AS $$
+		CREATE OR REPLACE FUNCTION axisrelay_grok_maintenance_account() RETURNS trigger AS $$
 		DECLARE
 			account_id BIGINT;
 		BEGIN
@@ -429,7 +604,7 @@ func (db *DB) installPostgresSchedulerOutboxTriggers(ctx context.Context) error 
 		DROP TRIGGER IF EXISTS grok_maintenance_accounts_insert ON accounts;
 		DROP TRIGGER IF EXISTS grok_maintenance_accounts_update ON accounts;
 		DROP TRIGGER IF EXISTS grok_maintenance_accounts_delete ON accounts;
-		CREATE TRIGGER grok_maintenance_accounts_insert AFTER INSERT ON accounts FOR EACH ROW EXECUTE FUNCTION codex2api_grok_maintenance_account();
+		CREATE TRIGGER grok_maintenance_accounts_insert AFTER INSERT ON accounts FOR EACH ROW EXECUTE FUNCTION axisrelay_grok_maintenance_account();
 		CREATE TRIGGER grok_maintenance_accounts_update AFTER UPDATE OF credentials,credential_generation,status,error_message,enabled,deleted_at ON accounts
 		FOR EACH ROW WHEN (
 			OLD.credential_generation IS DISTINCT FROM NEW.credential_generation OR
@@ -442,8 +617,8 @@ func (db *DB) installPostgresSchedulerOutboxTriggers(ctx context.Context) error 
 			COALESCE(OLD.credentials->>'model_mapping','') IS DISTINCT FROM COALESCE(NEW.credentials->>'model_mapping','') OR
 			OLD.status IS DISTINCT FROM NEW.status OR OLD.error_message IS DISTINCT FROM NEW.error_message OR
 			OLD.enabled IS DISTINCT FROM NEW.enabled OR OLD.deleted_at IS DISTINCT FROM NEW.deleted_at
-		) EXECUTE FUNCTION codex2api_grok_maintenance_account();
-		CREATE TRIGGER grok_maintenance_accounts_delete AFTER DELETE ON accounts FOR EACH ROW EXECUTE FUNCTION codex2api_grok_maintenance_account();
+		) EXECUTE FUNCTION axisrelay_grok_maintenance_account();
+		CREATE TRIGGER grok_maintenance_accounts_delete AFTER DELETE ON accounts FOR EACH ROW EXECUTE FUNCTION axisrelay_grok_maintenance_account();
 	`
 	_, err := db.conn.ExecContext(ctx, query)
 	return err

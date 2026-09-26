@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/codex2api/auth"
+	"github.com/wuekevin/axisrelay/auth"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/tidwall/gjson"
@@ -432,8 +432,8 @@ func TestUUIDGeneration(t *testing.T) {
 	// 测试 UUID 生成是确定性的
 	t.Run("consistent UUID generation", func(t *testing.T) {
 		input := "test-input-123"
-		uuid1 := uuid.NewSHA1(uuid.NameSpaceOID, []byte("codex2api:prompt-cache:"+input))
-		uuid2 := uuid.NewSHA1(uuid.NameSpaceOID, []byte("codex2api:prompt-cache:"+input))
+		uuid1 := uuid.NewSHA1(uuid.NameSpaceOID, []byte("axisrelay:prompt-cache:"+input))
+		uuid2 := uuid.NewSHA1(uuid.NameSpaceOID, []byte("axisrelay:prompt-cache:"+input))
 
 		if uuid1.String() != uuid2.String() {
 			t.Error("UUID generation should be deterministic")
@@ -443,8 +443,8 @@ func TestUUIDGeneration(t *testing.T) {
 	t.Run("different inputs produce different UUIDs", func(t *testing.T) {
 		input1 := "input-1"
 		input2 := "input-2"
-		uuid1 := uuid.NewSHA1(uuid.NameSpaceOID, []byte("codex2api:prompt-cache:"+input1))
-		uuid2 := uuid.NewSHA1(uuid.NameSpaceOID, []byte("codex2api:prompt-cache:"+input2))
+		uuid1 := uuid.NewSHA1(uuid.NameSpaceOID, []byte("axisrelay:prompt-cache:"+input1))
+		uuid2 := uuid.NewSHA1(uuid.NameSpaceOID, []byte("axisrelay:prompt-cache:"+input2))
 
 		if uuid1.String() == uuid2.String() {
 			t.Error("Different inputs should produce different UUIDs")

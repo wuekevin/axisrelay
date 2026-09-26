@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"os"
 	"path/filepath"
 	"sync"
 	"testing"
@@ -13,20 +12,7 @@ import (
 )
 
 func TestAPIKeyAuthRevisionSQLite(t *testing.T) {
-	db, err := New("sqlite", filepath.Join(t.TempDir(), "auth.db"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = db.Close() })
-	testAPIKeyAuthRevision(t, db)
-}
-
-func TestAPIKeyAuthRevisionPostgres(t *testing.T) {
-	dsn := os.Getenv("CODEX2API_TEST_POSTGRES_DSN")
-	if dsn == "" {
-		t.Skip("requires an isolated PostgreSQL database")
-	}
-	db, err := New("postgres", dsn)
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "auth.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -120,17 +106,17 @@ func testAPIKeyAuthRevision(t *testing.T, db *DB) {
 
 func TestAPIKeyAuthRevisionDatabaseScope(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "shared.db")
-	first, err := New("sqlite", path)
+	first, err := newTestDatabase(t, path)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer first.Close()
-	second, err := New("sqlite", path)
+	second, err := newTestDatabase(t, path)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer second.Close()
-	other, err := New("sqlite", filepath.Join(t.TempDir(), "other.db"))
+	other, err := newTestDatabase(t, filepath.Join(t.TempDir(), "other.db"))
 	if err != nil {
 		t.Fatal(err)
 	}

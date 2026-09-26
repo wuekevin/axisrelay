@@ -3,7 +3,6 @@ package database
 import (
 	"context"
 	"math"
-	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -79,19 +78,13 @@ func TestValidateImageUserBilling(t *testing.T) {
 }
 
 func TestImageUserBillingPersistence(t *testing.T) {
-	testImageUserBillingPersistence(t, "sqlite", filepath.Join(t.TempDir(), "image-fees.db"))
+	testImageUserBillingPersistence(t, filepath.Join(t.TempDir(), "image-fees.db"))
 }
-func TestImageUserBillingPersistencePostgres(t *testing.T) {
-	dsn := os.Getenv("CODEX2API_TEST_POSTGRES_DSN")
-	if dsn == "" {
-		t.Skip("requires an isolated CODEX2API_TEST_POSTGRES_DSN database")
-	}
-	testImageUserBillingPersistence(t, "postgres", dsn)
-}
-func testImageUserBillingPersistence(t *testing.T, driver, dsn string) {
+
+func testImageUserBillingPersistence(t *testing.T, dsn string) {
 	previous := currentModelPricingOverrides()
 	t.Cleanup(func() { SetModelPricingOverrides(previous) })
-	db, err := New(driver, dsn)
+	db, err := newTestDatabase(t, dsn)
 	if err != nil {
 		t.Fatal(err)
 	}

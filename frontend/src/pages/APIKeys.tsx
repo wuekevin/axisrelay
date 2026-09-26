@@ -2153,7 +2153,7 @@ export default function APIKeys() {
                             </>
                           ) : null}
                           <Link
-                            to="/accounts?pending=1"
+                            to="/admin/gateway/accounts?pending=1"
                             className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
                           >
                             <ClipboardCheck className="size-3.5" />

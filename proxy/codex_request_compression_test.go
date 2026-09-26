@@ -73,7 +73,7 @@ func TestCompressCodexRequestBodyEnvOverridesSystemSetting(t *testing.T) {
 	// env 是部署级逃生阀：DB 不可达、后台打不开时仍要能强制切换，因此优先于系统设置。
 	t.Run("env 强制开启", func(t *testing.T) {
 		withCompressionSetting(t, false)
-		t.Setenv("CODEX_REQUEST_COMPRESSION", "zstd")
+		t.Setenv("AXISRELAY_REQUEST_COMPRESSION", "zstd")
 		if _, encoding := CompressCodexRequestBody(body); encoding != "zstd" {
 			t.Fatalf("env=zstd 未覆盖系统设置，encoding=%q", encoding)
 		}
@@ -81,7 +81,7 @@ func TestCompressCodexRequestBodyEnvOverridesSystemSetting(t *testing.T) {
 
 	t.Run("env 强制关闭", func(t *testing.T) {
 		withCompressionSetting(t, true)
-		t.Setenv("CODEX_REQUEST_COMPRESSION", "off")
+		t.Setenv("AXISRELAY_REQUEST_COMPRESSION", "off")
 		if _, encoding := CompressCodexRequestBody(body); encoding != "" {
 			t.Fatalf("env=off 未覆盖系统设置，encoding=%q", encoding)
 		}
@@ -93,14 +93,14 @@ func TestCodexRequestCompressionUnknownEnvFallsBackToSetting(t *testing.T) {
 	for _, value := range []string{"", "gzip", "br", "nonsense"} {
 		t.Run("env="+value, func(t *testing.T) {
 			withCompressionSetting(t, true)
-			t.Setenv("CODEX_REQUEST_COMPRESSION", value)
+			t.Setenv("AXISRELAY_REQUEST_COMPRESSION", value)
 			if !codexRequestCompressionEnabled() {
-				t.Fatalf("CODEX_REQUEST_COMPRESSION=%q 覆盖了系统设置的开启状态", value)
+				t.Fatalf("AXISRELAY_REQUEST_COMPRESSION=%q 覆盖了系统设置的开启状态", value)
 			}
 
 			withCompressionSetting(t, false)
 			if codexRequestCompressionEnabled() {
-				t.Fatalf("CODEX_REQUEST_COMPRESSION=%q 覆盖了系统设置的关闭状态", value)
+				t.Fatalf("AXISRELAY_REQUEST_COMPRESSION=%q 覆盖了系统设置的关闭状态", value)
 			}
 		})
 	}

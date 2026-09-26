@@ -1,6 +1,6 @@
-# Codex2API 部署文档
+# AxisRelay 部署文档
 
-本文档详细说明 Codex2API 的各种部署方式。
+本文档详细说明 AxisRelay 的各种部署方式。
 
 ## 目录
 
@@ -19,9 +19,9 @@
 
 | 模式 | 适用场景 | 数据库 | 缓存 |
 |------|----------|--------|------|
-| **标准 Docker** | 生产环境推荐 | PostgreSQL | Redis |
-| **SQLite 轻量** | 单机/测试环境 | SQLite | 内存 |
-| **本地源码** | 开发调试 | 可选 | 可选 |
+| **标准 Docker** | 生产环境推荐 | MySQL 8 | Redis |
+| **本地源码** | 开发调试 | MySQL 8 | Redis |
+| **PostgreSQL 兼容** | 外部数据库/既有环境 | PostgreSQL | Redis / Memory |
 
 ---
 
@@ -31,8 +31,8 @@
 
 ```bash
 # 克隆仓库
-git clone https://github.com/james-6-23/codex2api.git
-cd codex2api
+git clone https://github.com/wuekevin/axisrelay.git
+cd axisrelay
 
 # 配置环境
 cp .env.example .env
@@ -43,29 +43,19 @@ docker compose pull
 docker compose up -d
 
 # 查看日志
-docker compose logs -f codex2api
+docker compose logs -f axisrelay
 ```
-
-### 2. SQLite 轻量模式
-
-```bash
-cp .env.sqlite.example .env
-docker compose -f docker-compose.sqlite.yml pull
-docker compose -f docker-compose.sqlite.yml up -d
-```
-
----
 
 ## Docker 部署
 
-### 标准模式（PostgreSQL + Redis）
+### 标准模式（MySQL 8 + Redis）
 
 **docker-compose.yml 服务组成:**
 
 ```yaml
 services:
-  codex2api:    # 主应用服务
-  postgres:     # PostgreSQL 数据库
+  axisrelay:    # 主应用服务
+  mysql:        # MySQL 8 数据库
   redis:        # Redis 缓存
 ```
 
@@ -73,8 +63,8 @@ services:
 
 | 卷名 | 用途 |
 |------|------|
-| codex2api_pgdata | PostgreSQL 数据 |
-| codex2api_redisdata | Redis 数据 |
+| axisrelay_mysql_data | MySQL 数据 |
+| axisrelay_redisdata | Redis 数据 |
 
 **完整部署流程:**
 
@@ -83,10 +73,10 @@ services:
 cp .env.example .env
 
 # 2. 修改 .env 配置
-# - CODEX_PORT: 服务端口
-# - ADMIN_SECRET: 管理后台密码
-# - DATABASE_*: 数据库配置
-# - REDIS_*: Redis 配置
+# - AXISRELAY_PORT: 服务端口
+# - AXISRELAY_ADMIN_SECRET: 管理后台密码
+# - AXISRELAY_DATABASE_*: 数据库配置
+# - AXISRELAY_REDIS_*: Redis 配置
 
 # 3. 启动服务
 docker compose pull
@@ -94,41 +84,11 @@ docker compose up -d
 
 # 4. 验证状态
 docker compose ps
-docker compose logs -f codex2api
+docker compose logs -f axisrelay
 
 # 5. 访问服务
 # 管理后台: http://localhost:8080/admin/
 # API 地址: http://localhost:8080/v1/
-```
-
-### SQLite 轻量模式
-
-**docker-compose.sqlite.yml 服务组成:**
-
-```yaml
-services:
-  codex2api:    # 主应用服务（单容器）
-```
-
-**数据持久化:**
-
-| 卷名 | 用途 |
-|------|------|
-| codex2api-sqlite_sqlite-data | SQLite 数据库文件 |
-
-**部署流程:**
-
-```bash
-# 1. 准备环境文件
-cp .env.sqlite.example .env
-
-# 2. 修改 .env 配置
-# - CODEX_PORT: 服务端口
-# - DATABASE_PATH: /data/codex2api.db
-
-# 3. 启动服务
-docker compose -f docker-compose.sqlite.yml pull
-docker compose -f docker-compose.sqlite.yml up -d
 ```
 
 ### 本地源码构建模式
@@ -138,9 +98,6 @@ docker compose -f docker-compose.sqlite.yml up -d
 ```bash
 # 标准模式本地构建
 docker compose -f docker-compose.local.yml up -d --build
-
-# SQLite 模式本地构建
-docker compose -f docker-compose.sqlite.local.yml up -d --build
 ```
 
 **注意:** 本地构建模式使用 `build: .` 而非预构建镜像。
@@ -155,8 +112,8 @@ Render 可以直接运行 GHCR 中已经构建好的镜像，适合放一个公�
 
 | 项目 | 地址 |
 |------|------|
-| Demo 首页 | [https://codex2api-latest-vu8j.onrender.com](https://codex2api-latest-vu8j.onrender.com) |
-| Demo 密码 | `codex2api` |
+| Demo 首页 | [https://axisrelay-latest-vu8j.onrender.com](https://axisrelay-latest-vu8j.onrender.com) |
+| Demo 密码 | `axisrelay` |
 
 > Demo 环境仅用于体验管理后台界面和基础功能，请勿上传真实 Refresh Token、Access Token、API Key 或其他敏感信息。
 
@@ -165,31 +122,36 @@ Render 可以直接运行 GHCR 中已经构建好的镜像，适合放一个公�
 在 Render Dashboard 中创建 `Web Service`，选择 `Existing Image`，镜像地址填写：
 
 ```text
-ghcr.io/james-6-23/codex2api:latest
+ghcr.io/wuekevin/axisrelay:latest
 ```
 
 如果 GHCR Package 不是公开访问，需要先在 Render 的 Registry Credentials 中配置 GitHub Container Registry 凭据。
 
 ### 2. 配置环境变量
 
-免费实例没有持久化磁盘，推荐 Demo 使用 SQLite + 内存缓存，并把可写目录放到 `/tmp`：
+AxisRelay 已不支持 SQLite。Render Demo 需要外部 MySQL 8（或 PostgreSQL）和 Redis；可写的图片/日志目录仍可放在 `/tmp`：
 
 ```env
-CODEX_PORT=10000
-CODEX_BIND=0.0.0.0
-DATABASE_DRIVER=sqlite
-DATABASE_PATH=/tmp/codex2api.db
-CACHE_DRIVER=memory
-IMAGE_ASSET_DIR=/tmp/images
-LOG_DIR=/tmp/logs
-LOG_DISABLED=true
-ADMIN_SECRET=replace-with-a-strong-secret
-CODEX_ALLOW_ANONYMOUS=false
+AXISRELAY_PORT=10000
+AXISRELAY_BIND=0.0.0.0
+AXISRELAY_DATABASE_DRIVER=mysql
+AXISRELAY_DATABASE_HOST=your-mysql-host
+AXISRELAY_DATABASE_PORT=3306
+AXISRELAY_DATABASE_USER=axisrelay
+AXISRELAY_DATABASE_PASSWORD=your-mysql-password
+AXISRELAY_DATABASE_NAME=axisrelay
+AXISRELAY_CACHE_DRIVER=redis
+AXISRELAY_REDIS_ADDR=rediss://default:your-redis-password@your-redis-host:6379/0
+AXISRELAY_IMAGE_ASSET_DIR=/tmp/images
+AXISRELAY_LOG_DIR=/tmp/logs
+AXISRELAY_LOG_DISABLED=true
+AXISRELAY_ADMIN_SECRET=replace-with-a-strong-secret
+AXISRELAY_ALLOW_ANONYMOUS=false
 GIN_MODE=release
 TZ=Asia/Shanghai
 ```
 
-Render Web Service 默认会通过 `PORT=10000` 暴露服务；本项目也会读取 `PORT`，但显式设置 `CODEX_PORT=10000` 更直观。
+Render Web Service 会提供平台端口变量，但 AxisRelay 不读取无前缀兼容变量；请显式设置 `AXISRELAY_PORT=10000`。
 
 ### 3. 配置自动部署最新镜像
 
@@ -204,7 +166,7 @@ Render 的 image-backed 服务不会在 `latest` 标签更新后自动重新部�
 RENDER_DEPLOY_HOOK_URL=<Render Deploy Hook URL>
 ```
 
-之后 `.github/workflows/render-deploy.yml` 会在 `Build Docker Image` 工作流成功后自动请求该 Hook，让 Render 重新拉取 `ghcr.io/james-6-23/codex2api:latest` 并部署。
+之后 `.github/workflows/render-deploy.yml` 会在 `Build Docker Image` 工作流成功后自动请求该 Hook，让 Render 重新拉取 `ghcr.io/wuekevin/axisrelay:latest` 并部署。
 
 也可以手动触发镜像构建工作流，镜像推送成功后会自动进入 Render 部署工作流：
 
@@ -227,7 +189,7 @@ https://<your-service>.onrender.com/admin/
 https://<your-service>.onrender.com/health
 ```
 
-注意：Render 免费实例适合 Demo，不建议承载真实 Token 或生产流量；实例休眠、重启或重新部署后，`/tmp` 中的 SQLite 数据和图库可能丢失。
+注意：Render 免费实例适合 Demo，不建议承载真实 Token 或生产流量；实例休眠、重启或重新部署后，`/tmp` 中的图库和日志可能丢失，数据库数据必须放在外部持久化 MySQL/PostgreSQL。
 
 ---
 
@@ -237,8 +199,8 @@ https://<your-service>.onrender.com/health
 
 - Go 1.26.6+
 - Node.js 22.12+
-- PostgreSQL 14+ (可选，可用 SQLite)
-- Redis 7+ (可选，可用内存缓存)
+- MySQL 8.0+（默认）或 PostgreSQL 14+
+- Redis 7+（默认；测试场景可显式使用 Memory）
 
 ### 后端开发
 
@@ -297,27 +259,27 @@ server: {
 
 ```bash
 # 服务端口
-CODEX_PORT=8080
+AXISRELAY_PORT=8080
 
 # 管理后台密码（强密码推荐）
-ADMIN_SECRET=your-strong-password-here
+AXISRELAY_ADMIN_SECRET=your-strong-password-here
 
-# 数据库配置（PostgreSQL 模式）
-DATABASE_DRIVER=postgres
-DATABASE_HOST=postgres
-DATABASE_PORT=5432
-DATABASE_USER=codex2api
-DATABASE_PASSWORD=your-db-password
-DATABASE_NAME=codex2api
+# 数据库配置（MySQL 8 默认）
+AXISRELAY_DATABASE_DRIVER=mysql
+AXISRELAY_DATABASE_HOST=mysql
+AXISRELAY_DATABASE_PORT=3306
+AXISRELAY_DATABASE_USER=axisrelay
+AXISRELAY_DATABASE_PASSWORD=your-mysql-password
+AXISRELAY_DATABASE_NAME=axisrelay
 
 # Redis 配置
-CACHE_DRIVER=redis
-REDIS_ADDR=redis:6379
-REDIS_USERNAME=
-REDIS_PASSWORD=your-redis-password
-REDIS_DB=0
-REDIS_TLS=false
-REDIS_INSECURE_SKIP_VERIFY=false
+AXISRELAY_CACHE_DRIVER=redis
+AXISRELAY_REDIS_ADDR=redis:6379
+AXISRELAY_REDIS_USERNAME=
+AXISRELAY_REDIS_PASSWORD=your-redis-password
+AXISRELAY_REDIS_DB=0
+AXISRELAY_REDIS_TLS=false
+AXISRELAY_REDIS_INSECURE_SKIP_VERIFY=false
 
 # 时区
 TZ=Asia/Shanghai
@@ -326,15 +288,15 @@ TZ=Asia/Shanghai
 云 Redis（如 Aiven、Upstash）通常需要 TLS，可直接使用平台提供的 `rediss://` 连接串：
 
 ```env
-CACHE_DRIVER=redis
-REDIS_ADDR=rediss://default:your-redis-password@your-redis-host:6379/0
+AXISRELAY_CACHE_DRIVER=redis
+AXISRELAY_REDIS_ADDR=rediss://default:your-redis-password@your-redis-host:6379/0
 ```
 
 **可选配置:**
 
 ```bash
-# 快速调度器
-FAST_SCHEDULER_ENABLED=true
+# 使用索引调度引擎
+AXISRELAY_SCHEDULER_ENGINE=indexed
 ```
 
 ### 2. 系统设置（通过管理后台）
@@ -401,54 +363,55 @@ server {
 version: '3.8'
 
 services:
-  codex2api:
-    image: ghcr.io/james-6-23/codex2api:latest
-    container_name: codex2api
+  axisrelay:
+    image: ghcr.io/wuekevin/axisrelay:latest
+    container_name: axisrelay
     restart: unless-stopped
     env_file:
       - .env
     ports:
       - "127.0.0.1:8080:8080"  # 仅本地监听，通过 nginx 暴露
     depends_on:
-      postgres:
+      mysql:
         condition: service_healthy
       redis:
         condition: service_healthy
     networks:
-      - codex2api
+      - axisrelay
     logging:
       driver: "json-file"
       options:
         max-size: "100m"
         max-file: "3"
 
-  postgres:
-    image: postgres:15-alpine
-    container_name: codex2api-postgres
+  mysql:
+    image: mysql:8.0
+    container_name: axisrelay-mysql
     restart: unless-stopped
     environment:
-      POSTGRES_USER: ${DATABASE_USER}
-      POSTGRES_PASSWORD: ${DATABASE_PASSWORD}
-      POSTGRES_DB: ${DATABASE_NAME}
+      MYSQL_DATABASE: ${AXISRELAY_DATABASE_NAME}
+      MYSQL_USER: ${AXISRELAY_DATABASE_USER}
+      MYSQL_PASSWORD: ${AXISRELAY_DATABASE_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - mysql-data:/var/lib/mysql
     networks:
-      - codex2api
+      - axisrelay
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DATABASE_USER} -d ${DATABASE_NAME}"]
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u${AXISRELAY_DATABASE_USER} -p${AXISRELAY_DATABASE_PASSWORD} --silent"]
       interval: 5s
       timeout: 5s
-      retries: 5
+      retries: 12
 
   redis:
     image: redis:7-alpine
-    container_name: codex2api-redis
+    container_name: axisrelay-redis
     restart: unless-stopped
-    command: redis-server --requirepass ${REDIS_PASSWORD}
+    command: redis-server --requirepass ${AXISRELAY_REDIS_PASSWORD}
     volumes:
       - redisdata:/data
     networks:
-      - codex2api
+      - axisrelay
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -456,11 +419,11 @@ services:
       retries: 5
 
 volumes:
-  pgdata:
+  mysql-data:
   redisdata:
 
 networks:
-  codex2api:
+  axisrelay:
     driver: bridge
 ```
 
@@ -472,7 +435,7 @@ networks:
 
 ```bash
 # 1. 备份数据库（重要！）
-docker exec codex2api-postgres pg_dump -U codex2api codex2api > backup_$(date +%Y%m%d_%H%M%S).sql
+docker exec axisrelay-mysql mysqldump -uaxisrelay -p"$AXISRELAY_DATABASE_PASSWORD" axisrelay > backup_$(date +%Y%m%d_%H%M%S).sql
 
 # 2. 拉取新版本
 git pull
@@ -483,7 +446,7 @@ docker compose up -d
 
 # 4. 验证状态
 docker compose ps
-docker compose logs -f codex2api
+docker compose logs -f axisrelay
 
 # 5. 健康检查
 curl http://localhost:8080/health
@@ -496,29 +459,18 @@ curl http://localhost:8080/health
 docker compose down
 
 # 2. 恢复数据库
-docker exec -i codex2api-postgres psql -U codex2api codex2api < backup_xxx.sql
+docker exec -i axisrelay-mysql mysql -uaxisrelay -p"$AXISRELAY_DATABASE_PASSWORD" axisrelay < backup_xxx.sql
 
 # 3. 指定旧版本启动
 # 编辑 docker-compose.yml，指定 image:tag
 docker compose up -d
 ```
 
-### SQLite 模式升级
-
-```bash
-# 备份 SQLite 数据库
-cp /path/to/codex2api.db /path/to/codex2api.db.backup_$(date +%Y%m%d_%H%M%S)
-
-# 升级
-docker compose -f docker-compose.sqlite.yml pull
-docker compose -f docker-compose.sqlite.yml up -d
-```
-
 ---
 
 ## 备份与恢复
 
-### PostgreSQL 备份
+### MySQL 备份
 
 **自动备份脚本:**
 
@@ -526,66 +478,48 @@ docker compose -f docker-compose.sqlite.yml up -d
 #!/bin/bash
 # backup.sh
 
-BACKUP_DIR="/backup/codex2api"
+BACKUP_DIR="/backup/axisrelay"
 DATE=$(date +%Y%m%d_%H%M%S)
-CONTAINER="codex2api-postgres"
-DB_NAME="codex2api"
-DB_USER="codex2api"
+CONTAINER="axisrelay-mysql"
+DB_NAME="axisrelay"
+DB_USER="axisrelay"
 
 # 创建备份目录
 mkdir -p $BACKUP_DIR
 
 # 执行备份
-docker exec $CONTAINER pg_dump -U $DB_USER $DB_NAME > $BACKUP_DIR/codex2api_$DATE.sql
+docker exec $CONTAINER mysqldump -u$DB_USER -p"$AXISRELAY_DATABASE_PASSWORD" $DB_NAME > $BACKUP_DIR/axisrelay_$DATE.sql
 
 # 保留最近 30 天备份
 find $BACKUP_DIR -name "*.sql" -mtime +30 -delete
 
-echo "Backup completed: $BACKUP_DIR/codex2api_$DATE.sql"
+echo "Backup completed: $BACKUP_DIR/axisrelay_$DATE.sql"
 ```
 
 **添加到定时任务:**
 
 ```bash
 # 每天凌晨 2 点执行备份
-0 2 * * * /path/to/backup.sh >> /var/log/codex2api-backup.log 2>&1
+0 2 * * * /path/to/backup.sh >> /var/log/axisrelay-backup.log 2>&1
 ```
 
-### PostgreSQL 恢复
+### MySQL 恢复
 
 ```bash
 # 1. 停止应用
-docker compose stop codex2api
+docker compose stop axisrelay
 
 # 2. 恢复数据库
-docker exec -i codex2api-postgres psql -U codex2api -d codex2api < backup_xxx.sql
+docker exec -i axisrelay-mysql mysql -uaxisrelay -p"$AXISRELAY_DATABASE_PASSWORD" axisrelay < backup_xxx.sql
 
 # 3. 重启服务
-docker compose start codex2api
+docker compose start axisrelay
 ```
 
-### SQLite 备份
+### PostgreSQL 兼容部署
 
-```bash
-# 备份
-sqlite3 /data/codex2api.db ".backup '/backup/codex2api_$(date +%Y%m%d_%H%M%S).db'"
-
-# 或简单复制
-cp /data/codex2api.db /backup/codex2api_$(date +%Y%m%d_%H%M%S).db
-```
-
-### SQLite 恢复
-
-```bash
-# 停止服务
-docker compose -f docker-compose.sqlite.yml stop
-
-# 恢复数据
-cp /backup/codex2api_xxx.db /data/codex2api.db
-
-# 启动服务
-docker compose -f docker-compose.sqlite.yml start
-```
+使用外部 PostgreSQL 时，备份/恢复继续使用 `pg_dump` / `psql`；应用侧只需将
+`AXISRELAY_DATABASE_DRIVER=postgres` 并配置对应的 `AXISRELAY_DATABASE_*`。
 
 ---
 
@@ -593,10 +527,8 @@ docker compose -f docker-compose.sqlite.yml start
 
 | 部署模式 | 容器名 | 数据卷 |
 |----------|--------|--------|
-| 标准镜像 | codex2api | codex2api_pgdata, codex2api_redisdata |
-| 标准本地 | codex2api-local | codex2api-local_pgdata, codex2api-local_redisdata |
-| SQLite 镜像 | codex2api-sqlite | codex2api-sqlite_sqlite-data |
-| SQLite 本地 | codex2api-sqlite-local | codex2api-sqlite-local_sqlite-data-local |
+| 标准镜像 | axisrelay | axisrelay_mysql_data, axisrelay_redisdata |
+| 标准本地 | axisrelay | axisrelay-local_mysql_data, axisrelay-local_redisdata |
 
 **注意:** 不同模式的数据卷相互隔离，切换 compose 文件后看到空数据是正常现象。
 

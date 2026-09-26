@@ -16,7 +16,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/codex2api/database"
+	"github.com/wuekevin/axisrelay/database"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/tidwall/gjson"
@@ -297,7 +297,7 @@ func (client *proxyRiskScoringClient) requestIP(ctx context.Context, ip string) 
 		return nil, 0, err
 	}
 	req.Header.Set("Accept", "application/json")
-	req.Header.Set("User-Agent", "Codex2API-Scamalytics/1.0")
+	req.Header.Set("User-Agent", "AxisRelay-Scamalytics/1.0")
 	started := time.Now()
 	resp, err := client.http.Do(req)
 	latency := int(time.Since(started).Milliseconds())

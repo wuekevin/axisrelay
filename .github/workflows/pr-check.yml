@@ -86,7 +86,21 @@ jobs:
 
   test:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 25
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: axisrelay_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -paxisrelay_test --silent"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+    env:
+      AXISRELAY_TEST_MYSQL_ROOT_DSN: root:axisrelay_test@tcp(127.0.0.1:3306)/
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -100,32 +114,7 @@ jobs:
         run: mkdir -p frontend/dist && touch frontend/dist/placeholder
 
       - name: Run Go tests
-        run: go test -count=1 -timeout 8m ./...
-
-  postgres-compatibility:
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    services:
-      postgres:
-        image: postgres:18-alpine
-        env:
-          POSTGRES_USER: codex2api_test
-          POSTGRES_PASSWORD: test-only
-          POSTGRES_DB: codex2api_test
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U codex2api_test -d codex2api_test"
-          --health-interval 5s --health-timeout 5s --health-retries 10
-    steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-go@v6
-        with:
-          go-version-file: go.mod
-      - name: Test PostgreSQL trace, indexes, capabilities and legacy daily usage
-        env:
-          CODEX2API_TEST_POSTGRES_DSN: postgres://codex2api_test:test-only@localhost:5432/codex2api_test?sslmode=disable
-        run: go test -race -count=1 ./database -run '^TestPostgresTraceAndCapabilities$'
+        run: go test ./... -p 1 -count=1 -timeout 20m
 
   test-race:
     name: test-race (${{ matrix.name }})
@@ -141,6 +130,20 @@ jobs:
           - name: database
           - name: promptfilter
           - name: rest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: axisrelay_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -paxisrelay_test --silent"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+    env:
+      AXISRELAY_TEST_MYSQL_ROOT_DSN: root:axisrelay_test@tcp(127.0.0.1:3306)/
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -154,8 +157,8 @@ jobs:
         run: mkdir -p frontend/dist && touch frontend/dist/placeholder
 
       # 重包各占一台 2 核 runner,避免互相抢核。分片大小见 go-race-packages.sh:
-      # 测试建库走 SQLite schema 模板(database.PrepareSQLiteSchemaTemplate)后,
-      # admin/database 整包 -race 都在 1 分钟量级;proxy 是最重的包,按测试名首字母拆两片。
+      # 测试建库通过 AXISRELAY_TEST_MYSQL_ROOT_DSN 在 MySQL 8.0 中创建隔离 schema;
+      # admin/database 各自独占分片,proxy 是最重的包,按测试名首字母拆两片。
       - name: Run Go tests with race detector
         run: |
           set -euo pipefail

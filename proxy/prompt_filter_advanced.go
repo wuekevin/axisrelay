@@ -13,10 +13,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/codex2api/cache"
-	"github.com/codex2api/security/promptfilter"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/wuekevin/axisrelay/cache"
+	"github.com/wuekevin/axisrelay/security/promptfilter"
 )
 
 const promptRiskNamespace = "prompt-filter-risk"
@@ -246,7 +246,7 @@ func (h *Handler) applyPromptSidecarWithState(ctx context.Context, text string, 
 		return sidecarFailure(verdict, !cleanRequest && sc.FailClosed, err)
 	}
 	req.Header.Set("Content-Type", "application/json")
-	if key := strings.TrimSpace(os.Getenv("PROMPT_FILTER_SIDECAR_API_KEY")); key != "" {
+	if key := strings.TrimSpace(os.Getenv("AXISRELAY_PROMPT_FILTER_SIDECAR_API_KEY")); key != "" {
 		req.Header.Set("Authorization", "Bearer "+key)
 	}
 	resp, err := http.DefaultClient.Do(req)

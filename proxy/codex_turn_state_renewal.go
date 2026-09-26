@@ -3,8 +3,8 @@ package proxy
 import (
 	"time"
 
-	"github.com/codex2api/auth"
-	"github.com/codex2api/database"
+	"github.com/wuekevin/axisrelay/auth"
+	"github.com/wuekevin/axisrelay/database"
 )
 
 // CodexTurnStateTemplateRenewalDue only renews a usable upstream template during

@@ -3,7 +3,7 @@ import type { UpstreamChannel } from '../types'
 // 管理台可见渠道：与后端 database.AllUpstreamChannels / FallbackVisibleChannel 保持一致。
 export const ALL_VISIBLE_CHANNEL_OPTIONS: readonly UpstreamChannel[] = ['codex', 'claude', 'antigravity', 'grok']
 export const FALLBACK_VISIBLE_CHANNEL: UpstreamChannel = 'codex'
-export const VISIBLE_CHANNELS_STORAGE_KEY = 'codex2api:visible-channels'
+export const VISIBLE_CHANNELS_STORAGE_KEY = 'axisrelay:visible-channels'
 
 const isUpstreamChannel = (value: unknown): value is UpstreamChannel =>
   typeof value === 'string' && (ALL_VISIBLE_CHANNEL_OPTIONS as readonly string[]).includes(value)

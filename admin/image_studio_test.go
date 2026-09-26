@@ -23,14 +23,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/codex2api/auth"
-	"github.com/codex2api/cache"
-	"github.com/codex2api/database"
-	"github.com/codex2api/internal/imagestore"
-	"github.com/codex2api/proxy"
-	"github.com/codex2api/security/promptfilter"
 	"github.com/gin-gonic/gin"
 	"github.com/tidwall/gjson"
+	"github.com/wuekevin/axisrelay/auth"
+	"github.com/wuekevin/axisrelay/cache"
+	"github.com/wuekevin/axisrelay/database"
+	"github.com/wuekevin/axisrelay/internal/imagestore"
+	"github.com/wuekevin/axisrelay/proxy"
+	"github.com/wuekevin/axisrelay/security/promptfilter"
 )
 
 func TestBuildAdminImageGenerationRequestOmitsAutoSize(t *testing.T) {
@@ -245,7 +245,7 @@ func TestUpscaleImageBytesUsesConfiguredRealESRGANService(t *testing.T) {
 		_, _ = writer.Write(pngBytes)
 	}))
 	defer server.Close()
-	t.Setenv("IMAGE_UPSCALER_ENDPOINT", server.URL)
+	t.Setenv("AXISRELAY_IMAGE_UPSCALER_ENDPOINT", server.URL)
 
 	data, contentType, method, err := upscaleImageBytes(context.Background(), pngBytes, "4k", "3840x2160")
 	if err != nil {
@@ -275,7 +275,7 @@ func TestUpscaleImageBytesAllowsMissingAppliedHeader(t *testing.T) {
 		_, _ = writer.Write(pngBytes)
 	}))
 	defer server.Close()
-	t.Setenv("IMAGE_UPSCALER_ENDPOINT", server.URL)
+	t.Setenv("AXISRELAY_IMAGE_UPSCALER_ENDPOINT", server.URL)
 
 	data, contentType, _, err := upscaleImageBytes(context.Background(), pngBytes, "2k", "")
 	if err != nil {
@@ -291,7 +291,7 @@ func TestUpscaleImageBytesFailsWhenConfiguredServiceFails(t *testing.T) {
 		http.Error(writer, "model unavailable", http.StatusServiceUnavailable)
 	}))
 	defer server.Close()
-	t.Setenv("IMAGE_UPSCALER_ENDPOINT", server.URL)
+	t.Setenv("AXISRELAY_IMAGE_UPSCALER_ENDPOINT", server.URL)
 
 	_, _, _, err := upscaleImageBytes(context.Background(), tinyPNG(t), "2k", "")
 	if err == nil || !strings.Contains(err.Error(), "503") {
@@ -316,7 +316,7 @@ func TestImageUpscaleTargetDimensionsDoesNotApplyMismatchedRequestedSize(t *test
 func TestSaveImageJobAssetsPersistsFilesAndMetadata(t *testing.T) {
 	db := newTestAdminDB(t)
 	dir := t.TempDir()
-	t.Setenv("IMAGE_ASSET_DIR", dir)
+	t.Setenv("AXISRELAY_IMAGE_ASSET_DIR", dir)
 	if err := imagestore.Configure(imagestore.Config{Backend: imagestore.BackendLocal, LocalDir: dir}); err != nil {
 		t.Fatalf("imagestore.Configure: %v", err)
 	}
@@ -378,7 +378,7 @@ func TestSaveImageJobAssetsPersistsFilesAndMetadata(t *testing.T) {
 func TestSaveImageJobAssetsPreservesOriginalWhenUpscalerUnavailable(t *testing.T) {
 	db := newTestAdminDB(t)
 	dir := t.TempDir()
-	t.Setenv("IMAGE_ASSET_DIR", dir)
+	t.Setenv("AXISRELAY_IMAGE_ASSET_DIR", dir)
 	if err := imagestore.Configure(imagestore.Config{Backend: imagestore.BackendLocal, LocalDir: dir}); err != nil {
 		t.Fatalf("imagestore.Configure: %v", err)
 	}
@@ -386,7 +386,7 @@ func TestSaveImageJobAssetsPreservesOriginalWhenUpscalerUnavailable(t *testing.T
 		http.Error(writer, "temporarily unavailable", http.StatusServiceUnavailable)
 	}))
 	defer server.Close()
-	t.Setenv("IMAGE_UPSCALER_ENDPOINT", server.URL)
+	t.Setenv("AXISRELAY_IMAGE_UPSCALER_ENDPOINT", server.URL)
 
 	jobID, err := db.InsertImageGenerationJob(context.Background(), database.ImageGenerationJobInput{Prompt: "degraded upscale"})
 	if err != nil {
@@ -415,7 +415,7 @@ func TestSaveImageJobAssetsPreservesOriginalWhenUpscalerUnavailable(t *testing.T
 }
 
 func TestUpscaleImageBytesHonoursRequestedSizeOnLocalBackend(t *testing.T) {
-	t.Setenv("IMAGE_UPSCALER_ENDPOINT", "")
+	t.Setenv("AXISRELAY_IMAGE_UPSCALER_ENDPOINT", "")
 
 	data, contentType, method, err := upscaleImageBytes(context.Background(), squarePNG(t, 1024), "2k", "2048x2048")
 	if err != nil {
@@ -433,8 +433,8 @@ func TestUpscaleImageBytesHonoursRequestedSizeOnLocalBackend(t *testing.T) {
 func TestSaveImageJobAssetsDefaultsExplicitSizeToStrictPad(t *testing.T) {
 	db := newTestAdminDB(t)
 	dir := t.TempDir()
-	t.Setenv("IMAGE_ASSET_DIR", dir)
-	t.Setenv("IMAGE_UPSCALER_ENDPOINT", "")
+	t.Setenv("AXISRELAY_IMAGE_ASSET_DIR", dir)
+	t.Setenv("AXISRELAY_IMAGE_UPSCALER_ENDPOINT", "")
 	if err := imagestore.Configure(imagestore.Config{Backend: imagestore.BackendLocal, LocalDir: dir}); err != nil {
 		t.Fatalf("imagestore.Configure: %v", err)
 	}
@@ -467,7 +467,7 @@ func TestSaveImageJobAssetsDefaultsExplicitSizeToStrictPad(t *testing.T) {
 func TestSaveImageJobAssetsPreservesOriginalWhenUpscalerReturnsInvalidImage(t *testing.T) {
 	db := newTestAdminDB(t)
 	dir := t.TempDir()
-	t.Setenv("IMAGE_ASSET_DIR", dir)
+	t.Setenv("AXISRELAY_IMAGE_ASSET_DIR", dir)
 	if err := imagestore.Configure(imagestore.Config{Backend: imagestore.BackendLocal, LocalDir: dir}); err != nil {
 		t.Fatalf("imagestore.Configure: %v", err)
 	}
@@ -477,7 +477,7 @@ func TestSaveImageJobAssetsPreservesOriginalWhenUpscalerReturnsInvalidImage(t *t
 		_, _ = writer.Write([]byte("not-an-image"))
 	}))
 	defer server.Close()
-	t.Setenv("IMAGE_UPSCALER_ENDPOINT", server.URL)
+	t.Setenv("AXISRELAY_IMAGE_UPSCALER_ENDPOINT", server.URL)
 
 	jobID, err := db.InsertImageGenerationJob(context.Background(), database.ImageGenerationJobInput{Prompt: "invalid upscale batch"})
 	if err != nil {

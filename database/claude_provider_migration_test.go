@@ -8,7 +8,7 @@ import (
 )
 
 func TestBackfillClaudeProviderDataIsConservative(t *testing.T) {
-	db, err := New("sqlite", filepath.Join(t.TempDir(), "claude-provider-migration.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "claude-provider-migration.db"))
 	if err != nil {
 		t.Fatalf("database.New: %v", err)
 	}

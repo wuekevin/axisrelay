@@ -23,7 +23,7 @@ func assertUUIDv7(t *testing.T, label, value string) {
 }
 
 func TestDeriveStableSessionUUIDv7IsDeterministicAndV7(t *testing.T) {
-	const seed = "codex2api:prompt-cache:some-key"
+	const seed = "axisrelay:prompt-cache:some-key"
 	first := DeriveStableSessionUUIDv7(seed)
 	assertUUIDv7(t, "DeriveStableSessionUUIDv7", first)
 
@@ -61,7 +61,7 @@ func TestDeterministicPromptCacheKeyProducesUUIDv7(t *testing.T) {
 
 	// 与 resolveRequestSessionIdentity 的 API Key 兜底共享种子，必须同值——否则
 	// 同一个 API Key 在 HTTP 与 WS 两条路径上会拿到两个上游身份。
-	if want := DeriveStableSessionUUIDv7("codex2api:prompt-cache:shared-key"); got != want {
+	if want := DeriveStableSessionUUIDv7("axisrelay:prompt-cache:shared-key"); got != want {
 		t.Fatalf("deterministicPromptCacheKey = %q, want %q", got, want)
 	}
 }

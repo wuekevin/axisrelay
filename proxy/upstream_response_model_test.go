@@ -5,7 +5,7 @@ import (
 
 	"github.com/tidwall/gjson"
 
-	"github.com/codex2api/database"
+	"github.com/wuekevin/axisrelay/database"
 )
 
 func TestUpstreamResponseModelObserverFirstAndTerminal(t *testing.T) {

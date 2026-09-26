@@ -24,20 +24,20 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/codex2api/auth"
 	"github.com/tidwall/gjson"
+	"github.com/wuekevin/axisrelay/auth"
 )
 
 const antigravityInteractionsAgent = "antigravity-preview-05-2026"
 
 const (
-	antigravityFunctionToolsEnv     = "ANTIGRAVITY_FUNCTION_TOOLS_ENABLED"
-	antigravityUserProjectHeaderEnv = "ANTIGRAVITY_X_GOOG_USER_PROJECT_ENABLED"
-	antigravitySensitivePhrasesEnv  = "ANTIGRAVITY_SYSTEM_INSTRUCTION_SENSITIVE_PHRASES"
+	antigravityFunctionToolsEnv     = "AXISRELAY_ANTIGRAVITY_FUNCTION_TOOLS_ENABLED"
+	antigravityUserProjectHeaderEnv = "AXISRELAY_ANTIGRAVITY_X_GOOG_USER_PROJECT_ENABLED"
+	antigravitySensitivePhrasesEnv  = "AXISRELAY_ANTIGRAVITY_SYSTEM_INSTRUCTION_SENSITIVE_PHRASES"
 	// Operators can pin a single Cloud Code endpoint for diagnostics. The
 	// default follows the official Antigravity client: daily first, then the
 	// production endpoint only for retryable daily failures.
-	antigravityOAuthEndpointModeEnv = "ANTIGRAVITY_OAUTH_ENDPOINT_MODE"
+	antigravityOAuthEndpointModeEnv = "AXISRELAY_ANTIGRAVITY_OAUTH_ENDPOINT_MODE"
 )
 
 const (
@@ -1588,7 +1588,7 @@ func antigravitySessionSeed(in map[string]any, contents []any) string {
 }
 
 func antigravitySessionIDFromSeed(seed string) string {
-	sum := sha256.Sum256([]byte("codex2api:antigravity:session\x00" + seed))
+	sum := sha256.Sum256([]byte("axisrelay:antigravity:session\x00" + seed))
 	return antigravitySessionIDFromDigest(sum[:8])
 }
 

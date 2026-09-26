@@ -6,7 +6,7 @@ import (
 
 	"github.com/tidwall/gjson"
 
-	"github.com/codex2api/database"
+	"github.com/wuekevin/axisrelay/database"
 )
 
 // 上游响应模型观测（移植自 sub2api 的 upstream response model audit）：

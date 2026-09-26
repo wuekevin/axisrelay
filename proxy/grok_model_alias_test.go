@@ -7,8 +7,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/codex2api/auth"
-	"github.com/codex2api/database"
+	"github.com/wuekevin/axisrelay/auth"
+	"github.com/wuekevin/axisrelay/database"
 	"github.com/gin-gonic/gin"
 	"github.com/tidwall/gjson"
 )
@@ -73,7 +73,7 @@ func TestScopedModelsIncludesGPTAliasBackedByDefaultGrokModel(t *testing.T) {
 	handler := NewHandler(store, nil, nil, nil)
 	models := listScopedModelsForTest(t, handler, &database.APIKeyRow{ID: 1})
 	owner, _, ok := scopedModelByID(models, "gpt-5.5")
-	if !ok || owner != "codex2api" {
+	if !ok || owner != "axisrelay" {
 		t.Fatalf("gpt-5.5 alias owner = %q, present=%t; models=%+v", owner, ok, models)
 	}
 	if !modelIDInList("gpt-5.5", handler.supportedModelIDs(context.Background())) {

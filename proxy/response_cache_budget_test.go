@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/codex2api/cache"
+	"github.com/wuekevin/axisrelay/cache"
 )
 
 func responseCacheTestItem(index int, extra string) json.RawMessage {

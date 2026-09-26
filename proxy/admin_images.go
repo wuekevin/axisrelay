@@ -8,8 +8,8 @@ import (
 	"net/http/httptest"
 	"strings"
 
-	"github.com/codex2api/database"
-	"github.com/codex2api/security"
+	"github.com/wuekevin/axisrelay/database"
+	"github.com/wuekevin/axisrelay/security"
 	"github.com/gin-gonic/gin"
 	"github.com/tidwall/gjson"
 )

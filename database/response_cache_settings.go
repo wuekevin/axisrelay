@@ -143,10 +143,10 @@ func (db *DB) UpdateResponseCacheSettings(ctx context.Context, update ResponseCa
 		}
 		defer func() { _ = tx.Rollback() }()
 
-		if _, err := tx.ExecContext(ctx, `
+		if _, err := tx.ExecContext(ctx, db.singletonUpsertSQL(`
 			INSERT INTO system_settings (id) VALUES (1)
 			ON CONFLICT (id) DO NOTHING
-		`); err != nil {
+		`)); err != nil {
 			return err
 		}
 

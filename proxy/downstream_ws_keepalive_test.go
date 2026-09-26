@@ -23,7 +23,7 @@ func TestDownstreamWSKeepaliveIntervalFromEnv(t *testing.T) {
 		{raw: "-1s", want: fallback},
 		{raw: "invalid", want: fallback},
 	} {
-		t.Setenv("DOWNSTREAM_WS_KEEPALIVE_INTERVAL", test.raw)
+		t.Setenv("AXISRELAY_DOWNSTREAM_WS_KEEPALIVE_INTERVAL", test.raw)
 		if got := downstreamWSKeepaliveIntervalFromEnv(); got != test.want {
 			t.Errorf("interval(%q) = %s, want %s", test.raw, got, test.want)
 		}

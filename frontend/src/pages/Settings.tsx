@@ -4432,7 +4432,7 @@ export default function Settings() {
                     description={t('settings2.payloadRulesDesc')}
                     meta={t('settings.nav.mappingCount', { count: payloadRuleCount })}
                     openLabel={t('settings.nav.manage')}
-                    onOpen={() => navigate('/payload-rules')}
+                    onOpen={() => navigate('/admin/gateway/payload-rules')}
                   />
                 </div>
 
@@ -4835,7 +4835,7 @@ export default function Settings() {
                     </SettingField>
                   </div>
                   <div className={SETTINGS_FIELD_GRID_3}>
-                    {/* client_id 同时可由环境变量 GROK_OAUTH_CLIENT_ID 指定，且环境变量优先级更高；
+                    {/* client_id 同时可由环境变量 AXISRELAY_GROK_OAUTH_CLIENT_ID 指定，且环境变量优先级更高；
                         被覆盖时这里禁用输入并说明当前生效值，避免用户以为改了却不起作用。 */}
                     <SettingField
                       className="sm:col-span-2 xl:col-span-3"
@@ -5753,7 +5753,7 @@ export default function Settings() {
                     </SettingField>
                     <SettingField label={t('settings.resinPlatformName')} description={t('settings.resinPlatformNameDesc')}>
                       <Input
-                        placeholder="codex2api"
+                        placeholder="axisrelay"
                         value={settingsForm.resin_platform_name}
                         onChange={(e: ChangeEvent<HTMLInputElement>) => setSettingsForm(f => ({ ...f, resin_platform_name: e.target.value }))}
                       />

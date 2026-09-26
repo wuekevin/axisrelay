@@ -61,7 +61,7 @@ const postgresPromptFilterNewAPIBindingsDDL = `CREATE TABLE IF NOT EXISTS prompt
 	updated_at TIMESTAMPTZ DEFAULT NOW()
 )`
 
-// PromptFilterNewAPIBinding binds one Codex2API API key to exactly one calling
+// PromptFilterNewAPIBinding binds one AxisRelay API key to exactly one calling
 // platform. Secrets are deliberately excluded from admin JSON responses by the
 // admin layer, but remain available in the in-memory auth snapshot.
 type PromptFilterNewAPIBinding struct {
@@ -80,19 +80,21 @@ type PromptFilterNewAPIBinding struct {
 }
 
 func (db *DB) ensurePromptFilterNewAPIBindingsTable(ctx context.Context) error {
-	ddl := postgresPromptFilterNewAPIBindingsDDL
-	if db.isSQLite() {
-		ddl = sqlitePromptFilterNewAPIBindingsDDL
-	}
-	if _, err := db.conn.ExecContext(ctx, ddl); err != nil {
-		return err
-	}
-	if db.isSQLite() {
-		if err := db.ensureSQLiteColumn(ctx, "prompt_filter_newapi_bindings", "prompt_filter_scope", "TEXT NOT NULL DEFAULT 'inherit'"); err != nil {
+	if !db.isMySQL() {
+		ddl := postgresPromptFilterNewAPIBindingsDDL
+		if db.isSQLite() {
+			ddl = sqlitePromptFilterNewAPIBindingsDDL
+		}
+		if _, err := db.conn.ExecContext(ctx, ddl); err != nil {
 			return err
 		}
-	} else if _, err := db.conn.ExecContext(ctx, `ALTER TABLE prompt_filter_newapi_bindings ADD COLUMN IF NOT EXISTS prompt_filter_scope VARCHAR(16) NOT NULL DEFAULT 'inherit'`); err != nil {
-		return err
+		if db.isSQLite() {
+			if err := db.ensureSQLiteColumn(ctx, "prompt_filter_newapi_bindings", "prompt_filter_scope", "TEXT NOT NULL DEFAULT 'inherit'"); err != nil {
+				return err
+			}
+		} else if _, err := db.conn.ExecContext(ctx, `ALTER TABLE prompt_filter_newapi_bindings ADD COLUMN IF NOT EXISTS prompt_filter_scope VARCHAR(16) NOT NULL DEFAULT 'inherit'`); err != nil {
+			return err
+		}
 	}
 	// Binding-level policy overrides were retired. Keep the legacy columns for
 	// a low-risk rolling migration, but neutralize all stored values so an old
@@ -259,7 +261,7 @@ func (db *DB) ReplacePromptFilterNewAPIBindingSecretAt(ctx context.Context, apiK
 	}
 	var previousExpiryArg interface{}
 	if previousExpiry != nil {
-		expiresAt := previousExpiry.UTC()
+		expiresAt := previousExpiry.UTC().Truncate(time.Millisecond)
 		previousExpiryArg = expiresAt
 	}
 	return db.withSQLiteWriteLock(ctx, func() error {
@@ -323,5 +325,5 @@ func isPromptFilterNewAPIBindingConflict(err error) bool {
 		return false
 	}
 	message := strings.ToLower(err.Error())
-	return strings.Contains(message, "unique") || strings.Contains(message, "duplicate key") || strings.Contains(message, "23505")
+	return strings.Contains(message, "unique") || strings.Contains(message, "duplicate key") || strings.Contains(message, "duplicate entry") || strings.Contains(message, "23505") || strings.Contains(message, "1062")
 }

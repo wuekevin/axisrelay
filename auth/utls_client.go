@@ -17,7 +17,7 @@ import (
 	"golang.org/x/net/http2"
 	xproxy "golang.org/x/net/proxy"
 
-	"github.com/codex2api/security"
+	"github.com/wuekevin/axisrelay/security"
 )
 
 // utlsAuthRoundTripper 使用 Chrome TLS 指纹的 http.RoundTripper，
@@ -117,11 +117,15 @@ func (t *utlsAuthRoundTripper) createConnection(host, addr string) (*http2.Clien
 	// 认证 transport 自管 HTTP/2 连接，不经过 net/http 的连接池。三项超时
 	// 必须直接配置在 http2.Transport 上：否则健康空闲连接不会安装回收计时器，
 	// readLoop、socket 与缓冲区会一直驻留。
-	tr := &http2.Transport{
-		ReadIdleTimeout: utlsAuthReadIdleTimeout,
-		PingTimeout:     utlsAuthPingTimeout,
-		IdleConnTimeout: utlsAuthIdleConnTimeout,
+	baseTransport := &http.Transport{}
+	tr, err := http2.ConfigureTransports(baseTransport)
+	if err != nil {
+		tlsConn.Close()
+		return nil, fmt.Errorf("HTTP/2 transport 初始化失败: %w", err)
 	}
+	tr.ReadIdleTimeout = utlsAuthReadIdleTimeout
+	tr.PingTimeout = utlsAuthPingTimeout
+	tr.IdleConnTimeout = utlsAuthIdleConnTimeout
 	h2Conn, err := tr.NewClientConn(tlsConn)
 	if err != nil {
 		tlsConn.Close()

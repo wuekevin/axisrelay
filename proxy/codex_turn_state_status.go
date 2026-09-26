@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/codex2api/auth"
+	"github.com/wuekevin/axisrelay/auth"
 )
 
 // Status contains only upstream shape observations, never the opaque state value.

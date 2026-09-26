@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/codex2api/database"
+	"github.com/wuekevin/axisrelay/database"
 )
 
 func waitPromptFilterAuditIdle(t testing.TB, db *database.DB) {

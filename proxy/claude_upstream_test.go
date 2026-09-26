@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/codex2api/auth"
+	"github.com/wuekevin/axisrelay/auth"
 	"github.com/google/uuid"
 	"github.com/tidwall/gjson"
 )

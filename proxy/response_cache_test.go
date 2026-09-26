@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/codex2api/cache"
+	"github.com/wuekevin/axisrelay/cache"
 	"github.com/tidwall/gjson"
 )
 

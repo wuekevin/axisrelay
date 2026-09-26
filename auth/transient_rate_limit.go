@@ -4,7 +4,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/codex2api/cache"
+	"github.com/wuekevin/axisrelay/cache"
 )
 
 const (

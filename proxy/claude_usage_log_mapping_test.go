@@ -3,7 +3,7 @@ package proxy
 import (
 	"testing"
 
-	"github.com/codex2api/database"
+	"github.com/wuekevin/axisrelay/database"
 )
 
 func TestApplyUsageCacheWritesToLog(t *testing.T) {

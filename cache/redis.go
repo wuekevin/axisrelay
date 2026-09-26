@@ -82,7 +82,7 @@ func NewRedisWithOptions(cfg RedisOptions) (TokenCache, error) {
 const defaultRedisLoadingWait = 10 * time.Minute
 
 func redisLoadingWait() time.Duration {
-	raw := strings.TrimSpace(os.Getenv("CODEX_REDIS_LOADING_WAIT_SECONDS"))
+	raw := strings.TrimSpace(os.Getenv("AXISRELAY_REDIS_LOADING_WAIT_SECONDS"))
 	if raw == "" {
 		return defaultRedisLoadingWait
 	}
@@ -210,7 +210,7 @@ func redisConnectionHint(err error, tlsEnabled bool) string {
 		return ""
 	}
 	if err == io.EOF || strings.Contains(strings.ToLower(err.Error()), "eof") {
-		return "（如果使用 Aiven / Upstash 等云 Redis，请使用 rediss:// 地址或设置 REDIS_TLS=true 启用 TLS）"
+		return "（如果使用 Aiven / Upstash 等云 Redis，请使用 rediss:// 地址或设置 AXISRELAY_REDIS_TLS=true 启用 TLS）"
 	}
 	return ""
 }

@@ -8,13 +8,13 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/codex2api/database"
+	"github.com/wuekevin/axisrelay/database"
 	"github.com/gin-gonic/gin"
 )
 
 func TestPromptRiskTrustAdminGrantDetailAndRevoke(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	db, err := database.New("sqlite", filepath.Join(t.TempDir(), "admin-risk-trust.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "admin-risk-trust.db"))
 	if err != nil {
 		t.Fatalf("database.New: %v", err)
 	}

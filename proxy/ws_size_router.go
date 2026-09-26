@@ -32,12 +32,12 @@ const wsSizeRouterMarginPercent = 95
 var globalWSSizeRouter websocketSizeRouter
 
 // wsSizeRouterDisabled 系统设置 codex_ws_size_router_enabled 关闭、或环境变量
-// 逃生阀 CODEX_WS_SIZE_ROUTER=off 时,恢复"一律先试 WS"的旧行为。
+// 逃生阀 AXISRELAY_WS_SIZE_ROUTER=off 时,恢复"一律先试 WS"的旧行为。
 func wsSizeRouterDisabled() bool {
 	if !CurrentRuntimeSettings().CodexWSSizeRouter {
 		return true
 	}
-	return strings.EqualFold(strings.TrimSpace(os.Getenv("CODEX_WS_SIZE_ROUTER")), "off")
+	return strings.EqualFold(strings.TrimSpace(os.Getenv("AXISRELAY_WS_SIZE_ROUTER")), "off")
 }
 
 // RecordMessageTooBig 记录一次 close 1009 发生时的请求体大小。

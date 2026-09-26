@@ -31,16 +31,16 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/codex2api/auth"
-	"github.com/codex2api/cache"
-	"github.com/codex2api/database"
-	"github.com/codex2api/internal/imagestore"
-	"github.com/codex2api/internal/openaiidentity"
-	"github.com/codex2api/proxy"
-	"github.com/codex2api/security"
-	"github.com/codex2api/security/promptfilter"
 	"github.com/gin-gonic/gin"
 	"github.com/tidwall/gjson"
+	"github.com/wuekevin/axisrelay/auth"
+	"github.com/wuekevin/axisrelay/cache"
+	"github.com/wuekevin/axisrelay/database"
+	"github.com/wuekevin/axisrelay/internal/imagestore"
+	"github.com/wuekevin/axisrelay/internal/openaiidentity"
+	"github.com/wuekevin/axisrelay/proxy"
+	"github.com/wuekevin/axisrelay/security"
+	"github.com/wuekevin/axisrelay/security/promptfilter"
 )
 
 // Handler 管理后台 API 处理器
@@ -1091,7 +1091,7 @@ func (h *Handler) RegisterRoutes(r *gin.Engine) {
 	imageStudioPortal.GET("/assets/:id/file", h.GetPortalImageAssetFile)
 	imageStudioPortal.DELETE("/assets/:id", h.DeletePortalImageAsset)
 
-	// 首次初始化端点（无需鉴权，仅在系统未配置 ADMIN_SECRET 时可用）
+	// 首次初始化端点（无需鉴权，仅在系统未配置 AXISRELAY_ADMIN_SECRET 时可用）
 	// 这两个端点必须注册在 adminAuthMiddleware 之外，否则会被 fail-closed 拦截。
 	r.GET("/api/admin/bootstrap-status", h.GetBootstrapStatus)
 	r.POST("/api/admin/bootstrap", h.PostBootstrap)
@@ -1377,17 +1377,17 @@ func (h *Handler) RegisterRoutes(r *gin.Engine) {
 // adminAuthMiddleware 管理接口鉴权中间件（增强版，增加安全审计日志）
 //
 // 安全策略（fail-closed）：
-//   - 未配置 ADMIN_SECRET 时一律拒绝（503），防止 /api/admin/* 裸奔。
+//   - 未配置 AXISRELAY_ADMIN_SECRET 时一律拒绝（503），防止 /api/admin/* 裸奔。
 //   - 用户应通过前端「首次初始化」页面（无鉴权的 /api/admin/bootstrap 端点）
-//     设置初始密钥，或者在 .env 中显式设置 ADMIN_SECRET 后重启。
+//     设置初始密钥，或者在 .env 中显式设置 AXISRELAY_ADMIN_SECRET 后重启。
 func (h *Handler) adminAuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		adminSecret, source := h.resolveAdminSecret(c.Request.Context())
 		if adminSecret == "" {
-			// fail-closed：拒绝并提示用户配置 ADMIN_SECRET
+			// fail-closed：拒绝并提示用户配置 AXISRELAY_ADMIN_SECRET
 			security.SecurityAuditLog("ADMIN_BLOCKED_NO_SECRET", fmt.Sprintf("path=%s ip=%s", c.Request.URL.Path, c.ClientIP()))
 			c.JSON(http.StatusServiceUnavailable, gin.H{
-				"error": "管理接口未初始化：ADMIN_SECRET 尚未配置。请在浏览器访问 /admin/ 完成首次初始化，或在 .env 中设置 ADMIN_SECRET 后重启。",
+				"error": "管理接口未初始化：AXISRELAY_ADMIN_SECRET 尚未配置。请在浏览器访问 /admin/ 完成首次初始化，或在 .env 中设置 AXISRELAY_ADMIN_SECRET 后重启。",
 				"code":  "bootstrap_required",
 			})
 			c.Abort()
@@ -4857,7 +4857,7 @@ type jsonAgentIdentityNode struct {
 }
 
 // agentIdentityNodeFromFlatCredentials 从平铺在 credentials 里的 Agent Identity 字段
-// 合成 agent_identity 节点：sub2api / codex2api 的账号导出把这些字段直接摊在
+// 合成 agent_identity 节点：sub2api / axisrelay 的账号导出把这些字段直接摊在
 // credentials 对象上（auth_mode=agentIdentity + agent_runtime_id…），不套
 // agent_identity 子对象。既有子对象则不必调用本函数。
 func agentIdentityNodeFromFlatCredentials(authMode, runtimeID, privateKey, taskID, accountID, userID, email, planType string, fedramp bool) *jsonAgentIdentityNode {
@@ -5197,7 +5197,7 @@ func jsonAccountEntriesToTokens(entries []jsonAccountEntry) []importToken {
 		expiresAt := firstNonEmpty(entry.ExpiresAt.String(), entry.Expired.String(), entry.Expires.String())
 
 		// Agent Identity 条目：无 RT/ST/AT，单独识别。子对象缺失时回退到
-		// 平铺在条目根上的 Agent Identity 字段（sub2api / codex2api 导出形态）。
+		// 平铺在条目根上的 Agent Identity 字段（sub2api / axisrelay 导出形态）。
 		agentNode := entry.AgentIdentity
 		if agentNode == nil {
 			agentNode = agentIdentityNodeFromFlatCredentials(entry.AuthMode, entry.AgentRuntimeID, entry.AgentPrivateKey, entry.AgentTaskID, accID, entry.ChatGPTUserID, email, planType, entry.AgentFedRAMP)
@@ -9285,7 +9285,7 @@ type settingsResponse struct {
 	GrokQualityGuardOnExhausted    string `json:"grok_quality_guard_on_exhausted"`
 	GrokQualityGuardCooldownHours  int    `json:"grok_quality_guard_account_cooldown_hours"`
 	GrokOAuthClientID              string `json:"grok_oauth_client_id"`
-	// GrokOAuthClientIDEnvOverride 为 true 时，环境变量 GROK_OAUTH_CLIENT_ID 正压着上面这个设置，
+	// GrokOAuthClientIDEnvOverride 为 true 时，环境变量 AXISRELAY_GROK_OAUTH_CLIENT_ID 正压着上面这个设置，
 	// 前端据此提示「当前以环境变量为准」。GrokOAuthClientIDEffective 是实际生效值。
 	GrokOAuthClientIDEnvOverride bool   `json:"grok_oauth_client_id_env_override"`
 	GrokOAuthClientIDEffective   string `json:"grok_oauth_client_id_effective"`
@@ -9696,19 +9696,16 @@ func normalizeBackgroundImage(value string) (string, error) {
 }
 
 func backgroundAssetDir() string {
-	if dir := strings.TrimSpace(os.Getenv("BACKGROUND_ASSET_DIR")); dir != "" {
+	if dir := strings.TrimSpace(os.Getenv("AXISRELAY_BACKGROUND_ASSET_DIR")); dir != "" {
 		return dir
 	}
-	if dir := strings.TrimSpace(os.Getenv("IMAGE_ASSET_DIR")); dir != "" {
+	if dir := strings.TrimSpace(os.Getenv("AXISRELAY_IMAGE_ASSET_DIR")); dir != "" {
 		clean := filepath.Clean(dir)
 		parent := filepath.Dir(clean)
 		if parent != "." && parent != string(os.PathSeparator) {
 			return filepath.Join(parent, "backgrounds")
 		}
 		return filepath.Join(clean, "backgrounds")
-	}
-	if dbPath := strings.TrimSpace(os.Getenv("DATABASE_PATH")); dbPath != "" {
-		return filepath.Join(filepath.Dir(dbPath), "backgrounds")
 	}
 	return defaultBackgroundAssetDir
 }
@@ -10721,7 +10718,7 @@ func (h *Handler) UpdateSettings(c *gin.Context) {
 			currentAdminSecret = *req.AdminSecret
 			log.Printf("设置已更新: admin_secret (长度=%d)", len(currentAdminSecret))
 		} else {
-			log.Printf("检测到环境变量 ADMIN_SECRET，忽略前端提交的 admin_secret")
+			log.Printf("检测到环境变量 AXISRELAY_ADMIN_SECRET，忽略前端提交的 admin_secret")
 		}
 	}
 	if req.SiteName != nil {
@@ -12630,7 +12627,7 @@ type migrateReq struct {
 	AdminKey string `json:"admin_key"`
 }
 
-// MigrateAccounts 从远程 codex2api 实例迁移健康账号（SSE 流式进度）
+// MigrateAccounts 从远程 axisrelay 实例迁移健康账号（SSE 流式进度）
 func (h *Handler) MigrateAccounts(c *gin.Context) {
 	if !h.hasConfiguredAdminSecret(c.Request.Context()) {
 		writeError(c, http.StatusForbidden, "请先设置管理密钥，再使用远程迁移")

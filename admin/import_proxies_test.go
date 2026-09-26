@@ -11,23 +11,23 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/codex2api/auth"
-	"github.com/codex2api/database"
 	"github.com/gin-gonic/gin"
+	"github.com/wuekevin/axisrelay/auth"
+	"github.com/wuekevin/axisrelay/database"
 )
 
-// newImportProxyTestHandler 构造一个带真实 sqlite 库和已开启代理池的 Handler,
+// newImportProxyTestHandler 构造一个带真实 MySQL 库和已开启代理池的 Handler,
 // 因为 registerImportedProxies 的核心契约（写表 → 同步池）必须端到端验证。
 func newImportProxyTestHandler(t *testing.T) (*Handler, *sql.DB) {
 	t.Helper()
 	dbPath := filepath.Join(t.TempDir(), "import-proxies.sqlite")
-	db, err := database.New("sqlite", dbPath)
+	db, err := newTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatalf("database.New: %v", err)
 	}
 	t.Cleanup(func() { _ = db.Close() })
 
-	rawDB, err := sql.Open("sqlite", dbPath)
+	rawDB, err := openRawTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatalf("sql.Open: %v", err)
 	}

@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"strings"
 
-	"github.com/codex2api/database"
+	"github.com/wuekevin/axisrelay/database"
 )
 
 // ApplyModelCapabilities publishes only the runtime flags used by the transport.

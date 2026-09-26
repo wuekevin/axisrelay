@@ -1,6 +1,6 @@
 # Sub2API v0.2.1 兼容实现
 
-本次参考 `Wei-Shaw/sub2api` 的 `v0.2.0..v0.2.1`，沿用 Codex2API 的调度、响应缓存、计费和存储边界。
+本次参考 `Wei-Shaw/sub2api` 的 `v0.2.0..v0.2.1`，沿用 AxisRelay 的调度、响应缓存、计费和存储边界。
 
 ## 续聊恢复
 
@@ -26,7 +26,7 @@ Ultrafast 默认采用**本网关当前的 Fast 计费规则**：优先使用模
 
 `usage_logs` 新增 `request_id`、`upstream_request_id`、`upstream_proxy_id`、`upstream_proxy_name`。SQLite/PostgreSQL 均自动迁移，两个 ID 字段具有索引。
 
-网关每个请求生成 ID，HTTP 响应通过 `X-Codex2API-Request-ID` 返回；WS 每轮具有独立 ID。重试沿用本次网关 ID，每次出站重新记录上游 ID 和代理快照。隐藏续想轮保留各自的快照。
+网关每个请求生成 ID，HTTP 响应通过 `X-AxisRelay-Request-ID` 返回；WS 每轮具有独立 ID。重试沿用本次网关 ID，每次出站重新记录上游 ID 和代理快照。隐藏续想轮保留各自的快照。
 
 默认读取 `X-Request-ID`、`Request-ID`、`X-Goog-Request-ID`。账号快捷配置中的“上游请求 ID 响应头”可覆盖默认名称，也可通过账号 scheduler 更新接口设置 `upstream_request_id_header`。配置不作为出站请求头发送。WebSocket 握手 ID 不写成每轮上游 ID。
 
@@ -64,7 +64,7 @@ go vet ./...
 go test ./proxy -run '^$' -bench '^BenchmarkResponseCacheReplay128Turns$' -benchtime=5x -count=3
 ```
 
-`TestPostgresTraceAndCapabilities` 使用 `CODEX2API_TEST_POSTGRES_DSN` 指定的空白临时 PostgreSQL 数据库验证迁移、日志读写和快照恢复。真实上游模型的可用性、Ultrafast 权限及实际计费仍由部署使用的上游决定。
+S0.3 已移除旧 PostgreSQL 集成测试入口；数据库集成覆盖将在 MySQL Platform 与迁移阶段重新建立。真实上游模型的可用性、Ultrafast 权限及实际计费仍由部署使用的上游决定。
 
 ## 失效密文记忆的边界
 

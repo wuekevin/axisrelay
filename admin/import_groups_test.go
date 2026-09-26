@@ -11,9 +11,9 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/codex2api/auth"
-	"github.com/codex2api/database"
 	"github.com/gin-gonic/gin"
+	"github.com/wuekevin/axisrelay/auth"
+	"github.com/wuekevin/axisrelay/database"
 )
 
 // itoa 让测试里的 JSON 片段拼接短一些。
@@ -83,14 +83,18 @@ func TestResolveImportGroupIDsFormAcceptsBothSyntaxes(t *testing.T) {
 func TestBindImportedAccountGroupsSyncsRuntimePool(t *testing.T) {
 	handler, db, store, groupID := newImportGroupsTestHandler(t)
 	ctx := context.Background()
-	account := &auth.Account{DBID: 77, AccessToken: "token"}
+	accountID, err := db.InsertAccountWithCredentials(ctx, "group-runtime-sync", map[string]interface{}{"access_token": "token"}, "")
+	if err != nil {
+		t.Fatalf("InsertAccountWithCredentials: %v", err)
+	}
+	account := &auth.Account{DBID: accountID, AccessToken: "token"}
 	store.AddAccount(account)
 
-	if err := handler.bindImportedAccountGroups(ctx, []int64{77}, []int64{groupID}); err != nil {
+	if err := handler.bindImportedAccountGroups(ctx, []int64{accountID}, []int64{groupID}); err != nil {
 		t.Fatalf("bindImportedAccountGroups: %v", err)
 	}
 
-	persisted, err := db.GetAccountGroupIDs(ctx, 77)
+	persisted, err := db.GetAccountGroupIDs(ctx, accountID)
 	if err != nil {
 		t.Fatalf("GetAccountGroupIDs: %v", err)
 	}
@@ -103,10 +107,10 @@ func TestBindImportedAccountGroupsSyncsRuntimePool(t *testing.T) {
 	}
 
 	// 空分组表示不绑，不该把已有归属清掉。
-	if err := handler.bindImportedAccountGroups(ctx, []int64{77}, nil); err != nil {
+	if err := handler.bindImportedAccountGroups(ctx, []int64{accountID}, nil); err != nil {
 		t.Fatalf("bind with empty groups: %v", err)
 	}
-	if persisted, _ := db.GetAccountGroupIDs(ctx, 77); len(persisted) != 1 {
+	if persisted, _ := db.GetAccountGroupIDs(ctx, accountID); len(persisted) != 1 {
 		t.Fatalf("persisted groups after empty bind = %v, want them untouched", persisted)
 	}
 }

@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/codex2api/auth"
-	"github.com/codex2api/internal/openaiidentity"
+	"github.com/wuekevin/axisrelay/auth"
+	"github.com/wuekevin/axisrelay/internal/openaiidentity"
 )
 
 type tokenCredentialSeed struct {

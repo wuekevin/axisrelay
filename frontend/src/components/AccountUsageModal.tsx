@@ -141,7 +141,7 @@ export default function AccountUsageModal({ account, onClose, onCreditsReset, sh
       params.set('days', '90')
     }
     onClose()
-    navigate(`/usage?${params.toString()}`)
+    navigate(`/admin/gateway/usage?${params.toString()}`)
   }
 
   // 单开关同时写两列：后端门控是 CreditEnabled && CreditSkipUsageWindow，保持不动，

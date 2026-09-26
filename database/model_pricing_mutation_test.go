@@ -10,7 +10,7 @@ import (
 
 func TestAstraPricingStaysFlatAcrossSettingsLoadAndMutation(t *testing.T) {
 	t.Cleanup(func() { SetModelPricingOverrides(nil) })
-	db, err := New("sqlite", filepath.Join(t.TempDir(), "astra-pricing.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "astra-pricing.db"))
 	if err != nil {
 		t.Fatalf("New sqlite: %v", err)
 	}
@@ -78,7 +78,7 @@ func TestAstraPricingStaysFlatAcrossSettingsLoadAndMutation(t *testing.T) {
 }
 
 func TestMutateModelPricingSettingsSerializesReadMergeWrite(t *testing.T) {
-	db, err := New("sqlite", filepath.Join(t.TempDir(), "pricing.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "pricing.db"))
 	if err != nil {
 		t.Fatalf("New sqlite: %v", err)
 	}
@@ -134,7 +134,7 @@ func TestMutateModelPricingSettingsSerializesReadMergeWrite(t *testing.T) {
 }
 
 func TestMutateModelPricingSettingsFailsClosedOnCorruptJSON(t *testing.T) {
-	db, err := New("sqlite", filepath.Join(t.TempDir(), "pricing-corrupt.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "pricing-corrupt.db"))
 	if err != nil {
 		t.Fatalf("New sqlite: %v", err)
 	}
@@ -144,9 +144,9 @@ func TestMutateModelPricingSettingsFailsClosedOnCorruptJSON(t *testing.T) {
 	if err := db.UpdateModelPricingSettings(ctx, `{"gpt-keep":{"source":"custom","input":9}}`, ""); err != nil {
 		t.Fatalf("seed pricing JSON: %v", err)
 	}
-	const corrupt = `{"gpt-keep":{"source":"custom","input":9}`
+	const corrupt = `{"gpt-image-2":{"user_billing_mode":"per_image"}}`
 	if _, err := db.conn.ExecContext(ctx, `UPDATE system_settings SET model_pricing_overrides = $1 WHERE id = 1`, corrupt); err != nil {
-		t.Fatalf("inject corrupt JSON: %v", err)
+		t.Fatalf("inject semantically invalid JSON: %v", err)
 	}
 	_, err = db.MutateModelPricingSettings(ctx, nil, func(current map[string]ModelPricingOverride) error {
 		current["gpt-new"] = ModelPricingOverride{Source: ModelPricingSourceSynced, Input: 1}
@@ -159,7 +159,19 @@ func TestMutateModelPricingSettingsFailsClosedOnCorruptJSON(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetSystemSettings: %v", err)
 	}
-	if settings == nil || settings.ModelPricingOverrides != corrupt {
-		t.Fatalf("corrupt blob was rewritten: %q", settings.ModelPricingOverrides)
+	if settings == nil {
+		t.Fatal("settings unexpectedly nil")
+	}
+	var storedValue, corruptValue any
+	if err := json.Unmarshal([]byte(settings.ModelPricingOverrides), &storedValue); err != nil {
+		t.Fatalf("stored invalid config is not JSON: %v", err)
+	}
+	if err := json.Unmarshal([]byte(corrupt), &corruptValue); err != nil {
+		t.Fatalf("test fixture is not JSON: %v", err)
+	}
+	storedCanonical, _ := json.Marshal(storedValue)
+	corruptCanonical, _ := json.Marshal(corruptValue)
+	if string(storedCanonical) != string(corruptCanonical) {
+		t.Fatalf("invalid pricing config was rewritten: %q", settings.ModelPricingOverrides)
 	}
 }

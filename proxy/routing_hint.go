@@ -5,8 +5,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/codex2api/auth"
 	"github.com/tidwall/gjson"
+	"github.com/wuekevin/axisrelay/auth"
 )
 
 // codexRoutingHintHeader 是官方 Codex 客户端向上游声明路由意图的请求头，
@@ -14,9 +14,9 @@ import (
 const codexRoutingHintHeader = "x-codex-routing-hint"
 
 // CodexRoutingHintDisabled 报告是否通过环境变量关闭了 routing hint 出站。
-// CODEX_DISABLE_ROUTING_HINT=1（或 true）时不再合成该头；入站伪造仍会被剥离。
+// AXISRELAY_DISABLE_ROUTING_HINT=1（或 true）时不再合成该头；入站伪造仍会被剥离。
 func CodexRoutingHintDisabled() bool {
-	switch strings.ToLower(strings.TrimSpace(os.Getenv("CODEX_DISABLE_ROUTING_HINT"))) {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("AXISRELAY_DISABLE_ROUTING_HINT"))) {
 	case "1", "true", "yes", "on":
 		return true
 	default:

@@ -57,7 +57,7 @@ import { StudioArtwork, type StudioScene } from '@/components/image-studio/Studi
 import { PortalQuota } from '@/components/image-studio/PortalQuota'
 import './image-studio-portal.css'
 
-const STORAGE_KEY = 'codex2api_image_studio_api_key'
+const STORAGE_KEY = 'axisrelay_image_studio_api_key'
 const PORTAL_VIEWS = ['studio', 'history', 'gallery'] as const
 type PortalView = (typeof PORTAL_VIEWS)[number]
 

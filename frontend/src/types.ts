@@ -2128,7 +2128,7 @@ export interface SystemSettings {
   grok_quality_guard_on_exhausted?: string
   grok_quality_guard_account_cooldown_hours?: number
   grok_oauth_client_id?: string
-  /** 环境变量 GROK_OAUTH_CLIENT_ID 是否正压着上面的设置（只读，后端下发）。 */
+  /** 环境变量 AXISRELAY_GROK_OAUTH_CLIENT_ID 是否正压着上面的设置（只读，后端下发）。 */
   grok_oauth_client_id_env_override?: boolean
   /** 实际生效的 client_id（只读，后端下发）。 */
   grok_oauth_client_id_effective?: string
@@ -2136,9 +2136,9 @@ export interface SystemSettings {
   antigravity_oauth_clients?: AntigravityOAuthClientSetting[]
   /** 系统设置里指定的活跃 client key（空 = 用第一个）。 */
   antigravity_oauth_client_key?: string
-  /** 环境变量 ANTIGRAVITY_OAUTH_CLIENTS 注入的条目（只读，同 key 冲突时以环境变量为准）。 */
+  /** 环境变量 AXISRELAY_ANTIGRAVITY_OAUTH_CLIENTS 注入的条目（只读，同 key 冲突时以环境变量为准）。 */
   antigravity_oauth_env_clients?: AntigravityOAuthClientSetting[]
-  /** 环境变量 ANTIGRAVITY_OAUTH_CLIENT_KEY 是否正压着活跃 key 设置（只读）。 */
+  /** 环境变量 AXISRELAY_ANTIGRAVITY_OAUTH_CLIENT_KEY 是否正压着活跃 key 设置（只读）。 */
   antigravity_oauth_client_key_env_override?: boolean
   /** 实际生效的活跃 client key（只读，后端下发）。 */
   antigravity_oauth_active_key_effective?: string

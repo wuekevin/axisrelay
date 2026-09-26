@@ -14,13 +14,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/codex2api/auth"
-	"github.com/codex2api/cache"
-	"github.com/codex2api/config"
-	"github.com/codex2api/database"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 	"github.com/tidwall/gjson"
+	"github.com/wuekevin/axisrelay/auth"
+	"github.com/wuekevin/axisrelay/cache"
+	"github.com/wuekevin/axisrelay/config"
+	"github.com/wuekevin/axisrelay/database"
 )
 
 func TestReviewModelCapabilitiesAsyncPublishesPartialUpdates(t *testing.T) {
@@ -141,7 +141,7 @@ func TestReviewWSFailOpenDoesNotPoisonLaterFailClosed(t *testing.T) {
 	for _, transport := range []string{"websocket", "http"} {
 		t.Run(transport, func(t *testing.T) {
 			resetResponseCacheForTest()
-			t.Setenv("CODEX_WS_CONTINUATION_FAIL_OPEN", "true")
+			t.Setenv("AXISRELAY_WS_CONTINUATION_FAIL_OPEN", "true")
 			previousResin := resinCfg.Load()
 			t.Cleanup(func() { resinCfg.Store(previousResin) })
 			upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -167,7 +167,7 @@ func TestReviewWSFailOpenDoesNotPoisonLaterFailClosed(t *testing.T) {
 			})
 			for i, id := range []string{"missing-root", "lossy-response"} {
 				if i == 1 {
-					t.Setenv("CODEX_WS_CONTINUATION_FAIL_OPEN", "false")
+					t.Setenv("AXISRELAY_WS_CONTINUATION_FAIL_OPEN", "false")
 				}
 				if err := conn.WriteMessage(websocket.TextMessage, []byte(fmt.Sprintf(`{"type":"response.create","model":"gpt-5.5","previous_response_id":%q,"input":[{"type":"message","role":"user","content":"increment"}]}`, id))); err != nil {
 					t.Fatal(err)
@@ -240,7 +240,7 @@ func TestReviewWSPinnedAncestorSurvivesExpiry(t *testing.T) {
 func TestReviewWSLossyFallbackCannotCreateSnapshot(t *testing.T) {
 	resetResponseCacheForTest()
 	t.Cleanup(resetResponseCacheForTest)
-	t.Setenv("CODEX_WS_CONTINUATION_FAIL_OPEN", "true")
+	t.Setenv("AXISRELAY_WS_CONTINUATION_FAIL_OPEN", "true")
 	body := []byte(`{"previous_response_id":"missing","input":[{"type":"message","role":"user","content":"increment"}]}`)
 	_, lost, err := degradeResponsesWSContinuationWithSource(body, "o", newResponsesWSReplaySource(body, "o"))
 	if err != nil || !lost {

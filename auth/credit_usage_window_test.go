@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/codex2api/database"
+	"github.com/wuekevin/axisrelay/database"
 )
 
 // plus5hExhausted 构造一个 5h 窗口已打满的 plus 账号：没有积分时它就是 rate_limited。
@@ -550,7 +550,7 @@ func TestRestoreCreditBalanceKeepsDrainedBalance(t *testing.T) {
 func TestPersistCreditBalance_SuccessAndRollbackOnDBError(t *testing.T) {
 	ctx := context.Background()
 	dbPath := filepath.Join(t.TempDir(), "persist-credit-test.db")
-	db, err := database.New("sqlite", dbPath)
+	db, err := newTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatalf("database.New: %v", err)
 	}
@@ -613,7 +613,7 @@ func TestPersistCreditBalance_SuccessAndRollbackOnDBError(t *testing.T) {
 func TestPersistSparseCreditObservation_SuccessAndRollbackOnDBError(t *testing.T) {
 	ctx := context.Background()
 	dbPath := filepath.Join(t.TempDir(), "sparse-credit-test.db")
-	db, err := database.New("sqlite", dbPath)
+	db, err := newTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatalf("database.New: %v", err)
 	}

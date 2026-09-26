@@ -58,7 +58,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 
 type UsageRange = 'today' | '7d' | '30d' | 'all'
 
-const STORAGE_KEY = 'codex2api_key_usage_api_key'
+const STORAGE_KEY = 'axisrelay_key_usage_api_key'
 const RANGE_OPTIONS: UsageRange[] = ['today', '7d', '30d', 'all']
 const LOG_PAGE_SIZE_OPTIONS = [10, 20, 25, 50, 100]
 

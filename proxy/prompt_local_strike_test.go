@@ -3,7 +3,7 @@ package proxy
 import (
 	"testing"
 
-	"github.com/codex2api/security/promptfilter"
+	"github.com/wuekevin/axisrelay/security/promptfilter"
 )
 
 // strikeEligibleForDecision 是"这次判定是否累计到人、可导致 NewAPI 自动封号"的

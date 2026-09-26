@@ -127,6 +127,10 @@ func (db *DB) ensureAccountDailyUsageTable(ctx context.Context) error {
 	if _, ok := accountDailyUsageSchemaReady[db]; ok {
 		return nil
 	}
+	if db.isMySQL() {
+		accountDailyUsageSchemaReady[db] = struct{}{}
+		return nil
+	}
 	timeType := "TIMESTAMPTZ"
 	boolType := "BOOLEAN"
 	if db.isSQLite() {
@@ -204,7 +208,7 @@ func (db *DB) UpsertAccountDailyUsage(ctx context.Context, input AccountDailyUsa
 	if models == "" {
 		models = "[]"
 	}
-	_, err := db.conn.ExecContext(ctx, `INSERT INTO account_daily_usage (
+	query := `INSERT INTO account_daily_usage (
 		account_id, day, credits, users, threads, turns,
 		uncached_input_tokens, cached_input_tokens, output_tokens, total_tokens,
 		settled, clients_json, models_json, synced_at
@@ -215,7 +219,23 @@ func (db *DB) UpsertAccountDailyUsage(ctx context.Context, input AccountDailyUsa
 		cached_input_tokens=EXCLUDED.cached_input_tokens, output_tokens=EXCLUDED.output_tokens,
 		total_tokens=EXCLUDED.total_tokens, settled=EXCLUDED.settled,
 		clients_json=EXCLUDED.clients_json, models_json=EXCLUDED.models_json,
-		synced_at=EXCLUDED.synced_at`,
+		synced_at=EXCLUDED.synced_at`
+	if db.isMySQL() {
+		query = `INSERT INTO account_daily_usage (
+			account_id, day, credits, users, threads, turns,
+			uncached_input_tokens, cached_input_tokens, output_tokens, total_tokens,
+			settled, clients_json, models_json, synced_at,
+			breakdown_percent, breakdown_json, surfaces_json
+		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,0,'[]','{}')
+		ON DUPLICATE KEY UPDATE
+			credits=VALUES(credits), users=VALUES(users), threads=VALUES(threads),
+			turns=VALUES(turns), uncached_input_tokens=VALUES(uncached_input_tokens),
+			cached_input_tokens=VALUES(cached_input_tokens), output_tokens=VALUES(output_tokens),
+			total_tokens=VALUES(total_tokens), settled=VALUES(settled),
+			clients_json=VALUES(clients_json), models_json=VALUES(models_json),
+			synced_at=VALUES(synced_at)`
+	}
+	_, err := db.conn.ExecContext(ctx, query,
 		input.AccountID, day, input.Credits, input.Users, input.Threads, input.Turns,
 		input.UncachedInputTokens, input.CachedInputTokens, input.OutputTokens, input.TotalTokens,
 		input.Settled, clients, models, time.Now().UTC(),
@@ -253,13 +273,23 @@ func (db *DB) UpsertAccountDailyBreakdown(ctx context.Context, input AccountDail
 	if err != nil {
 		return err
 	}
-	_, err = db.conn.ExecContext(ctx, `INSERT INTO account_daily_usage (
+	query := `INSERT INTO account_daily_usage (
 		account_id, day, synced_at, breakdown_percent, breakdown_json, surfaces_json
 	) VALUES ($1,$2,$3,$4,$5,$6)
 	ON CONFLICT (account_id, day) DO UPDATE SET
 		breakdown_percent=EXCLUDED.breakdown_percent,
 		breakdown_json=EXCLUDED.breakdown_json,
-		surfaces_json=EXCLUDED.surfaces_json`,
+		surfaces_json=EXCLUDED.surfaces_json`
+	if db.isMySQL() {
+		query = `INSERT INTO account_daily_usage (
+			account_id, day, clients_json, models_json, synced_at, breakdown_percent, breakdown_json, surfaces_json
+		) VALUES ($1,$2,'[]','[]',$3,$4,$5,$6)
+		ON DUPLICATE KEY UPDATE
+			breakdown_percent=VALUES(breakdown_percent),
+			breakdown_json=VALUES(breakdown_json),
+			surfaces_json=VALUES(surfaces_json)`
+	}
+	_, err = db.conn.ExecContext(ctx, query,
 		input.AccountID, day, time.Now().UTC(), input.Percent, string(modelsJSON), string(surfacesJSON),
 	)
 	return err
@@ -302,8 +332,8 @@ func (db *DB) GetAccountDailyUsageCoverage(ctx context.Context, accountID int64)
 	if err != nil {
 		return out, err
 	}
-	out.CountsOldestDay = strings.TrimSpace(counts.String)
-	out.BreakdownOldestDay = strings.TrimSpace(breakdown.String)
+	out.CountsOldestDay = normalizeDailyUsageDay(counts.String)
+	out.BreakdownOldestDay = normalizeDailyUsageDay(breakdown.String)
 	return out, nil
 }
 
@@ -446,14 +476,25 @@ func SortedAccountDailySurfaces(surfaces map[string]float64) []AccountDailySurfa
 
 func scanAccountDailyUsage(scanner interface{ Scan(...any) error }) (*AccountDailyUsage, error) {
 	item := &AccountDailyUsage{}
+	var dayRaw any
 	var syncedAt any
 	if err := scanner.Scan(
-		&item.AccountID, &item.Day, &item.Credits, &item.Users, &item.Threads, &item.Turns,
+		&item.AccountID, &dayRaw, &item.Credits, &item.Users, &item.Threads, &item.Turns,
 		&item.UncachedInputTokens, &item.CachedInputTokens, &item.OutputTokens, &item.TotalTokens,
 		&item.Settled, &item.ClientsJSON, &item.ModelsJSON, &syncedAt,
 		&item.BreakdownPercent, &item.BreakdownJSON, &item.SurfacesJSON,
 	); err != nil {
 		return nil, err
+	}
+	switch value := dayRaw.(type) {
+	case time.Time:
+		item.Day = value.UTC().Format("2006-01-02")
+	case string:
+		item.Day = normalizeDailyUsageDay(value)
+	case []byte:
+		item.Day = normalizeDailyUsageDay(string(value))
+	default:
+		item.Day = normalizeDailyUsageDay(fmt.Sprint(value))
 	}
 	parsed, err := parsePromptRiskTimeValue(syncedAt)
 	if err != nil {
@@ -461,4 +502,12 @@ func scanAccountDailyUsage(scanner interface{ Scan(...any) error }) (*AccountDai
 	}
 	item.SyncedAt = parsed
 	return item, nil
+}
+
+func normalizeDailyUsageDay(value string) string {
+	value = strings.TrimSpace(value)
+	if len(value) >= len("2006-01-02") && value[4] == '-' && value[7] == '-' {
+		return value[:10]
+	}
+	return value
 }

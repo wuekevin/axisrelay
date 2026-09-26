@@ -10,9 +10,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/codex2api/api"
-	"github.com/codex2api/auth"
-	"github.com/codex2api/database"
+	"github.com/wuekevin/axisrelay/api"
+	"github.com/wuekevin/axisrelay/auth"
+	"github.com/wuekevin/axisrelay/database"
 )
 
 // modelCompatibilityCreatedUnix is used when an upstream has no persistent
@@ -68,7 +68,7 @@ func addScopedModel(records map[string]*scopedModelRecord, id string, backing mo
 
 func scopedModelOwner(record *scopedModelRecord) string {
 	if record == nil || record.alias {
-		return "codex2api"
+		return "axisrelay"
 	}
 	switch record.backing {
 	case modelBackingGrok:
@@ -80,7 +80,7 @@ func scopedModelOwner(record *scopedModelRecord) string {
 	case modelBackingClaude:
 		return "anthropic"
 	default:
-		return "codex2api"
+		return "axisrelay"
 	}
 }
 
@@ -395,8 +395,8 @@ func filterCodexManifest(body []byte, upstreamETag string, allowed func(string) 
 	if err != nil {
 		return nil, "", err
 	}
-	sum := sha256.Sum256(append(append([]byte("codex2api-manifest-v1\x00"+upstreamETag+"\x00"), filteredBody...), '\n'))
-	return filteredBody, `"codex2api-` + hex.EncodeToString(sum[:]) + `"`, nil
+	sum := sha256.Sum256(append(append([]byte("axisrelay-manifest-v1\x00"+upstreamETag+"\x00"), filteredBody...), '\n'))
+	return filteredBody, `"axisrelay-` + hex.EncodeToString(sum[:]) + `"`, nil
 }
 
 func etagHeaderMatches(header, current string) bool {

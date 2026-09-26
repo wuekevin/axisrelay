@@ -1,7 +1,7 @@
 package promptfilter
 
 import (
-	"database/sql"
+	"bufio"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -10,8 +10,6 @@ import (
 	"strings"
 	"sync"
 	"testing"
-
-	_ "modernc.org/sqlite"
 )
 
 type corpusReplayMetrics struct {
@@ -132,22 +130,23 @@ type corpusReplayJob struct {
 	fullText bool
 }
 
-func TestProductionCorpusReplay(t *testing.T) {
-	dbPath := strings.TrimSpace(os.Getenv("PROMPT_FILTER_CORPUS_DB"))
-	if dbPath == "" {
-		t.Skip("set PROMPT_FILTER_CORPUS_DB to run the production corpus replay")
-	}
-	db, err := sql.Open("sqlite", "file:"+dbPath+"?mode=ro")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer db.Close()
+type corpusReplayRow struct {
+	ID          int64  `json:"id"`
+	Endpoint    string `json:"endpoint"`
+	FullText    string `json:"full_text"`
+	TextPreview string `json:"text_preview"`
+}
 
-	rows, err := db.Query(`select id, endpoint, full_text, text_preview from prompt_filter_logs order by id`)
+func TestProductionCorpusReplay(t *testing.T) {
+	corpusPath := strings.TrimSpace(os.Getenv("AXISRELAY_PROMPT_FILTER_CORPUS_JSONL"))
+	if corpusPath == "" {
+		t.Skip("set AXISRELAY_PROMPT_FILTER_CORPUS_JSONL to run the production corpus replay")
+	}
+	file, err := os.Open(corpusPath)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer rows.Close()
+	defer file.Close()
 
 	normalCfg := testConfig(ModeBlock)
 	normalCfg.StrictTerminalEnabled = false
@@ -186,24 +185,29 @@ func TestProductionCorpusReplay(t *testing.T) {
 		close(results)
 	}()
 
-	for rows.Next() {
-		var id int64
-		var endpoint, fullText, preview string
-		if err := rows.Scan(&id, &endpoint, &fullText, &preview); err != nil {
-			t.Fatal(err)
+	scanner := bufio.NewScanner(file)
+	scanner.Buffer(make([]byte, 64*1024), 16*1024*1024)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" {
+			continue
 		}
-		text := strings.TrimSpace(fullText)
+		var row corpusReplayRow
+		if err := json.Unmarshal([]byte(line), &row); err != nil {
+			t.Fatalf("decode corpus JSONL: %v", err)
+		}
+		text := strings.TrimSpace(row.FullText)
 		isFullText := text != ""
 		if text == "" {
-			text = strings.TrimSpace(preview)
+			text = strings.TrimSpace(row.TextPreview)
 		}
 		if text == "" {
 			continue
 		}
-		jobs <- corpusReplayJob{id: id, endpoint: endpoint, text: text, fullText: isFullText}
+		jobs <- corpusReplayJob{id: row.ID, endpoint: row.Endpoint, text: text, fullText: isFullText}
 	}
 	close(jobs)
-	if err := rows.Err(); err != nil {
+	if err := scanner.Err(); err != nil {
 		t.Fatal(err)
 	}
 

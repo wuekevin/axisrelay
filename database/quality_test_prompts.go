@@ -23,16 +23,22 @@ type QualityTestPrompt struct {
 
 func (db *DB) ensureQualityTestPromptSchema(ctx context.Context) error {
 	idType, timeType := "BIGSERIAL PRIMARY KEY", "TIMESTAMPTZ"
-	if db.isSQLite() {
+	nameType := "TEXT"
+	if db.isMySQL() {
+		idType, timeType, nameType = "BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY", "TIMESTAMP", "VARCHAR(255)"
+	} else if db.isSQLite() {
 		idType, timeType = "INTEGER PRIMARY KEY AUTOINCREMENT", "TIMESTAMP"
 	}
 	statements := []string{
 		fmt.Sprintf(`CREATE TABLE IF NOT EXISTS quality_test_prompts (
-		 id %s, name TEXT NOT NULL, prompt TEXT NOT NULL,
+		 id %s, name %s NOT NULL, prompt TEXT NOT NULL,
 		 usage_count INTEGER NOT NULL DEFAULT 0, last_used_at %s,
 		 created_at %s NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at %s NOT NULL DEFAULT CURRENT_TIMESTAMP
-		)`, idType, timeType, timeType, timeType),
+		)`, idType, nameType, timeType, timeType, timeType),
 		`CREATE INDEX IF NOT EXISTS idx_quality_test_prompts_updated ON quality_test_prompts(updated_at DESC)`,
+	}
+	if db.isMySQL() {
+		statements = statements[:1]
 	}
 	for _, statement := range statements {
 		if _, err := db.conn.ExecContext(ctx, statement); err != nil {

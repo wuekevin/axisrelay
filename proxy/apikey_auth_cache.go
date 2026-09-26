@@ -12,8 +12,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/codex2api/cache"
-	"github.com/codex2api/database"
+	"github.com/wuekevin/axisrelay/cache"
+	"github.com/wuekevin/axisrelay/database"
 	"golang.org/x/sync/singleflight"
 )
 

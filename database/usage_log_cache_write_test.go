@@ -8,7 +8,7 @@ import (
 )
 
 func TestUsageLogPersistsCacheWriteTokensAndBillsThem(t *testing.T) {
-	db, err := New("sqlite", filepath.Join(t.TempDir(), "usage-cache-write.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "usage-cache-write.db"))
 	if err != nil {
 		t.Fatal(err)
 	}

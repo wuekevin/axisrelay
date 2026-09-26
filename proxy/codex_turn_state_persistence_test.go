@@ -7,14 +7,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/codex2api/auth"
-	"github.com/codex2api/database"
+	"github.com/wuekevin/axisrelay/auth"
 )
 
 func TestTurnStateDatabaseSurvivesRestartAndScope(t *testing.T) {
 	enableTurnStateTemplateCache(t)
 	path := filepath.Join(t.TempDir(), "templates.db")
-	db, err := database.New("sqlite", path)
+	db, err := newTestDatabase(t, path)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -30,7 +29,7 @@ func TestTurnStateDatabaseSurvivesRestartAndScope(t *testing.T) {
 	}
 	db.Close()
 	resetTurnStateTemplateStoreForTest()
-	db, err = database.New("sqlite", path)
+	db, err = newTestDatabase(t, path)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -88,7 +87,7 @@ func TestTurnStateAdminProbeInjectsWithoutChangingOrdinaryRequests(t *testing.T)
 	if GetCodexTurnStateStatus(a).State != "recovering" {
 		t.Fatal("successful send not reflected")
 	}
-	t.Setenv("CODEX_TURN_STATE_DRY_RUN", "true")
+	t.Setenv("AXISRELAY_TURN_STATE_DRY_RUN", "true")
 	headers = http.Header{}
 	ApplyCodexTurnStateTemplate(WithCodexTurnStateAdminProbe(nil), headers, a, "gpt-5.6-luna")
 	if len(headers) != 0 {

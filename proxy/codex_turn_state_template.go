@@ -13,9 +13,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/codex2api/auth"
-	"github.com/codex2api/database"
 	"github.com/gin-gonic/gin"
+	"github.com/wuekevin/axisrelay/auth"
+	"github.com/wuekevin/axisrelay/database"
 )
 
 // X-Codex-Turn-State Fernet template cache (v1, sleep-state aligned).
@@ -87,29 +87,29 @@ func loadTurnStateTemplateConfig() turnStateTemplateConfig {
 		AccountMode:  NormalizeCodexTurnStateAccountMode(CurrentRuntimeSettings().CodexTurnStateAccountMode),
 		InjectMode:   turnStateInjectReplaceOnly,
 		TTL:          defaultTurnStateTemplateTTL,
-		LogDecisions: parseTurnStateBoolEnv(os.Getenv("CODEX_TURN_STATE_LOG_DECISIONS")),
+		LogDecisions: parseTurnStateBoolEnv(os.Getenv("AXISRELAY_TURN_STATE_LOG_DECISIONS")),
 		MaxEntries:   defaultTurnStateTemplateMax,
-		DryRun:       parseTurnStateBoolEnv(os.Getenv("CODEX_TURN_STATE_DRY_RUN")),
+		DryRun:       parseTurnStateBoolEnv(os.Getenv("AXISRELAY_TURN_STATE_DRY_RUN")),
 	}
-	if v := strings.TrimSpace(os.Getenv("CODEX_TURN_STATE_TTL")); v != "" {
+	if v := strings.TrimSpace(os.Getenv("AXISRELAY_TURN_STATE_TTL")); v != "" {
 		if d, err := time.ParseDuration(v); err == nil && d > 0 {
 			cfg.TTL = d
 		} else if sec, err := strconv.Atoi(v); err == nil && sec > 0 {
 			cfg.TTL = time.Duration(sec) * time.Second
 		}
 	}
-	if v := strings.TrimSpace(os.Getenv("CODEX_TURN_STATE_MAX_ENTRIES")); v != "" {
+	if v := strings.TrimSpace(os.Getenv("AXISRELAY_TURN_STATE_MAX_ENTRIES")); v != "" {
 		if n, err := strconv.Atoi(v); err == nil && n > 0 {
 			cfg.MaxEntries = n
 		}
 	}
-	switch strings.ToLower(strings.TrimSpace(os.Getenv("CODEX_TURN_STATE_INJECT_MODE"))) {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("AXISRELAY_TURN_STATE_INJECT_MODE"))) {
 	case turnStateInjectAlways:
 		cfg.InjectMode = turnStateInjectAlways
 	default:
 		cfg.InjectMode = turnStateInjectReplaceOnly
 	}
-	if v := strings.TrimSpace(os.Getenv("CODEX_TURN_STATE_TEMPLATE_LENGTH")); v != "" {
+	if v := strings.TrimSpace(os.Getenv("AXISRELAY_TURN_STATE_TEMPLATE_LENGTH")); v != "" {
 		if n, err := strconv.Atoi(v); err == nil {
 			if b, ok := blocksForEncodedLength(n); ok {
 				cfg.ForceTemplateBlocks = b
@@ -118,7 +118,7 @@ func loadTurnStateTemplateConfig() turnStateTemplateConfig {
 			}
 		}
 	}
-	if v := strings.TrimSpace(os.Getenv("CODEX_TURN_STATE_REPLACE_LENGTH")); v != "" {
+	if v := strings.TrimSpace(os.Getenv("AXISRELAY_TURN_STATE_REPLACE_LENGTH")); v != "" {
 		if n, err := strconv.Atoi(v); err == nil {
 			if b, ok := blocksForEncodedLength(n); ok {
 				cfg.ForceReplaceBlocks = b

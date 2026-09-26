@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/codex2api/api"
-	"github.com/codex2api/auth"
+	"github.com/wuekevin/axisrelay/api"
+	"github.com/wuekevin/axisrelay/auth"
 	"github.com/gin-gonic/gin"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"

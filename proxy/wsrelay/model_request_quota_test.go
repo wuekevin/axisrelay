@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/codex2api/auth"
-	"github.com/codex2api/database"
-	"github.com/codex2api/proxy"
+	"github.com/wuekevin/axisrelay/auth"
+	"github.com/wuekevin/axisrelay/database"
+	"github.com/wuekevin/axisrelay/proxy"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 	"github.com/tidwall/gjson"
@@ -21,7 +21,7 @@ import (
 // request and a read lease. Rejection must roll back both reservations without
 // writing response.create or destroying the otherwise healthy pooled socket.
 func TestExecuteWebsocketModelQuotaRejectionReturnsUnsentLeaseToIdle(t *testing.T) {
-	db, err := database.New("sqlite", filepath.Join(t.TempDir(), "quota.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "quota.db"))
 	if err != nil {
 		t.Fatal(err)
 	}

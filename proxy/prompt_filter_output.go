@@ -3,7 +3,7 @@ package proxy
 import (
 	"bytes"
 
-	"github.com/codex2api/security/promptfilter"
+	"github.com/wuekevin/axisrelay/security/promptfilter"
 )
 
 type wsPromptOutputBuffer struct {

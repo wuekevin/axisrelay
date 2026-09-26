@@ -11,7 +11,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/codex2api/auth"
+	"github.com/wuekevin/axisrelay/auth"
 )
 
 const (
@@ -108,13 +108,13 @@ func DeviceProfileConfigFromEnv(lookup func(string) string) *DeviceProfileConfig
 		return strings.TrimSpace(lookup(key))
 	}
 	return &DeviceProfileConfig{
-		UserAgent:              trimmed("CODEX_USER_AGENT"),
-		PackageVersion:         trimmed("CODEX_PACKAGE_VERSION"),
-		RuntimeVersion:         trimmed("CODEX_RUNTIME_VERSION"),
-		OS:                     trimmed("CODEX_OS"),
-		Arch:                   trimmed("CODEX_ARCH"),
+		UserAgent:              trimmed("AXISRELAY_USER_AGENT"),
+		PackageVersion:         trimmed("AXISRELAY_PACKAGE_VERSION"),
+		RuntimeVersion:         trimmed("AXISRELAY_RUNTIME_VERSION"),
+		OS:                     trimmed("AXISRELAY_OS"),
+		Arch:                   trimmed("AXISRELAY_ARCH"),
 		StabilizeDeviceProfile: strings.EqualFold(trimmed("STABILIZE_DEVICE_PROFILE"), "true"),
-		BetaFeatures:           trimmed("CODEX_BETA_FEATURES"),
+		BetaFeatures:           trimmed("AXISRELAY_BETA_FEATURES"),
 	}
 }
 

@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/codex2api/auth"
-	"github.com/codex2api/database"
+	"github.com/wuekevin/axisrelay/auth"
+	"github.com/wuekevin/axisrelay/database"
 )
 
 // respWith 构造一个带指定状态码与限流头的假响应,用于离线验证 SyncClaudeUsageState 的归因。

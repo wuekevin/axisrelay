@@ -3,8 +3,8 @@ package proxy
 import (
 	"testing"
 
-	"github.com/codex2api/auth"
-	"github.com/codex2api/database"
+	"github.com/wuekevin/axisrelay/auth"
+	"github.com/wuekevin/axisrelay/database"
 )
 
 // grok_config 里的定期探测开关/间隔应被 store 正确解析并暴露,间隔钳到下限。

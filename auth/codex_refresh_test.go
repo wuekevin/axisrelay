@@ -2,7 +2,6 @@ package auth
 
 import (
 	"context"
-	"database/sql"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -12,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/codex2api/cache"
-	"github.com/codex2api/database"
+	"github.com/wuekevin/axisrelay/cache"
+	"github.com/wuekevin/axisrelay/database"
 )
 
 func codexRefreshFixture(t *testing.T, handler http.HandlerFunc) (*Store, *database.DB, int64, string) {
@@ -24,7 +23,7 @@ func codexRefreshFixture(t *testing.T, handler http.HandlerFunc) (*Store, *datab
 	ResinRequestDecorator = func(string, string) string { return provider.URL }
 	t.Cleanup(func() { ResinRequestDecorator = oldDecorator })
 	path := filepath.Join(t.TempDir(), "codex-refresh.db")
-	db, err := database.New("sqlite", path)
+	db, err := newTestDatabase(t, path)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -137,12 +136,12 @@ func TestCodexRefreshSurvivesCallerCancellation(t *testing.T) {
 func TestCodexRefreshDatabaseFailureFencesRestartAndDoesNotPublish(t *testing.T) {
 	var calls atomic.Int32
 	store, db, id, path := codexRefreshFixture(t, func(w http.ResponseWriter, _ *http.Request) { calls.Add(1); writeCodexRefreshedTokens(w) })
-	injector, err := sql.Open("sqlite", path)
+	injector, err := openRawTestDatabase(t, path)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer injector.Close()
-	if _, err := injector.Exec(`CREATE TRIGGER fail_codex_save BEFORE UPDATE OF credentials ON accounts BEGIN SELECT RAISE(ABORT, 'injected write failure'); END`); err != nil {
+	if _, err := injector.Exec(`CREATE TRIGGER fail_codex_save BEFORE UPDATE ON accounts FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'injected write failure'`); err != nil {
 		t.Fatal(err)
 	}
 	if err := store.RefreshSingle(context.Background(), id); err == nil {
@@ -175,15 +174,15 @@ func TestCodexRefreshDatabaseFailureFencesRestartAndDoesNotPublish(t *testing.T)
 func TestCodexRefreshRetriesPersistenceWithoutRepeatingOAuth(t *testing.T) {
 	var calls atomic.Int32
 	store, db, id, path := codexRefreshFixture(t, func(w http.ResponseWriter, _ *http.Request) { calls.Add(1); writeCodexRefreshedTokens(w) })
-	// The trigger is dropped while the store may hold the WAL write lock. A
-	// raw connection has no busy timeout and fails with SQLITE_BUSY instead
-	// of waiting, which leaves the trigger in place past the retry budget.
-	injector, err := sql.Open("sqlite", "file:"+path+"?_pragma=busy_timeout(5000)")
+	// The trigger is dropped while the refresh persistence retry loop is active.
+	// This verifies a transient MySQL write failure is retried without consuming
+	// the rotated OAuth credential twice.
+	injector, err := openRawTestDatabase(t, path)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer injector.Close()
-	if _, err := injector.Exec(`CREATE TRIGGER transient_codex_save BEFORE UPDATE OF credentials ON accounts BEGIN SELECT RAISE(ABORT, 'transient write failure'); END`); err != nil {
+	if _, err := injector.Exec(`CREATE TRIGGER transient_codex_save BEFORE UPDATE ON accounts FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'transient write failure'`); err != nil {
 		t.Fatal(err)
 	}
 	restored := make(chan error, 1)
@@ -327,7 +326,7 @@ func TestCodexRefreshConcurrentStoresShareForcedExchange(t *testing.T) {
 		writeCodexRefreshedTokens(w)
 	})
 	secondCache := first.tokenCache
-	if addr := os.Getenv("CODEX2API_TEST_REDIS_ADDR"); addr != "" {
+	if addr := os.Getenv("AXISRELAY_TEST_REDIS_ADDR"); addr != "" {
 		redisA, err := cache.NewRedis(addr, "", 15)
 		if err != nil {
 			t.Fatal(err)

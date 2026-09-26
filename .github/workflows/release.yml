@@ -52,18 +52,18 @@ jobs:
           build_target() {
             local goos="$1"
             local goarch="$2"
-            local archive_base="codex2api_${version}_${goos}_${goarch}"
+            local archive_base="axisrelay_${version}_${goos}_${goarch}"
             local workdir="build/${goos}_${goarch}"
-            local binary_name="codex2api"
+            local binary_name="axisrelay"
 
             rm -rf "$workdir"
             mkdir -p "$workdir"
 
             if [[ "$goos" == "windows" ]]; then
-              binary_name="codex2api.exe"
+              binary_name="axisrelay.exe"
             fi
 
-            CGO_ENABLED=0 GOOS="$goos" GOARCH="$goarch" go build -trimpath -ldflags="-s -w -X github.com/codex2api/internal/version.Version=${VERSION}" -o "$workdir/$binary_name" .
+            CGO_ENABLED=0 GOOS="$goos" GOARCH="$goarch" go build -trimpath -ldflags="-s -w -X github.com/wuekevin/axisrelay/internal/version.Version=${VERSION}" -o "$workdir/$binary_name" .
 
             cp .env.example "$workdir/.env.example"
             cp README.md "$workdir/README.md"

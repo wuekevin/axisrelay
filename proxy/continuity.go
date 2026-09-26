@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/codex2api/auth"
+	"github.com/wuekevin/axisrelay/auth"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/tidwall/gjson"
@@ -130,7 +130,7 @@ func ResolveContinuity(ctx context.Context, account *auth.Account, req Request, 
 	}
 	if apiKey != "" {
 		return Continuity{
-			Key:    uuid.NewSHA1(uuid.NameSpaceOID, []byte("codex2api:prompt-cache:"+apiKey)).String(),
+			Key:    uuid.NewSHA1(uuid.NameSpaceOID, []byte("axisrelay:prompt-cache:"+apiKey)).String(),
 			Source: "client_principal",
 		}
 	}
@@ -149,7 +149,7 @@ func ResolveContinuity(ctx context.Context, account *auth.Account, req Request, 
 
 		if authID != "" {
 			return Continuity{
-				Key:    uuid.NewSHA1(uuid.NameSpaceOID, []byte("codex2api:prompt-cache:auth:"+authID)).String(),
+				Key:    uuid.NewSHA1(uuid.NameSpaceOID, []byte("axisrelay:prompt-cache:auth:"+authID)).String(),
 				Source: "auth_id",
 			}
 		}

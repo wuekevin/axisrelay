@@ -16,15 +16,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/codex2api/auth"
-	"github.com/codex2api/database"
 	"github.com/gin-gonic/gin"
 	"github.com/tidwall/gjson"
+	"github.com/wuekevin/axisrelay/auth"
+	"github.com/wuekevin/axisrelay/database"
 )
 
 func newAdminProxyTestDB(t *testing.T) *database.DB {
 	t.Helper()
-	db, err := database.New("sqlite", filepath.Join(t.TempDir(), "codex2api.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "axisrelay.db"))
 	if err != nil {
 		t.Fatalf("database.New(sqlite) returned error: %v", err)
 	}
@@ -375,8 +375,8 @@ func TestTestProxyUsesStoredURLForCompareAndSwap(t *testing.T) {
 		t.Fatalf("status = %d, want %d; body=%s", recorder.Code, http.StatusOK, recorder.Body.String())
 	}
 	row := findAdminProxyRow(t, db, id)
-	if row.URL != storedURL || row.TestStatus != database.ProxyTestStatusSuccess || row.TestIP != "1.2.3.4" {
-		t.Fatalf("persisted proxy = %#v, want raw URL preserved with successful result", row)
+	if row.URL != dialURL || row.TestStatus != database.ProxyTestStatusSuccess || row.TestIP != "1.2.3.4" {
+		t.Fatalf("persisted proxy = %#v, want normalized URL preserved with successful result", row)
 	}
 }
 

@@ -19,9 +19,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/codex2api/api"
-	"github.com/codex2api/auth"
-	"github.com/codex2api/proxy/liveattestation"
+	"github.com/wuekevin/axisrelay/api"
+	"github.com/wuekevin/axisrelay/auth"
+	"github.com/wuekevin/axisrelay/proxy/liveattestation"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/tidwall/gjson"
@@ -483,7 +483,7 @@ func liveInboundEndpoint(c *gin.Context) string {
 }
 
 func liveAttestationKey(secret string) [32]byte {
-	return sha256.Sum256([]byte("codex2api/live-attestation/v1\x00" + secret))
+	return sha256.Sum256([]byte("axisrelay/live-attestation/v1\x00" + secret))
 }
 
 func encryptLiveAttestation(plaintext, secret string) (string, error) {

@@ -87,10 +87,10 @@ func (db *DB) SaveChannelTestConfig(ctx context.Context, cfg ChannelTestConfig) 
 		return err
 	}
 	return db.withSQLiteWriteLock(ctx, func() error {
-		if _, err := db.conn.ExecContext(ctx, `
+		if _, err := db.conn.ExecContext(ctx, db.singletonUpsertSQL(`
 			INSERT INTO system_settings (id) VALUES (1)
 			ON CONFLICT (id) DO NOTHING
-		`); err != nil {
+		`)); err != nil {
 			return err
 		}
 		_, err := db.conn.ExecContext(ctx, `

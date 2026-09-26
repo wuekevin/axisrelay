@@ -8,11 +8,12 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
-	"github.com/codex2api/auth"
-	"github.com/codex2api/cache"
-	"github.com/codex2api/database"
 	"github.com/gin-gonic/gin"
+	"github.com/wuekevin/axisrelay/auth"
+	"github.com/wuekevin/axisrelay/cache"
+	"github.com/wuekevin/axisrelay/database"
 )
 
 func TestPromptFilterNewAPIBindingAdminLifecycleMasksSecretsAndReloadsStore(t *testing.T) {
@@ -189,7 +190,7 @@ func TestPromptFilterNewAPIBindingSecretRotationCompletesAfterClientCancellation
 		t.Fatalf("persisted binding=%#v err=%v", persisted, err)
 	}
 	runtimeBinding, ok := store.GetPromptFilterNewAPIBinding(apiKeyID)
-	if !ok || runtimeBinding.Secret != persisted.Secret || runtimeBinding.PreviousSecret != persisted.PreviousSecret || runtimeBinding.PreviousSecretExpiresAt == nil || persisted.PreviousSecretExpiresAt == nil || !runtimeBinding.PreviousSecretExpiresAt.Equal(*persisted.PreviousSecretExpiresAt) {
+	if !ok || runtimeBinding.Secret != persisted.Secret || runtimeBinding.PreviousSecret != persisted.PreviousSecret || runtimeBinding.PreviousSecretExpiresAt == nil || persisted.PreviousSecretExpiresAt == nil || !runtimeBinding.PreviousSecretExpiresAt.UTC().Truncate(time.Millisecond).Equal(persisted.PreviousSecretExpiresAt.UTC().Truncate(time.Millisecond)) {
 		t.Fatalf("runtime binding diverged after canceled request: runtime=%#v persisted=%#v ok=%v", runtimeBinding, persisted, ok)
 	}
 }

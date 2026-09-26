@@ -2,15 +2,14 @@ package admin
 
 import (
 	"context"
-	"database/sql"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
 	"testing"
 
-	"github.com/codex2api/auth"
-	"github.com/codex2api/database"
 	"github.com/gin-gonic/gin"
+	"github.com/wuekevin/axisrelay/auth"
+	"github.com/wuekevin/axisrelay/database"
 )
 
 func exportRequestContext(t *testing.T, target string) *gin.Context {
@@ -166,13 +165,13 @@ func TestAccountRowToExportEntryCarriesProxyWhenEnabled(t *testing.T) {
 // 代理表读失败不该让整次导出失败:降级成只带 URL。
 func TestNewExportProxyResolverDegradesWhenProxyTableUnavailable(t *testing.T) {
 	dbPath := filepath.Join(t.TempDir(), "export-proxy-degrade.sqlite")
-	db, err := database.New("sqlite", dbPath)
+	db, err := newTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatalf("database.New: %v", err)
 	}
 	t.Cleanup(func() { _ = db.Close() })
 
-	rawDB, err := sql.Open("sqlite", dbPath)
+	rawDB, err := openRawTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatalf("sql.Open: %v", err)
 	}

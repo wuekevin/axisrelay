@@ -11,10 +11,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/codex2api/auth"
-	"github.com/codex2api/cache"
-	"github.com/codex2api/database"
-	"github.com/codex2api/proxy"
+	"github.com/wuekevin/axisrelay/auth"
+	"github.com/wuekevin/axisrelay/cache"
+	"github.com/wuekevin/axisrelay/database"
+	"github.com/wuekevin/axisrelay/proxy"
 	"github.com/gin-gonic/gin"
 )
 
@@ -38,7 +38,7 @@ func TestExchangeOAuthCodeSeedsAccessTokenFromExchangeResponse(t *testing.T) {
 
 	oldResinCfg := proxy.GetResinConfig()
 	oldDecorator := auth.ResinRequestDecorator
-	proxy.SetResinConfig(&proxy.ResinConfig{BaseURL: server.URL, PlatformName: "codex2api"})
+	proxy.SetResinConfig(&proxy.ResinConfig{BaseURL: server.URL, PlatformName: "axisrelay"})
 	t.Cleanup(func() {
 		proxy.SetResinConfig(oldResinCfg)
 		auth.ResinRequestDecorator = oldDecorator
@@ -121,7 +121,7 @@ func newOAuthExchangeTestServerWithIDToken(t *testing.T, idToken string) *httpte
 
 	oldResinCfg := proxy.GetResinConfig()
 	oldDecorator := auth.ResinRequestDecorator
-	proxy.SetResinConfig(&proxy.ResinConfig{BaseURL: server.URL, PlatformName: "codex2api"})
+	proxy.SetResinConfig(&proxy.ResinConfig{BaseURL: server.URL, PlatformName: "axisrelay"})
 	t.Cleanup(func() {
 		proxy.SetResinConfig(oldResinCfg)
 		auth.ResinRequestDecorator = oldDecorator
@@ -546,7 +546,7 @@ func TestUpdateOAuthAccountCodeDoesNotExposeTokenErrorBody(t *testing.T) {
 
 	oldResinCfg := proxy.GetResinConfig()
 	oldDecorator := auth.ResinRequestDecorator
-	proxy.SetResinConfig(&proxy.ResinConfig{BaseURL: server.URL, PlatformName: "codex2api"})
+	proxy.SetResinConfig(&proxy.ResinConfig{BaseURL: server.URL, PlatformName: "axisrelay"})
 	t.Cleanup(func() {
 		proxy.SetResinConfig(oldResinCfg)
 		auth.ResinRequestDecorator = oldDecorator

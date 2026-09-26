@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/codex2api/database"
+	"github.com/wuekevin/axisrelay/database"
 	"github.com/gin-gonic/gin"
 	"github.com/tidwall/gjson"
 )

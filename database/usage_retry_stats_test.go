@@ -10,7 +10,7 @@ import (
 // attempt_index 是 1-based：首次尝试写 1，第一次重试写 2。请求构成里的「重试」曾经写成
 // attempt_index > 0，于是每个请求都被算成重试，这个指标恒等于总请求数（界面上显示 100%）。
 func TestFeatureStatsRetryCountsOnlyRetryAttempts(t *testing.T) {
-	db, err := New("sqlite", filepath.Join(t.TempDir(), "retry-stats.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "retry-stats.db"))
 	if err != nil {
 		t.Fatalf("New(sqlite): %v", err)
 	}
@@ -57,7 +57,7 @@ func TestFeatureStatsRetryCountsOnlyRetryAttempts(t *testing.T) {
 }
 
 func TestAccountRequestCountsExcludeClientCanceledAndKeepRawUsage(t *testing.T) {
-	db, err := New("sqlite", filepath.Join(t.TempDir(), "account-cancel-counts.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "account-cancel-counts.db"))
 	if err != nil {
 		t.Fatal(err)
 	}

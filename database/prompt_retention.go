@@ -77,7 +77,7 @@ func (db *DB) ensurePromptLogRetentionConfig(ctx context.Context) error {
 	if promptRetentionConfigReady[db] {
 		return nil
 	}
-	if _, err := db.conn.ExecContext(ctx, `CREATE TABLE IF NOT EXISTS prompt_log_retention_config (
+	ddl := `CREATE TABLE IF NOT EXISTS prompt_log_retention_config (
 		singleton_id INTEGER PRIMARY KEY CHECK (singleton_id = 1),
 		retention_days INTEGER NOT NULL DEFAULT 7,
 		last_run_at TIMESTAMP NULL,
@@ -86,11 +86,28 @@ func (db *DB) ensurePromptLogRetentionConfig(ctx context.Context) error {
 		last_deleted_sources BIGINT NOT NULL DEFAULT 0,
 		last_duration_ms BIGINT NOT NULL DEFAULT 0,
 		last_error TEXT NOT NULL DEFAULT ''
-	)`); err != nil {
+	)`
+	if db.isMySQL() {
+		ddl = `CREATE TABLE IF NOT EXISTS prompt_log_retention_config (
+			singleton_id INTEGER PRIMARY KEY CHECK (singleton_id = 1),
+			retention_days INTEGER NOT NULL DEFAULT 7,
+			last_run_at TIMESTAMP NULL,
+			last_deleted_logs BIGINT NOT NULL DEFAULT 0,
+			last_deleted_events BIGINT NOT NULL DEFAULT 0,
+			last_deleted_sources BIGINT NOT NULL DEFAULT 0,
+			last_duration_ms BIGINT NOT NULL DEFAULT 0,
+			last_error VARCHAR(1000) NOT NULL DEFAULT ''
+		)`
+	}
+	if _, err := db.conn.ExecContext(ctx, ddl); err != nil {
 		return err
 	}
-	_, err := db.conn.ExecContext(ctx, `INSERT INTO prompt_log_retention_config (singleton_id, retention_days)
-		VALUES (1, $1) ON CONFLICT (singleton_id) DO NOTHING`, DefaultPromptLogRetentionDays)
+	insertSQL := `INSERT INTO prompt_log_retention_config (singleton_id, retention_days)
+		VALUES (1, $1) ON CONFLICT (singleton_id) DO NOTHING`
+	if db.isMySQL() {
+		insertSQL = `INSERT IGNORE INTO prompt_log_retention_config (singleton_id, retention_days) VALUES (1, $1)`
+	}
+	_, err := db.conn.ExecContext(ctx, insertSQL, DefaultPromptLogRetentionDays)
 	if err == nil {
 		promptRetentionConfigReady[db] = true
 	}
@@ -200,6 +217,10 @@ func (db *DB) purgePromptLogs(ctx context.Context, cutoff time.Time, filter Prom
 	}
 	logStmt := fmt.Sprintf(`DELETE FROM prompt_filter_logs WHERE id IN (
 		SELECT l.id FROM prompt_filter_logs l WHERE %s LIMIT $%d)`, logWhere, len(logArgs)+1)
+	if db.isMySQL() {
+		logStmt = fmt.Sprintf(`DELETE FROM prompt_filter_logs WHERE id IN (
+			SELECT id FROM (SELECT l.id FROM prompt_filter_logs l WHERE %s LIMIT $%d) AS purge_batch)`, logWhere, len(logArgs)+1)
+	}
 	logArgs = append(logArgs, batchSize)
 
 	deleted, err := db.purgeInBatches(ctx, logStmt, logArgs, batchSize, pause, &result)
@@ -218,6 +239,10 @@ func (db *DB) purgePromptLogs(ctx context.Context, cutoff time.Time, filter Prom
 	eventArgs := []interface{}{cutoffArg}
 	eventStmt := fmt.Sprintf(`DELETE FROM prompt_risk_events WHERE id IN (
 		SELECT e.id FROM prompt_risk_events e WHERE %s LIMIT $%d)`, eventWhere, len(eventArgs)+1)
+	if db.isMySQL() {
+		eventStmt = fmt.Sprintf(`DELETE FROM prompt_risk_events WHERE id IN (
+			SELECT id FROM (SELECT e.id FROM prompt_risk_events e WHERE %s LIMIT $%d) AS purge_batch)`, eventWhere, len(eventArgs)+1)
+	}
 	eventArgs = append(eventArgs, batchSize)
 	deleted, err = db.purgeInBatches(ctx, eventStmt, eventArgs, batchSize, pause, &result)
 	result.Events = deleted
@@ -237,6 +262,15 @@ func (db *DB) purgeOrphanPromptRiskSources(ctx context.Context, cutoffArg interf
 		WHERE s.processed_at < $1 AND NOT EXISTS (
 			SELECT 1 FROM prompt_risk_events e WHERE e.source_type = s.source_type AND e.source_id = s.source_id)
 		LIMIT $2)`
+	if db.isMySQL() {
+		stmt = `DELETE FROM prompt_risk_event_sources WHERE (source_type, source_id) IN (
+			SELECT source_type, source_id FROM (
+				SELECT s.source_type, s.source_id FROM prompt_risk_event_sources s
+				WHERE s.processed_at < $1 AND NOT EXISTS (
+					SELECT 1 FROM prompt_risk_events e WHERE e.source_type = s.source_type AND e.source_id = s.source_id)
+				LIMIT $2
+			) AS purge_batch)`
+	}
 	return db.purgeInBatches(ctx, stmt, []interface{}{cutoffArg, batchSize}, batchSize, pause, result)
 }
 

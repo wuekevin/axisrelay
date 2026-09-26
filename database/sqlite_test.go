@@ -7,27 +7,26 @@ import (
 	"math"
 	"path/filepath"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 )
 
-func TestNewSQLiteInitializesFreshDatabase(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "codex2api.db")
+func TestNewMySQLInitializesFreshDatabase(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
 
-	db, err := New("sqlite", dbPath)
+	db, err := newTestDatabase(t, dbPath)
 	if err != nil {
-		t.Fatalf("New(sqlite) 返回错误: %v", err)
+		t.Fatalf("New(mysql) 返回错误: %v", err)
 	}
 	defer db.Close()
 
-	if got := db.Driver(); got != "sqlite" {
-		t.Fatalf("Driver() = %q, want %q", got, "sqlite")
+	if got := db.Driver(); got != "mysql" {
+		t.Fatalf("Driver() = %q, want %q", got, "mysql")
 	}
 }
 
 func TestChartAggregationUsesEpochBucketsForDailyRange(t *testing.T) {
-	db, err := New("sqlite", filepath.Join(t.TempDir(), "chart-daily.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "chart-daily.db"))
 	if err != nil {
 		t.Fatalf("New(sqlite): %v", err)
 	}
@@ -56,17 +55,14 @@ func TestChartAggregationUsesEpochBucketsForDailyRange(t *testing.T) {
 	}
 }
 
-func TestSQLitePromptFilterColumnDefaultsRemainUpgradeCompatible(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "codex2api.db")
-	db, err := New("sqlite", dbPath)
+func TestMySQLPromptFilterColumnDefaultsRemainUpgradeCompatible(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
+	db, err := newTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatalf("New(sqlite) returned error: %v", err)
 	}
 	defer db.Close()
 
-	if _, err := db.conn.ExecContext(context.Background(), `INSERT INTO system_settings (id) VALUES (1)`); err != nil {
-		t.Fatalf("insert default settings row: %v", err)
-	}
 	settings, err := db.GetSystemSettings(context.Background())
 	if err != nil {
 		t.Fatalf("GetSystemSettings returned error: %v", err)
@@ -78,7 +74,7 @@ func TestSQLitePromptFilterColumnDefaultsRemainUpgradeCompatible(t *testing.T) {
 		t.Fatalf("compatibility advanced config = %q, want {}", settings.PromptFilterAdvancedConfig)
 	}
 	if settings.CodexMinCLIVersion != "0.153.3" {
-		t.Fatalf("fresh SQLite minimum Codex CLI version = %q, want 0.153.3", settings.CodexMinCLIVersion)
+		t.Fatalf("fresh MySQL minimum Codex CLI version = %q, want 0.153.3", settings.CodexMinCLIVersion)
 	}
 	if settings.SessionSlotBufferEnabled || settings.SessionSlotBufferSeconds != 10 {
 		t.Fatalf("session slot buffer defaults = enabled:%t seconds:%d, want false/10", settings.SessionSlotBufferEnabled, settings.SessionSlotBufferSeconds)
@@ -86,7 +82,7 @@ func TestSQLitePromptFilterColumnDefaultsRemainUpgradeCompatible(t *testing.T) {
 }
 
 func TestSQLiteSessionSlotBufferSettingsRoundtrip(t *testing.T) {
-	db, err := New("sqlite", filepath.Join(t.TempDir(), "session-slot-buffer.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "session-slot-buffer.db"))
 	if err != nil {
 		t.Fatalf("New(sqlite): %v", err)
 	}
@@ -129,8 +125,8 @@ func TestSQLiteSessionSlotBufferSettingsRoundtrip(t *testing.T) {
 	}
 }
 
-func TestSQLiteModelsListReadLimitRoundTripAndFullUpdatePreservesValue(t *testing.T) {
-	db, err := New("sqlite", filepath.Join(t.TempDir(), "models-list-limit.db"))
+func TestMySQLModelsListReadLimitRoundTripAndFullUpdatePreservesValue(t *testing.T) {
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "models-list-limit.db"))
 	if err != nil {
 		t.Fatalf("New(sqlite): %v", err)
 	}
@@ -163,9 +159,9 @@ func TestSQLiteModelsListReadLimitRoundTripAndFullUpdatePreservesValue(t *testin
 }
 
 func TestSQLiteAPIKeyLookupAndCount(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "codex2api.db")
+	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
 
-	db, err := New("sqlite", dbPath)
+	db, err := newTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatalf("New(sqlite) 返回错误: %v", err)
 	}
@@ -194,9 +190,9 @@ func TestSQLiteAPIKeyLookupAndCount(t *testing.T) {
 }
 
 func TestSQLiteAPIKeyReadDoesNotWaitBehindAccountWrite(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "codex2api.db")
+	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
 
-	db, err := New("sqlite", dbPath)
+	db, err := newTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatalf("New(sqlite) 返回错误: %v", err)
 	}
@@ -231,57 +227,10 @@ func TestSQLiteAPIKeyReadDoesNotWaitBehindAccountWrite(t *testing.T) {
 	}
 }
 
-func TestSQLiteQueuedAccountWritesDoNotBlockAPIKeyReads(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "codex2api.db")
-
-	db, err := New("sqlite", dbPath)
-	if err != nil {
-		t.Fatalf("New(sqlite) 返回错误: %v", err)
-	}
-	defer db.Close()
-
-	ctx := context.Background()
-	if _, err := db.InsertAPIKey(ctx, "lookup", "sk-test-lookup-1234567890"); err != nil {
-		t.Fatalf("InsertAPIKey 返回错误: %v", err)
-	}
-	accountIDs := make([]int64, 0, maxSQLiteOpenConns*2)
-	for i := 0; i < maxSQLiteOpenConns*2; i++ {
-		id, err := db.InsertAccount(ctx, "writer", "rt-writer", "")
-		if err != nil {
-			t.Fatalf("InsertAccount 返回错误: %v", err)
-		}
-		accountIDs = append(accountIDs, id)
-	}
-
-	db.sqliteWriteSem <- struct{}{}
-	var wg sync.WaitGroup
-	for _, accountID := range accountIDs {
-		wg.Add(1)
-		go func(id int64) {
-			defer wg.Done()
-			writeCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
-			defer cancel()
-			_ = db.UpdateCredentials(writeCtx, id, map[string]interface{}{"codex_7d_used_percent": 1})
-		}(accountID)
-	}
-
-	readCtx, cancel := context.WithTimeout(ctx, 200*time.Millisecond)
-	defer cancel()
-	count, err := db.CountAPIKeys(readCtx)
-	<-db.sqliteWriteSem
-	wg.Wait()
-	if err != nil {
-		t.Fatalf("CountAPIKeys while account writes are queued 返回错误: %v", err)
-	}
-	if count != 1 {
-		t.Fatalf("CountAPIKeys = %d, want 1", count)
-	}
-}
-
 func TestSQLiteUpdateCredentialsMergesAtomically(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "codex2api.db")
+	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
 
-	db, err := New("sqlite", dbPath)
+	db, err := newTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatalf("New(sqlite) 返回错误: %v", err)
 	}
@@ -318,9 +267,9 @@ func TestSQLiteUpdateCredentialsMergesAtomically(t *testing.T) {
 }
 
 func TestFindActiveAccountByOAuthIdentity(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "codex2api.db")
+	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
 
-	db, err := New("sqlite", dbPath)
+	db, err := newTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatalf("New(sqlite) 返回错误: %v", err)
 	}
@@ -375,9 +324,9 @@ func TestFindActiveAccountByOAuthIdentity(t *testing.T) {
 }
 
 func TestFindActiveAccountByOAuthRouteIdentitySeparatesWorkspaceOverrides(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "codex2api.db")
+	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
 
-	db, err := New("sqlite", dbPath)
+	db, err := newTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatalf("New(sqlite) 返回错误: %v", err)
 	}
@@ -426,9 +375,9 @@ func TestFindActiveAccountByOAuthRouteIdentitySeparatesWorkspaceOverrides(t *tes
 }
 
 func TestFindActiveAccountByOAuthIdentityIgnoresLegacyIDs(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "codex2api.db")
+	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
 
-	db, err := New("sqlite", dbPath)
+	db, err := newTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatalf("New(sqlite) 返回错误: %v", err)
 	}
@@ -467,10 +416,10 @@ func TestFindActiveAccountByOAuthIdentityIgnoresLegacyIDs(t *testing.T) {
 // wham 回填污染（user_id 写进了 account_id）的账号必须合并为一组。
 // 勾选"允许重复添加"强制导入的副本（allow_duplicate 标记）不参与合并。
 func TestSQLiteDataMigrationV2DedupesByUserID(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "codex2api.db")
+	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
 	ctx := context.Background()
 
-	db, err := New("sqlite", dbPath)
+	db, err := newTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatalf("New(sqlite) 返回错误: %v", err)
 	}
@@ -536,10 +485,10 @@ func TestSQLiteDataMigrationV2DedupesByUserID(t *testing.T) {
 }
 
 func TestSQLiteDataMigrationDedupesOAuthIdentityOnce(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "codex2api.db")
+	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
 	ctx := context.Background()
 
-	db, err := New("sqlite", dbPath)
+	db, err := newTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatalf("New(sqlite) 返回错误: %v", err)
 	}
@@ -634,7 +583,7 @@ func TestSQLiteDataMigrationDedupesOAuthIdentityOnce(t *testing.T) {
 		t.Fatalf("Close 返回错误: %v", err)
 	}
 
-	db, err = New("sqlite", dbPath)
+	db, err = newTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatalf("reopen New(sqlite) 返回错误: %v", err)
 	}
@@ -696,7 +645,7 @@ func TestSQLiteDataMigrationDedupesOAuthIdentityOnce(t *testing.T) {
 		t.Fatalf("Close after post migration duplicate 返回错误: %v", err)
 	}
 
-	db, err = New("sqlite", dbPath)
+	db, err = newTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatalf("second reopen New(sqlite) 返回错误: %v", err)
 	}
@@ -710,9 +659,9 @@ func TestSQLiteDataMigrationDedupesOAuthIdentityOnce(t *testing.T) {
 }
 
 func TestSQLiteAPIKeyQuotaAndExpiration(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "codex2api.db")
+	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
 
-	db, err := New("sqlite", dbPath)
+	db, err := newTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatalf("New(sqlite) 返回错误: %v", err)
 	}
@@ -764,9 +713,9 @@ func TestSQLiteAPIKeyQuotaAndExpiration(t *testing.T) {
 }
 
 func TestSQLiteUpdateAPIKeyPatchesSelectedFields(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "codex2api.db")
+	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
 
-	db, err := New("sqlite", dbPath)
+	db, err := newTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatalf("New(sqlite) 返回错误: %v", err)
 	}
@@ -816,46 +765,10 @@ func TestSQLiteUpdateAPIKeyPatchesSelectedFields(t *testing.T) {
 	}
 }
 
-func TestSQLiteMigratesLegacyAPIKeysColumns(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "legacy.db")
-	raw, err := sql.Open("sqlite", dbPath)
-	if err != nil {
-		t.Fatalf("open legacy sqlite: %v", err)
-	}
-	if _, err := raw.Exec(`CREATE TABLE api_keys (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		name TEXT NOT NULL,
-		key TEXT UNIQUE NOT NULL,
-		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-	)`); err != nil {
-		t.Fatalf("create legacy api_keys: %v", err)
-	}
-	if _, err := raw.Exec(`INSERT INTO api_keys (name, key) VALUES ('legacy', 'sk-legacy-1234567890')`); err != nil {
-		t.Fatalf("insert legacy api key: %v", err)
-	}
-	if err := raw.Close(); err != nil {
-		t.Fatalf("close legacy sqlite: %v", err)
-	}
-
-	db, err := New("sqlite", dbPath)
-	if err != nil {
-		t.Fatalf("New(sqlite legacy) 返回错误: %v", err)
-	}
-	defer db.Close()
-
-	row, err := db.GetAPIKeyByValue(context.Background(), "sk-legacy-1234567890")
-	if err != nil {
-		t.Fatalf("GetAPIKeyByValue legacy 返回错误: %v", err)
-	}
-	if row.Name != "legacy" || row.QuotaLimit != 0 || row.QuotaUsed != 0 || row.ExpiresAt.Valid || len(row.AllowedGroupIDs) != 0 {
-		t.Fatalf("legacy row = %#v, want migrated defaults", row)
-	}
-}
-
 func TestSQLiteAccountsEnabledDefaultsAndCanToggle(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "codex2api.db")
+	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
 
-	db, err := New("sqlite", dbPath)
+	db, err := newTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatalf("New(sqlite) 返回错误: %v", err)
 	}
@@ -898,9 +811,9 @@ func TestSQLiteAccountsEnabledDefaultsAndCanToggle(t *testing.T) {
 }
 
 func TestSQLiteListActiveByChannel(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "codex2api-channel.db")
+	dbPath := filepath.Join(t.TempDir(), "axisrelay-channel.db")
 
-	db, err := New("sqlite", dbPath)
+	db, err := newTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatalf("New(sqlite) 返回错误: %v", err)
 	}
@@ -970,17 +883,17 @@ func TestSQLiteListActiveByChannel(t *testing.T) {
 	}
 }
 
-func TestSQLiteUsageLogsHasAPIKeyColumns(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "codex2api.db")
+func TestMySQLUsageLogsHasAPIKeyColumns(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
 
-	db, err := New("sqlite", dbPath)
+	db, err := newTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatalf("New(sqlite) 返回错误: %v", err)
 	}
 	defer db.Close()
 
 	ctx := context.Background()
-	columns, err := db.sqliteTableColumns(ctx, "usage_logs")
+	columns, err := db.testTableColumns(ctx, "usage_logs")
 	if err != nil {
 		t.Fatalf("sqliteTableColumns 返回错误: %v", err)
 	}
@@ -991,7 +904,11 @@ func TestSQLiteUsageLogsHasAPIKeyColumns(t *testing.T) {
 		}
 	}
 
-	rows, err := db.conn.QueryContext(ctx, `SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = 'usage_logs'`)
+	rows, err := db.conn.QueryContext(ctx, `
+		SELECT DISTINCT index_name
+		FROM information_schema.statistics
+		WHERE table_schema = DATABASE() AND table_name = 'usage_logs'
+	`)
 	if err != nil {
 		t.Fatalf("查询 usage_logs 索引返回错误: %v", err)
 	}
@@ -1014,9 +931,9 @@ func TestSQLiteUsageLogsHasAPIKeyColumns(t *testing.T) {
 }
 
 func TestUsageLogModeErrorsSkipsSuccessfulLogsButChargesQuota(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "codex2api.db")
+	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
 
-	db, err := New("sqlite", dbPath)
+	db, err := newTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatalf("New(sqlite) 返回错误: %v", err)
 	}
@@ -1071,9 +988,9 @@ func TestUsageLogModeErrorsSkipsSuccessfulLogsButChargesQuota(t *testing.T) {
 }
 
 func TestUsageErrorSummaryAndFilters(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "codex2api.db")
+	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
 
-	db, err := New("sqlite", dbPath)
+	db, err := newTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatalf("New(sqlite) 返回错误: %v", err)
 	}
@@ -1243,9 +1160,9 @@ func TestUsageErrorSummaryAndFilters(t *testing.T) {
 }
 
 func TestUsageLogModeOffSkipsAllLogsButChargesQuota(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "codex2api.db")
+	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
 
-	db, err := New("sqlite", dbPath)
+	db, err := newTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatalf("New(sqlite) 返回错误: %v", err)
 	}
@@ -1290,8 +1207,8 @@ func TestUsageLogModeOffSkipsAllLogsButChargesQuota(t *testing.T) {
 func TestUsageLogModesPreserveCanceledQuotaExemption(t *testing.T) {
 	for _, mode := range []string{UsageLogModeErrors, UsageLogModeOff} {
 		t.Run(mode, func(t *testing.T) {
-			dbPath := filepath.Join(t.TempDir(), "codex2api.db")
-			db, err := New("sqlite", dbPath)
+			dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
+			db, err := newTestDatabase(t, dbPath)
 			if err != nil {
 				t.Fatalf("New(sqlite) 返回错误: %v", err)
 			}
@@ -1327,9 +1244,9 @@ func TestUsageLogModesPreserveCanceledQuotaExemption(t *testing.T) {
 
 func TestSQLiteModelCooldownPersistence(t *testing.T) {
 	ctx := context.Background()
-	dbPath := filepath.Join(t.TempDir(), "codex2api.db")
+	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
 
-	db, err := New("sqlite", dbPath)
+	db, err := newTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatalf("New(sqlite) 返回错误: %v", err)
 	}
@@ -1365,8 +1282,8 @@ func TestSQLiteModelCooldownPersistence(t *testing.T) {
 
 func TestModelCooldownSettingsDefaultsAndUpdate(t *testing.T) {
 	ctx := context.Background()
-	dbPath := filepath.Join(t.TempDir(), "codex2api.db")
-	db, err := New("sqlite", dbPath)
+	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
+	db, err := newTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatalf("New(sqlite) 返回错误: %v", err)
 	}
@@ -1408,9 +1325,9 @@ func TestModelCooldownSettingsDefaultsAndUpdate(t *testing.T) {
 
 func TestAccountRequestCountsSeparateRetryAttempts(t *testing.T) {
 	ctx := context.Background()
-	dbPath := filepath.Join(t.TempDir(), "codex2api.db")
+	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
 
-	db, err := New("sqlite", dbPath)
+	db, err := newTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatalf("New(sqlite) 返回错误: %v", err)
 	}
@@ -1442,15 +1359,15 @@ func TestAccountRequestCountsSeparateRetryAttempts(t *testing.T) {
 }
 
 func TestSQLiteUsageStatsBaselineHasBillingColumns(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "codex2api.db")
+	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
 
-	db, err := New("sqlite", dbPath)
+	db, err := newTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatalf("New(sqlite) 返回错误: %v", err)
 	}
 	defer db.Close()
 
-	columns, err := db.sqliteTableColumns(context.Background(), "usage_stats_baseline")
+	columns, err := db.testTableColumns(context.Background(), "usage_stats_baseline")
 	if err != nil {
 		t.Fatalf("sqliteTableColumns 返回错误: %v", err)
 	}
@@ -1463,9 +1380,9 @@ func TestSQLiteUsageStatsBaselineHasBillingColumns(t *testing.T) {
 }
 
 func TestSQLiteSystemSettingsPersistsFirstTokenTimeoutSeconds(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "codex2api.db")
+	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
 
-	db, err := New("sqlite", dbPath)
+	db, err := newTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatalf("New(sqlite) 返回错误: %v", err)
 	}
@@ -1551,7 +1468,7 @@ func TestSQLiteSystemSettingsPersistsFirstTokenTimeoutSeconds(t *testing.T) {
 	if !settings.PromptFilterStrictTerminalEnabled {
 		t.Fatal("PromptFilterStrictTerminalEnabled = false, want true")
 	}
-	if settings.PromptFilterAdvancedConfig != `{"normalization":{"enabled":true}}` {
+	if !semanticJSONEqual([]byte(settings.PromptFilterAdvancedConfig), []byte(`{"normalization":{"enabled":true}}`)) {
 		t.Fatalf("PromptFilterAdvancedConfig = %q", settings.PromptFilterAdvancedConfig)
 	}
 	if !settings.IgnoreUsageLimitStatus {
@@ -1584,13 +1501,13 @@ func TestSQLiteSystemSettingsPersistsFirstTokenTimeoutSeconds(t *testing.T) {
 	if settings.BillingTierPolicy != "requested" {
 		t.Fatalf("BillingTierPolicy = %q, want requested", settings.BillingTierPolicy)
 	}
-	if settings.CodexModelMapping != `{"gpt-5.2":"gpt-5.5"}` {
+	if !semanticJSONEqual([]byte(settings.CodexModelMapping), []byte(`{"gpt-5.2":"gpt-5.5"}`)) {
 		t.Fatalf("CodexModelMapping = %q, want gpt-5.2 mapping", settings.CodexModelMapping)
 	}
-	if settings.CodexUserAgentConfig != `{"terminal":"xterm-256color","os_name":"Linux","os_version":"Unknown"}` {
+	if !semanticJSONEqual([]byte(settings.CodexUserAgentConfig), []byte(`{"terminal":"xterm-256color","os_name":"Linux","os_version":"Unknown"}`)) {
 		t.Fatalf("CodexUserAgentConfig = %q, want custom UA config", settings.CodexUserAgentConfig)
 	}
-	if settings.ReasoningEffortModels != `[{"model":"gpt-5.5","effort":"xhigh"}]` {
+	if !semanticJSONEqual([]byte(settings.ReasoningEffortModels), []byte(`[{"model":"gpt-5.5","effort":"xhigh"}]`)) {
 		t.Fatalf("ReasoningEffortModels = %q, want gpt-5.5 xhigh entry", settings.ReasoningEffortModels)
 	}
 	if !settings.PromptFilterReviewEnabled {
@@ -1656,23 +1573,23 @@ func TestSQLiteSystemSettingsPersistsFirstTokenTimeoutSeconds(t *testing.T) {
 	if settings.FirstTokenExcludesWsAcquire {
 		t.Fatal("FirstTokenExcludesWsAcquire = true, want false")
 	}
-	if settings.PromptFilterAdvancedConfig != `{"normalization":{"enabled":true}}` {
+	if !semanticJSONEqual([]byte(settings.PromptFilterAdvancedConfig), []byte(`{"normalization":{"enabled":true}}`)) {
 		t.Fatalf("PromptFilterAdvancedConfig after FirstTokenExcludesWsAcquire update = %q", settings.PromptFilterAdvancedConfig)
 	}
 }
 
 func TestSystemSettingsNormalizeBlankBillingTierPolicy(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "codex2api.db")
+	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
 
-	db, err := New("sqlite", dbPath)
+	db, err := newTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatalf("New(sqlite) 返回错误: %v", err)
 	}
 	defer db.Close()
 
 	ctx := context.Background()
-	if _, err := db.conn.ExecContext(ctx, `INSERT INTO system_settings (id, billing_tier_policy) VALUES (1, '')`); err != nil {
-		t.Fatalf("插入空 billing_tier_policy 失败: %v", err)
+	if _, err := db.conn.ExecContext(ctx, `UPDATE system_settings SET billing_tier_policy = '' WHERE id = 1`); err != nil {
+		t.Fatalf("写入空 billing_tier_policy 失败: %v", err)
 	}
 
 	settings, err := db.GetSystemSettings(ctx)
@@ -1700,8 +1617,8 @@ func TestSystemSettingsNormalizeBlankBillingTierPolicy(t *testing.T) {
 }
 
 func TestSQLitePartialBackgroundSettingsUpdatesPreserveAutoResetCredits(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "codex2api.db")
-	db, err := New("sqlite", dbPath)
+	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
+	db, err := newTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatalf("New(sqlite) 返回错误: %v", err)
 	}
@@ -1757,43 +1674,14 @@ func TestSQLitePartialBackgroundSettingsUpdatesPreserveAutoResetCredits(t *testi
 	if got.CodexSyncedCLIVersion != "9.9.9" {
 		t.Fatalf("CodexSyncedCLIVersion = %q, want 9.9.9", got.CodexSyncedCLIVersion)
 	}
-	if got.ModelPricingOverrides != `{"new":{"input":2}}` || got.ModelPricingSyncURL != "https://new.example/pricing.json" {
+	if !semanticJSONEqual([]byte(got.ModelPricingOverrides), []byte(`{"new":{"input":2}}`)) || got.ModelPricingSyncURL != "https://new.example/pricing.json" {
 		t.Fatalf("model pricing = %q / %q", got.ModelPricingOverrides, got.ModelPricingSyncURL)
 	}
 }
 
-func TestSQLiteMigratesAccountGroupBaseConcurrencyOverride(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "legacy.db")
-	legacy, err := sql.Open("sqlite", dbPath)
-	if err != nil {
-		t.Fatalf("sql.Open legacy sqlite 返回错误: %v", err)
-	}
-	if _, err := legacy.Exec(`CREATE TABLE account_groups (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE NOT NULL)`); err != nil {
-		legacy.Close()
-		t.Fatalf("创建旧 account_groups 表返回错误: %v", err)
-	}
-	if err := legacy.Close(); err != nil {
-		t.Fatalf("关闭旧 SQLite 返回错误: %v", err)
-	}
-
-	db, err := New("sqlite", dbPath)
-	if err != nil {
-		t.Fatalf("New(sqlite) 迁移旧库返回错误: %v", err)
-	}
-	defer db.Close()
-
-	var columnCount int
-	if err := db.conn.QueryRowContext(context.Background(), `SELECT COUNT(*) FROM pragma_table_info('account_groups') WHERE name = 'base_concurrency_override'`).Scan(&columnCount); err != nil {
-		t.Fatalf("查询迁移列返回错误: %v", err)
-	}
-	if columnCount != 1 {
-		t.Fatalf("base_concurrency_override column count = %d, want 1", columnCount)
-	}
-}
-
 func TestAccountGroupBaseConcurrencyOverrideCRUD(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "codex2api.db")
-	db, err := New("sqlite", dbPath)
+	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
+	db, err := newTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatalf("New(sqlite) 返回错误: %v", err)
 	}
@@ -1843,9 +1731,9 @@ func TestAccountGroupBaseConcurrencyOverrideCRUD(t *testing.T) {
 }
 
 func TestDeleteAccountGroupDoesNotBroadenScopedAPIKey(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "codex2api.db")
+	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
 
-	db, err := New("sqlite", dbPath)
+	db, err := newTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatalf("New(sqlite) 返回错误: %v", err)
 	}
@@ -1900,58 +1788,10 @@ func TestDeleteAccountGroupDoesNotBroadenScopedAPIKey(t *testing.T) {
 	}
 }
 
-func TestSQLiteAccountGroupMutationsWaitForUnifiedWriteLock(t *testing.T) {
-	db, err := New("sqlite", filepath.Join(t.TempDir(), "codex2api.db"))
-	if err != nil {
-		t.Fatalf("New(sqlite): %v", err)
-	}
-	defer db.Close()
-
-	ctx := context.Background()
-	groupA, err := db.CreateAccountGroup(ctx, "lock-a", "", "", 0, 0, sql.NullInt64{})
-	if err != nil {
-		t.Fatalf("CreateAccountGroup A: %v", err)
-	}
-	groupB, err := db.CreateAccountGroup(ctx, "lock-b", "", "", 0, 0, sql.NullInt64{})
-	if err != nil {
-		t.Fatalf("CreateAccountGroup B: %v", err)
-	}
-	accountID, err := db.InsertAccount(ctx, "lock-account", "refresh-token", "")
-	if err != nil {
-		t.Fatalf("InsertAccount: %v", err)
-	}
-
-	assertBlocked := func(name string, operation func() error) {
-		t.Helper()
-		db.sqliteWriteSem <- struct{}{}
-		done := make(chan error, 1)
-		go func() { done <- operation() }()
-		select {
-		case err := <-done:
-			t.Fatalf("%s bypassed SQLite write lock: %v", name, err)
-		case <-time.After(50 * time.Millisecond):
-		}
-		<-db.sqliteWriteSem
-		if err := <-done; err != nil {
-			t.Fatalf("%s after lock release: %v", name, err)
-		}
-	}
-
-	assertBlocked("SetAccountGroups", func() error {
-		return db.SetAccountGroups(ctx, accountID, []int64{groupA})
-	})
-	assertBlocked("BatchSetAccountGroups", func() error {
-		return db.BatchSetAccountGroups(ctx, []int64{accountID}, []int64{groupB})
-	})
-	assertBlocked("DeleteAccountGroup", func() error {
-		return db.DeleteAccountGroup(ctx, groupA, true)
-	})
-}
-
 func TestUsageLogsPersistEffectiveModel(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "codex2api.db")
+	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
 
-	db, err := New("sqlite", dbPath)
+	db, err := newTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatalf("New(sqlite) 返回错误: %v", err)
 	}
@@ -1991,9 +1831,9 @@ func TestUsageLogsPersistEffectiveModel(t *testing.T) {
 }
 
 func TestUsageLogsPersistUserAgentAudit(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "codex2api.db")
+	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
 
-	db, err := New("sqlite", dbPath)
+	db, err := newTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatalf("New(sqlite) 返回错误: %v", err)
 	}
@@ -2032,8 +1872,8 @@ func TestUsageLogsPersistUserAgentAudit(t *testing.T) {
 }
 
 func TestUsageLogsPersistAttributedInternalRequest(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "codex2api.db")
-	db, err := New("sqlite", dbPath)
+	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
+	db, err := newTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatalf("New(sqlite) 返回错误: %v", err)
 	}
@@ -2078,9 +1918,9 @@ func TestUsageLogsPersistAttributedInternalRequest(t *testing.T) {
 }
 
 func TestUsageLogsPersistImageMetadata(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "codex2api.db")
+	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
 
-	db, err := New("sqlite", dbPath)
+	db, err := newTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatalf("New(sqlite) 返回错误: %v", err)
 	}
@@ -2120,9 +1960,9 @@ func TestUsageLogsPersistImageMetadata(t *testing.T) {
 }
 
 func TestUsageLogsReturnBillingFields(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "codex2api.db")
+	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
 
-	db, err := New("sqlite", dbPath)
+	db, err := newTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatalf("New(sqlite) 返回错误: %v", err)
 	}
@@ -2157,10 +1997,11 @@ func TestUsageLogsReturnBillingFields(t *testing.T) {
 
 	got := logs[0]
 	want := calculateCost(476, 252, 0, "gpt-5.5", "default")
-	if got.AccountBilled != want || got.UserBilled != want {
+	const billingTolerance = 1e-12
+	if math.Abs(got.AccountBilled-want) > billingTolerance || math.Abs(got.UserBilled-want) > billingTolerance {
 		t.Fatalf("billing = account %.12f user %.12f, want %.12f", got.AccountBilled, got.UserBilled, want)
 	}
-	if got.InputCost <= 0 || got.OutputCost <= 0 || got.TotalCost != want {
+	if got.InputCost <= 0 || got.OutputCost <= 0 || math.Abs(got.TotalCost-want) > billingTolerance {
 		t.Fatalf("billing breakdown = input %.12f output %.12f total %.12f, want total %.12f", got.InputCost, got.OutputCost, got.TotalCost, want)
 	}
 	if got.ActualServiceTier != "default" || got.BillingServiceTier != "default" {
@@ -2169,9 +2010,9 @@ func TestUsageLogsReturnBillingFields(t *testing.T) {
 }
 
 func TestUsageLogsBillFastByActualServiceTier(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "codex2api.db")
+	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
 
-	db, err := New("sqlite", dbPath)
+	db, err := newTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatalf("New(sqlite) 返回错误: %v", err)
 	}
@@ -2241,9 +2082,9 @@ func TestUsageLogsBillFastByActualServiceTier(t *testing.T) {
 }
 
 func TestUsageLogsReturnErrorMessage(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "codex2api.db")
+	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
 
-	db, err := New("sqlite", dbPath)
+	db, err := newTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatalf("New(sqlite) 返回错误: %v", err)
 	}
@@ -2274,9 +2115,9 @@ func TestUsageLogsReturnErrorMessage(t *testing.T) {
 }
 
 func TestUsageStatsIncludeBillingTotals(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "codex2api.db")
+	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
 
-	db, err := New("sqlite", dbPath)
+	db, err := newTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatalf("New(sqlite) 返回错误: %v", err)
 	}
@@ -2336,10 +2177,10 @@ func TestUsageStatsIncludeBillingTotals(t *testing.T) {
 	}
 }
 
-func TestUsageStatsIncludeCodex2APIBreakdowns(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "codex2api.db")
+func TestUsageStatsIncludeAxisRelayBreakdowns(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
 
-	db, err := New("sqlite", dbPath)
+	db, err := newTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatalf("New(sqlite) 返回错误: %v", err)
 	}
@@ -2457,9 +2298,9 @@ func TestUsageStatsIncludeCodex2APIBreakdowns(t *testing.T) {
 }
 
 func TestAPIKeySelfUsageReportScopesToSingleKey(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "codex2api.db")
+	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
 
-	db, err := New("sqlite", dbPath)
+	db, err := newTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatalf("New(sqlite) 返回错误: %v", err)
 	}
@@ -2523,9 +2364,9 @@ func TestAPIKeySelfUsageReportScopesToSingleKey(t *testing.T) {
 }
 
 func TestAPIKeySelfUsageReportPaginatesRecentLogs(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "codex2api.db")
+	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
 
-	db, err := New("sqlite", dbPath)
+	db, err := newTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatalf("New(sqlite) 返回错误: %v", err)
 	}
@@ -2585,9 +2426,9 @@ func TestAPIKeySelfUsageReportPaginatesRecentLogs(t *testing.T) {
 }
 
 func TestUsageStatsBreakdownsRespectExplicitRange(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "codex2api.db")
+	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
 
-	db, err := New("sqlite", dbPath)
+	db, err := newTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatalf("New(sqlite) 返回错误: %v", err)
 	}
@@ -2676,9 +2517,9 @@ func TestUsageStatsBreakdownsRespectExplicitRange(t *testing.T) {
 }
 
 func TestUsageStatsBaselinePreservesCacheRateAndFirstTokenAfterClear(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "codex2api.db")
+	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
 
-	db, err := New("sqlite", dbPath)
+	db, err := newTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatalf("New(sqlite) 返回错误: %v", err)
 	}
@@ -2734,8 +2575,8 @@ func TestUsageStatsBaselinePreservesCacheRateAndFirstTokenAfterClear(t *testing.
 }
 
 func TestUsageStatsRollupPreservesFullTotalsAndChannelSemantics(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "codex2api.db")
-	db, err := New("sqlite", dbPath)
+	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
+	db, err := newTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatalf("New(sqlite) 返回错误: %v", err)
 	}
@@ -2800,9 +2641,9 @@ func TestUsageStatsRollupPreservesFullTotalsAndChannelSemantics(t *testing.T) {
 }
 
 func TestSoftDeleteAccountMarksDeletedStatus(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "codex2api.db")
+	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
 
-	db, err := New("sqlite", dbPath)
+	db, err := newTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatalf("New(sqlite) 返回错误: %v", err)
 	}
@@ -2845,105 +2686,10 @@ func TestSoftDeleteAccountMarksDeletedStatus(t *testing.T) {
 	}
 }
 
-func TestSQLiteSoftDeleteWaitsForUnifiedWriteLock(t *testing.T) {
-	db, err := New("sqlite", filepath.Join(t.TempDir(), "codex2api.db"))
-	if err != nil {
-		t.Fatalf("New(sqlite) 返回错误: %v", err)
-	}
-	defer db.Close()
-
-	ctx := context.Background()
-	singleID, err := db.InsertAccount(ctx, "queued-single-delete", "rt-single-delete", "")
-	if err != nil {
-		t.Fatalf("InsertAccount(single) 返回错误: %v", err)
-	}
-	batchID, err := db.InsertAccount(ctx, "queued-batch-delete", "rt-batch-delete", "")
-	if err != nil {
-		t.Fatalf("InsertAccount(batch) 返回错误: %v", err)
-	}
-
-	db.sqliteWriteSem <- struct{}{}
-	singleDone := make(chan error, 1)
-	go func() { singleDone <- db.SoftDeleteAccount(ctx, singleID) }()
-	select {
-	case err := <-singleDone:
-		t.Fatalf("SoftDeleteAccount bypassed SQLite write lock: %v", err)
-	case <-time.After(50 * time.Millisecond):
-	}
-	<-db.sqliteWriteSem
-	if err := <-singleDone; err != nil {
-		t.Fatalf("SoftDeleteAccount after lock release: %v", err)
-	}
-
-	db.sqliteWriteSem <- struct{}{}
-	batchDone := make(chan error, 1)
-	go func() { batchDone <- db.BatchSoftDeleteAccounts(ctx, []int64{batchID}) }()
-	select {
-	case err := <-batchDone:
-		t.Fatalf("BatchSoftDeleteAccounts bypassed SQLite write lock: %v", err)
-	case <-time.After(50 * time.Millisecond):
-	}
-	<-db.sqliteWriteSem
-	if err := <-batchDone; err != nil {
-		t.Fatalf("BatchSoftDeleteAccounts after lock release: %v", err)
-	}
-
-	var deletedCount int
-	if err := db.conn.QueryRowContext(ctx, `SELECT COUNT(*) FROM accounts
-		WHERE id IN ($1,$2) AND status = 'deleted'`, singleID, batchID).Scan(&deletedCount); err != nil {
-		t.Fatalf("query deleted accounts: %v", err)
-	}
-	if deletedCount != 2 {
-		t.Fatalf("deleted count = %d, want 2", deletedCount)
-	}
-}
-
-func TestSQLiteMigratesLegacyDeletedAccounts(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "codex2api.db")
-	ctx := context.Background()
-
-	db, err := New("sqlite", dbPath)
-	if err != nil {
-		t.Fatalf("New(sqlite) 返回错误: %v", err)
-	}
-	id, err := db.InsertAccount(ctx, "legacy-delete", "rt-legacy-delete", "")
-	if err != nil {
-		t.Fatalf("InsertAccount 返回错误: %v", err)
-	}
-	if err := db.SetError(ctx, id, "deleted"); err != nil {
-		t.Fatalf("SetError 返回错误: %v", err)
-	}
-	if err := db.Close(); err != nil {
-		t.Fatalf("Close 返回错误: %v", err)
-	}
-
-	db, err = New("sqlite", dbPath)
-	if err != nil {
-		t.Fatalf("reopen New(sqlite) 返回错误: %v", err)
-	}
-	defer db.Close()
-
-	var status string
-	var errorMessage string
-	var deletedAt sql.NullString
-	if err := db.conn.QueryRowContext(ctx, `SELECT status, error_message, deleted_at FROM accounts WHERE id = $1`, id).Scan(&status, &errorMessage, &deletedAt); err != nil {
-		t.Fatalf("查询迁移后账号返回错误: %v", err)
-	}
-	if status != "deleted" {
-		t.Fatalf("status = %q, want deleted", status)
-	}
-	if errorMessage != "" {
-		t.Fatalf("error_message = %q, want empty", errorMessage)
-	}
-	if !deletedAt.Valid || deletedAt.String == "" {
-		t.Fatal("deleted_at 未迁移")
-	}
-}
-
 func TestListActiveIncludesErrorAccounts(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "codex2api.db")
+	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
 
-	db, err := New("sqlite", dbPath)
+	db, err := newTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatalf("New(sqlite) 返回错误: %v", err)
 	}
@@ -2974,9 +2720,9 @@ func TestListActiveIncludesErrorAccounts(t *testing.T) {
 }
 
 func TestSetCooldownWithErrorPersistsMessage(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "codex2api.db")
+	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
 
-	db, err := New("sqlite", dbPath)
+	db, err := newTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatalf("New(sqlite) 返回错误: %v", err)
 	}
@@ -3010,9 +2756,9 @@ func TestSetCooldownWithErrorPersistsMessage(t *testing.T) {
 }
 
 func TestUsageLogsFilterByAPIKeyID(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "codex2api.db")
+	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
 
-	db, err := New("sqlite", dbPath)
+	db, err := newTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatalf("New(sqlite) 返回错误: %v", err)
 	}
@@ -3151,9 +2897,9 @@ func TestUsageLogsFilterByAPIKeyID(t *testing.T) {
 }
 
 func TestUsageLogsIncludeAccountNameForOpenAIResponsesAccount(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "codex2api.db")
+	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
 
-	db, err := New("sqlite", dbPath)
+	db, err := newTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatalf("New(sqlite) 返回错误: %v", err)
 	}
@@ -3224,9 +2970,9 @@ func TestUsageLogsIncludeAccountNameForOpenAIResponsesAccount(t *testing.T) {
 }
 
 func TestSQLiteUsageLogsTimeRangeUsesUTCStorage(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "codex2api.db")
+	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
 
-	db, err := New("sqlite", dbPath)
+	db, err := newTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatalf("New(sqlite) 返回错误: %v", err)
 	}
@@ -3271,9 +3017,9 @@ func TestSQLiteUsageLogsTimeRangeUsesUTCStorage(t *testing.T) {
 }
 
 func TestGetAccountUsageStatsAggregatesRecentAccountSummary(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "codex2api.db")
+	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
 
-	db, err := New("sqlite", dbPath)
+	db, err := newTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatalf("New(sqlite) 返回错误: %v", err)
 	}
@@ -3403,9 +3149,9 @@ func TestGetAccountUsageStatsAggregatesRecentAccountSummary(t *testing.T) {
 }
 
 func TestGetAccountsBilledSinceUsesPerAccountWindows(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "codex2api.db")
+	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
 
-	db, err := New("sqlite", dbPath)
+	db, err := newTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatalf("New(sqlite) 返回错误: %v", err)
 	}
@@ -3450,8 +3196,8 @@ func TestGetAccountsBilledSinceUsesPerAccountWindows(t *testing.T) {
 }
 
 func TestGetAccountUsageWindowsAggregatesBothRangesInOnePass(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "codex2api.db")
-	db, err := New("sqlite", dbPath)
+	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
+	db, err := newTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatalf("New(sqlite) 返回错误: %v", err)
 	}
@@ -3488,8 +3234,8 @@ func TestGetAccountUsageWindowsAggregatesBothRangesInOnePass(t *testing.T) {
 }
 
 func TestAccountUsageAggregatesExcludeTransportRetries(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "codex2api.db")
-	db, err := New("sqlite", dbPath)
+	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
+	db, err := newTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatalf("New(sqlite) returned error: %v", err)
 	}
@@ -3514,8 +3260,8 @@ func TestAccountUsageAggregatesExcludeTransportRetries(t *testing.T) {
 		}
 	}
 
-	// NULL is a legacy/non-retry row and must remain part of all aggregates.
-	insertUsage(1, now.Add(-time.Hour), 100, 1, nil, 200, "", "gpt-5.4")
+	// MySQL 运行时将 is_retry_attempt 设为 NOT NULL DEFAULT 0；普通请求必须计入全部聚合。
+	insertUsage(1, now.Add(-time.Hour), 100, 1, 0, 200, "", "gpt-5.4")
 	insertUsage(1, now.Add(-2*time.Hour), 200, 2, 0, 200, "", "gpt-5.2")
 	// A transport retry carries usage-like fields but must not double count them.
 	insertUsage(1, now.Add(-30*time.Minute), 900, 9, 1, 502)
@@ -3709,8 +3455,8 @@ func TestAccountUsageAggregatesExcludeStaleCredentialGeneration(t *testing.T) {
 }
 
 func TestGetAccountModelCountsSinceByIDsMatchesTodayUsage(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "codex2api.db")
-	db, err := New("sqlite", dbPath)
+	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
+	db, err := newTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatalf("New(sqlite) returned error: %v", err)
 	}
@@ -3757,9 +3503,9 @@ func TestGetAccountModelCountsSinceByIDsMatchesTodayUsage(t *testing.T) {
 }
 
 func TestFlushLogsRequeuesBatchWhenSQLiteBeginFails(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "codex2api.db")
+	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
 
-	db, err := New("sqlite", dbPath)
+	db, err := newTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatalf("New(sqlite) 返回错误: %v", err)
 	}
@@ -3794,9 +3540,9 @@ func TestFlushLogsRequeuesBatchWhenSQLiteBeginFails(t *testing.T) {
 }
 
 func TestFlushLogsRollsBackAndRequeuesWhenQuotaUpdateFails(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "codex2api.db")
+	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
 
-	db, err := New("sqlite", dbPath)
+	db, err := newTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatalf("New(sqlite) 返回错误: %v", err)
 	}
@@ -3841,9 +3587,9 @@ func TestFlushLogsRollsBackAndRequeuesWhenQuotaUpdateFails(t *testing.T) {
 }
 
 func TestFlushLogsRetriesQuotaOnlyBatchWithoutDoubleCharge(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "codex2api.db")
+	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
 
-	db, err := New("sqlite", dbPath)
+	db, err := newTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatalf("New(sqlite) 返回错误: %v", err)
 	}
@@ -3907,9 +3653,9 @@ func TestFlushLogsRetriesQuotaOnlyBatchWithoutDoubleCharge(t *testing.T) {
 }
 
 func TestPromptFilterLogsPersistReviewMetadata(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "codex2api.db")
+	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
 
-	db, err := New("sqlite", dbPath)
+	db, err := newTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatalf("New(sqlite) 返回错误: %v", err)
 	}
@@ -3998,7 +3744,7 @@ func TestPromptFilterLogsPersistReviewMetadata(t *testing.T) {
 }
 
 func TestPromptFilterReviewHistorySeparatesIntelligenceAndNullableScores(t *testing.T) {
-	db, err := New("sqlite", filepath.Join(t.TempDir(), "codex2api.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "axisrelay.db"))
 	if err != nil {
 		t.Fatalf("New(sqlite) 返回错误: %v", err)
 	}
@@ -4091,56 +3837,9 @@ func TestPromptFilterReviewHistorySeparatesIntelligenceAndNullableScores(t *test
 	}
 }
 
-func TestSQLiteMigratesPromptFilterMatchContextColumn(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "codex2api.db")
-	db, err := New("sqlite", dbPath)
-	if err != nil {
-		t.Fatalf("New(sqlite) 返回错误: %v", err)
-	}
-	if err := db.Close(); err != nil {
-		t.Fatalf("Close sqlite 返回错误: %v", err)
-	}
-
-	legacy, err := sql.Open("sqlite", dbPath)
-	if err != nil {
-		t.Fatalf("open legacy sqlite 返回错误: %v", err)
-	}
-	if _, err := legacy.Exec(`ALTER TABLE prompt_filter_logs DROP COLUMN match_context`); err != nil {
-		legacy.Close()
-		t.Fatalf("remove match_context to simulate legacy schema: %v", err)
-	}
-	if err := legacy.Close(); err != nil {
-		t.Fatalf("close legacy sqlite 返回错误: %v", err)
-	}
-
-	db, err = New("sqlite", dbPath)
-	if err != nil {
-		t.Fatalf("New(sqlite legacy) 返回错误: %v", err)
-	}
-	defer db.Close()
-
-	ctx := context.Background()
-	if err := db.InsertPromptFilterLog(ctx, &PromptFilterLogInput{
-		Source:       "local_filter",
-		Endpoint:     "/v1/responses",
-		Action:       "allow",
-		Mode:         "monitor",
-		MatchContext: "migrated trigger excerpt",
-	}); err != nil {
-		t.Fatalf("InsertPromptFilterLog after migration 返回错误: %v", err)
-	}
-	logs, err := db.ListPromptFilterLogs(ctx, 10)
-	if err != nil {
-		t.Fatalf("ListPromptFilterLogs after migration 返回错误: %v", err)
-	}
-	if len(logs) != 1 || logs[0].MatchContext != "migrated trigger excerpt" {
-		t.Fatalf("migrated prompt filter logs = %+v", logs)
-	}
-}
-
 func TestSQLiteSystemSettingsContinueThinkingRoundtrip(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "codex2api.db")
-	db, err := New("sqlite", dbPath)
+	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
+	db, err := newTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatalf("New(sqlite): %v", err)
 	}
@@ -4200,8 +3899,8 @@ func TestSQLiteSystemSettingsContinueThinkingRoundtrip(t *testing.T) {
 // TestSQLiteSystemSettingsUTLSShutdownTimeoutRoundtrip 验证 uTLS 优雅关闭上限
 // （issue #446）能在 SQLite 上完成 播种默认 → 写入 → 读回 → 越界夹取 的全链路。
 func TestSQLiteSystemSettingsUTLSShutdownTimeoutRoundtrip(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "codex2api.db")
-	db, err := New("sqlite", dbPath)
+	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
+	db, err := newTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatalf("New(sqlite): %v", err)
 	}
@@ -4255,8 +3954,8 @@ func TestSQLiteSystemSettingsUTLSShutdownTimeoutRoundtrip(t *testing.T) {
 }
 
 func TestSQLiteSystemSettingsWeakNetworkModeRoundtrip(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "codex2api.db")
-	db, err := New("sqlite", dbPath)
+	dbPath := filepath.Join(t.TempDir(), "axisrelay.db")
+	db, err := newTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatalf("New(sqlite): %v", err)
 	}

@@ -72,11 +72,17 @@ func (db *DB) ClearCooldownIfReason(ctx context.Context, id int64, reason string
 func (db *DB) ClearCooldownIfReasonAndUntil(ctx context.Context, id int64, reason string, until time.Time) (bool, error) {
 	var cleared bool
 	err := db.withSQLiteWriteLock(ctx, func() error {
+		matchUntil := until
+		if db.isMySQL() {
+			// MySQL stores cooldown_until as UTC DATETIME(3). Match the same
+			// wall-clock value and precision used by SetCooldown.
+			matchUntil = until.UTC().Truncate(time.Millisecond)
+		}
 		result, err := db.conn.ExecContext(ctx, `
 			UPDATE accounts
 			SET cooldown_reason = '', cooldown_until = NULL, updated_at = CURRENT_TIMESTAMP
 			WHERE id = $1 AND cooldown_reason = $2 AND cooldown_until = $3
-		`, id, reason, until)
+		`, id, reason, matchUntil)
 		if err != nil {
 			return err
 		}

@@ -15,9 +15,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/codex2api/auth"
-	"github.com/codex2api/database"
 	"github.com/gin-gonic/gin"
+	"github.com/wuekevin/axisrelay/auth"
+	"github.com/wuekevin/axisrelay/database"
 )
 
 func TestParseAntigravityImportContentSupportsManagerExports(t *testing.T) {
@@ -450,12 +450,12 @@ func TestUpdateAntigravityMetadataFailureReloadsPersistedPartialMutation(t *test
 	gin.SetMode(gin.TestMode)
 	ctx := context.Background()
 	dbPath := filepath.Join(t.TempDir(), "antigravity-partial-mutation.sqlite")
-	db, err := database.New("sqlite", dbPath)
+	db, err := newTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = db.Close() })
-	rawDB, err := sql.Open("sqlite", dbPath)
+	rawDB, err := openRawTestDatabase(t, dbPath)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -473,9 +473,11 @@ func TestUpdateAntigravityMetadataFailureReloadsPersistedPartialMutation(t *test
 	}
 	if _, err := rawDB.ExecContext(ctx, `
 		CREATE TRIGGER reject_antigravity_name_update
-		BEFORE UPDATE OF name ON accounts
+		BEFORE UPDATE ON accounts FOR EACH ROW
 		BEGIN
-			SELECT RAISE(ABORT, 'forced name update failure');
+			IF NOT (OLD.name <=> NEW.name) THEN
+				SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'forced name update failure';
+			END IF;
 		END`); err != nil {
 		t.Fatal(err)
 	}
@@ -1192,12 +1194,12 @@ func TestAntigravityCASErrorRemovesUnconfirmedRuntime(t *testing.T) {
 			gin.SetMode(gin.TestMode)
 			ctx := context.Background()
 			dbPath := filepath.Join(t.TempDir(), "antigravity-cas-error.sqlite")
-			db, err := database.New("sqlite", dbPath)
+			db, err := newTestDatabase(t, dbPath)
 			if err != nil {
 				t.Fatal(err)
 			}
 			t.Cleanup(func() { _ = db.Close() })
-			rawDB, err := sql.Open("sqlite", dbPath)
+			rawDB, err := openRawTestDatabase(t, dbPath)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -1217,9 +1219,11 @@ func TestAntigravityCASErrorRemovesUnconfirmedRuntime(t *testing.T) {
 			}
 			if _, err := rawDB.ExecContext(ctx, `
 				CREATE TRIGGER reject_antigravity_credential_cas
-				BEFORE UPDATE OF credentials ON accounts
+				BEFORE UPDATE ON accounts FOR EACH ROW
 				BEGIN
-					SELECT RAISE(ABORT, 'forced credential CAS failure');
+					IF NOT (OLD.credentials <=> NEW.credentials) THEN
+						SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'forced credential CAS failure';
+					END IF;
 				END`); err != nil {
 				t.Fatal(err)
 			}
@@ -1278,12 +1282,12 @@ func TestAntigravityFailedSyncProgressPersistErrorRemovesRuntime(t *testing.T) {
 			gin.SetMode(gin.TestMode)
 			ctx := context.Background()
 			dbPath := filepath.Join(t.TempDir(), "antigravity-progress-persist-error.sqlite")
-			db, err := database.New("sqlite", dbPath)
+			db, err := newTestDatabase(t, dbPath)
 			if err != nil {
 				t.Fatal(err)
 			}
 			t.Cleanup(func() { _ = db.Close() })
-			rawDB, err := sql.Open("sqlite", dbPath)
+			rawDB, err := openRawTestDatabase(t, dbPath)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -1304,9 +1308,11 @@ func TestAntigravityFailedSyncProgressPersistErrorRemovesRuntime(t *testing.T) {
 			}
 			if _, err := rawDB.ExecContext(ctx, `
 				CREATE TRIGGER reject_antigravity_progress_persist
-				BEFORE UPDATE OF credentials ON accounts
+				BEFORE UPDATE ON accounts FOR EACH ROW
 				BEGIN
-					SELECT RAISE(ABORT, 'forced progress persistence failure');
+					IF NOT (OLD.credentials <=> NEW.credentials) THEN
+						SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'forced progress persistence failure';
+					END IF;
 				END`); err != nil {
 				t.Fatal(err)
 			}
@@ -1972,7 +1978,7 @@ func TestFindAntigravityDuplicateDoesNotUseEmailAcrossAuthoritativeSubjects(t *t
 }
 
 func TestUpdateAntigravityAccountPersistsFailedCredentialReplacement(t *testing.T) {
-	t.Setenv("ANTIGRAVITY_OAUTH_CLIENTS", "test|test-client|test-secret")
+	t.Setenv("AXISRELAY_ANTIGRAVITY_OAUTH_CLIENTS", "test|test-client|test-secret")
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		switch r.URL.Path {

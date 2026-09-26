@@ -36,6 +36,9 @@ func (db *DB) GetAccountsHealthBucketsByIDs(ctx context.Context, ids []int64, no
 
 	windowStart := now.Add(-time.Duration(blockCount) * bucketDuration)
 	ids = positiveUniqueIDs(ids)
+	if db.isMySQL() {
+		return db.getMySQLAccountHealthBuckets(ctx, ids, windowStart, now, blockCount, bucketDuration)
+	}
 	if !db.isSQLite() {
 		return db.getPostgresAccountHealthBuckets(ctx, ids, windowStart, now, blockCount, bucketDuration)
 	}

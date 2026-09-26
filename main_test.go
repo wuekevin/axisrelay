@@ -8,9 +8,45 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/codex2api/proxy"
 	"github.com/gin-gonic/gin"
+	"github.com/wuekevin/axisrelay/config"
+	"github.com/wuekevin/axisrelay/proxy"
 )
+
+func TestStartupLogUsesAxisRelayIdentityAndMachineReadableDrivers(t *testing.T) {
+	var logs bytes.Buffer
+	previousOutput := log.Writer()
+	previousFlags := log.Flags()
+	log.SetOutput(&logs)
+	log.SetFlags(0)
+	t.Cleanup(func() {
+		log.SetOutput(previousOutput)
+		log.SetFlags(previousFlags)
+	})
+
+	log.Println("AxisRelay starting...")
+	logStartupConfig(&config.Config{
+		Port: 8080,
+		Database: config.DatabaseConfig{
+			Driver: "mysql",
+		},
+		Cache: config.CacheConfig{
+			Driver: "redis",
+		},
+	})
+
+	got := logs.String()
+	for _, expected := range []string{"AxisRelay starting...", "database=mysql", "cache=redis"} {
+		if !strings.Contains(got, expected) {
+			t.Fatalf("startup log missing %q: %s", expected, got)
+		}
+	}
+	for _, forbidden := range []string{"Codex2API", "database=PostgreSQL"} {
+		if strings.Contains(got, forbidden) {
+			t.Fatalf("startup log contains forbidden legacy identity %q: %s", forbidden, got)
+		}
+	}
+}
 
 func TestConfigureTrustedProxiesRejectsForwardedForSpoofing(t *testing.T) {
 	gin.SetMode(gin.TestMode)

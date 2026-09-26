@@ -3,19 +3,19 @@ import { useTranslation } from 'react-i18next'
 import { ShieldAlert, X } from 'lucide-react'
 import { api } from '../api'
 
-const DISMISS_STORAGE_KEY = 'codex2api_security_banner_dismissed_at'
+const DISMISS_STORAGE_KEY = 'axisrelay_security_banner_dismissed_at'
 const DISMISS_TTL_MS = 24 * 60 * 60 * 1000 // 用户手动关闭后 24h 内不再骚扰
 
 const COPY = {
   zh: {
     title: '安全提示：尚未配置对外 API Key',
-    body: '默认情况下，/v1/* 接口在创建第一把 API Key 之前会拒绝所有请求（503）。请进入「API 密钥」页面创建至少一把 Key，再向客户端分发。（注意：如果服务端启用了 CODEX_ALLOW_ANONYMOUS=true，匿名调用将被放行，仅建议在内网/测试场景使用。）',
+    body: '默认情况下，/v1/* 接口在创建第一把 API Key 之前会拒绝所有请求（503）。请进入「API 密钥」页面创建至少一把 Key，再向客户端分发。（注意：如果服务端启用了 AXISRELAY_ALLOW_ANONYMOUS=true，匿名调用将被放行，仅建议在内网/测试场景使用。）',
     cta: '前往创建',
     dismiss: '我知道了',
   },
   en: {
     title: 'Security notice: no public API key has been configured',
-    body: 'By default, /v1/* requests are refused (503) until at least one API key is created. Open the API Keys page to create one before exposing this service. (Note: when the server is started with CODEX_ALLOW_ANONYMOUS=true, anonymous traffic is allowed — recommended for internal/testing scenarios only.)',
+    body: 'By default, /v1/* requests are refused (503) until at least one API key is created. Open the API Keys page to create one before exposing this service. (Note: when the server is started with AXISRELAY_ALLOW_ANONYMOUS=true, anonymous traffic is allowed — recommended for internal/testing scenarios only.)',
     cta: 'Create API key',
     dismiss: 'Dismiss',
   },

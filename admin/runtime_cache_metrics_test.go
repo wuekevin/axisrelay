@@ -6,7 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/codex2api/cache"
+	"github.com/wuekevin/axisrelay/cache"
 	"github.com/gin-gonic/gin"
 )
 

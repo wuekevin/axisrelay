@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/banner.svg" alt="Codex2API" width="100%">
+  <img src="assets/banner.svg" alt="AxisRelay" width="100%">
 </p>
 
 <p align="center">
@@ -11,21 +11,21 @@
   <img src="https://img.shields.io/badge/Gin-1.12-00ACD7?style=for-the-badge" alt="Gin">
   <img src="https://img.shields.io/badge/React-19-61DAFB?style=for-the-badge&logo=react&logoColor=111827" alt="React">
   <img src="https://img.shields.io/badge/Vite-8-646CFF?style=for-the-badge&logo=vite&logoColor=white" alt="Vite">
-  <img src="https://img.shields.io/badge/DB-PostgreSQL%20%7C%20SQLite-4169E1?style=for-the-badge&logo=postgresql&logoColor=white" alt="Database">
+  <img src="https://img.shields.io/badge/DB-MySQL%208%20%7C%20PostgreSQL-4479A1?style=for-the-badge&logo=mysql&logoColor=white" alt="Database">
   <img src="https://img.shields.io/badge/Cache-Redis%20%7C%20Memory-DC382D?style=for-the-badge&logo=redis&logoColor=white" alt="Cache">
   <img src="https://img.shields.io/badge/API-OpenAI%20%7C%20Anthropic-10A37F?style=for-the-badge" alt="API">
   <img src="https://img.shields.io/badge/Docker-Ready-2496ED?style=for-the-badge&logo=docker&logoColor=white" alt="Docker">
 </p>
 
-**Turn a Codex account pool into an observable, schedulable, operations-ready OpenAI / Anthropic compatible gateway.** Codex2API is not a thin forwarding proxy. It is a long-running Codex access hub: it exposes `/v1/chat/completions`, `/v1/responses`, `/v1/messages`, Images, Videos (Grok Imagine), and Models endpoints while managing Refresh Token / Access Token accounts, health scoring, dynamic concurrency, rate-limit recovery, usage tracking, and admin operations behind the scenes.
+**Turn a Codex account pool into an observable, schedulable, operations-ready OpenAI / Anthropic compatible gateway.** AxisRelay is not a thin forwarding proxy. It is a long-running Codex access hub: it exposes `/v1/chat/completions`, `/v1/responses`, `/v1/messages`, Images, Videos (Grok Imagine), and Models endpoints while managing Refresh Token / Access Token accounts, health scoring, dynamic concurrency, rate-limit recovery, usage tracking, and admin operations behind the scenes.
 
-Run it as a full **PostgreSQL + Redis** production stack or as a single-container **SQLite + in-memory cache** deployment. Point Codex CLI, Claude Code, the OpenAI SDK, or any compatible client at one Base URL, then manage accounts, proxies, API keys, prompt filtering, image workflows, and runtime settings from the built-in dashboard.
+Run it with **MySQL 8 + Redis** by default; PostgreSQL remains supported as a compatible database backend. Point Codex CLI, Claude Code, the OpenAI SDK, or any compatible client at one Base URL, then manage accounts, proxies, API keys, prompt filtering, image workflows, and runtime settings from the built-in dashboard.
 
 <table>
 <tr><td width="210"><b>One compatible gateway</b></td><td>OpenAI-style Chat Completions / Responses / Images, Anthropic Messages, prefixless compatibility routes, and native Codex Responses forwarding are all exposed through one service.</td></tr>
 <tr><td><b>Account-pool scheduler</b></td><td>Selection is driven by account status, health tier, scheduler score, dynamic concurrency, cooldown recovery, and recent usage so unhealthy accounts are avoided automatically. Supports <code>round_robin</code> and <code>remaining_quota</code> modes, with per-account credit billing flags.</td></tr>
 <tr><td><b>Visual admin console</b></td><td>The embedded React / Vite dashboard covers account import and testing, API keys, proxy pools, image studio (text-to-image + image-to-image), prompt filtering, usage analytics, operations, scheduler board, and system settings.</td></tr>
-<tr><td><b>Two deployment shapes</b></td><td>Use PostgreSQL + Redis for production or SQLite + Memory for lightweight single-node deployments; Docker images, source builds, local development, and the interactive deploy script are ready to use. SQLite mode binds to <code>127.0.0.1</code> by default for security.</td></tr>
+<tr><td><b>Production data plane</b></td><td>MySQL 8 is the primary database and Redis is the default cache. PostgreSQL remains compatible. Docker images, source builds, local development, and the interactive deploy script all use the <code>AXISRELAY_*</code> configuration namespace.</td></tr>
 <tr><td><b>Billing and observability</b></td><td>Per-account 5h/7d windowed USD cost tracking, credit quota support, API key usage tracking, OAuth PKCE token acquisition, prompt filtering, and a usage dashboard with request logs and trend charts.</td></tr>
 <tr><td><b>Quality check</b></td><td>Compare selected accounts, models, and reasoning effort with an editable pelican-on-a-bicycle HTML/SVG animation challenge. Run up to three background tests across accounts, keep persistent test history, and review isolated animation previews, source, timing/token metrics, and HTML downloads.</td></tr>
 </table>
@@ -34,8 +34,8 @@ Run it as a full **PostgreSQL + Redis** production stack or as a single-containe
 
 ## Live Demo
 
-- Demo URL: [https://codex2api-latest-vu8j.onrender.com](https://codex2api-latest-vu8j.onrender.com)
-- Demo password: `codex2api`
+- Demo URL: [https://axisrelay-latest-vu8j.onrender.com](https://axisrelay-latest-vu8j.onrender.com)
+- Demo password: `axisrelay`
 
 > The demo is only for trying the admin dashboard and basic UI flows. Do not upload real Refresh Tokens, Access Tokens, API keys, or any other sensitive data.
 
@@ -101,10 +101,8 @@ Run it as a full **PostgreSQL + Redis** production stack or as a single-containe
 
 | Mode | File | Use Case |
 | --- | --- | --- |
-| Docker image deployment | `docker-compose.yml` | Recommended for servers and test environments using the prebuilt image |
-| Local source container build | `docker-compose.local.yml` | Full container verification after local source changes |
-| SQLite lightweight deployment | `docker-compose.sqlite.yml` | Single-node deployment without PostgreSQL or Redis |
-| SQLite local source build | `docker-compose.sqlite.local.yml` | Local source verification for the lightweight SQLite mode |
+| Docker image deployment | `docker-compose.yml` | Recommended MySQL 8 + Redis deployment using the prebuilt image |
+| Local source container build | `docker-compose.local.yml` | MySQL 8 + Redis container verification after local source changes |
 | Local development | `go run .` + `npm run dev` | Backend and frontend development |
 
 ### Commands
@@ -112,12 +110,12 @@ Run it as a full **PostgreSQL + Redis** production stack or as a single-containe
 Standard image mode:
 
 ```bash
-git clone https://github.com/james-6-23/codex2api.git
-cd codex2api
+git clone https://github.com/wuekevin/axisrelay.git
+cd axisrelay
 cp .env.example .env
 docker compose pull
 docker compose up -d
-docker compose logs -f codex2api
+docker compose logs -f axisrelay
 ```
 
 Standard local build mode:
@@ -125,24 +123,7 @@ Standard local build mode:
 ```bash
 cp .env.example .env
 docker compose -f docker-compose.local.yml up -d --build
-docker compose -f docker-compose.local.yml logs -f codex2api
-```
-
-SQLite image mode:
-
-```bash
-cp .env.sqlite.example .env
-docker compose -f docker-compose.sqlite.yml pull
-docker compose -f docker-compose.sqlite.yml up -d
-docker compose -f docker-compose.sqlite.yml logs -f codex2api
-```
-
-SQLite local build mode:
-
-```bash
-cp .env.sqlite.example .env
-docker compose -f docker-compose.sqlite.local.yml up -d --build
-docker compose -f docker-compose.sqlite.local.yml logs -f codex2api
+docker compose -f docker-compose.local.yml logs -f axisrelay
 ```
 
 After startup:
@@ -152,10 +133,9 @@ After startup:
 
 Notes:
 
-- Standard and SQLite modes both read `.env`.
-- Before switching deployment modes, replace `.env` with the matching example file.
-- The SQLite lightweight mode runs a single `codex2api` container and stores data at `/data/codex2api.db`.
-- **SQLite compose files bind to `127.0.0.1` by default for security.** To expose the SQLite service on all interfaces, set `BIND_HOST=0.0.0.0` in `.env` or override the port binding in the compose file. The standard compose files bind to `0.0.0.0` by default.
+- Both standard compose files read `.env` and launch MySQL 8 + Redis.
+- `AXISRELAY_DATABASE_DRIVER` defaults to `mysql`; PostgreSQL can be configured explicitly for external/manual deployments.
+- The standard compose files bind to `0.0.0.0` by default. Set `AXISRELAY_BIND_HOST=127.0.0.1` when the service should only be reachable through a local reverse proxy.
 - The image studio library is stored under `/data/images`; uploaded admin backgrounds are stored under `/data/backgrounds`; Docker configurations persist `/data`.
 - `docker compose down` does not delete named volumes by default. Data is removed only by commands such as `docker compose down -v`, `docker volume rm`, or `docker volume prune`.
 
@@ -163,7 +143,7 @@ Notes:
 
 ## Antigravity channel (experimental API Key path)
 
-Antigravity accounts are managed as a dedicated Google channel with browser/imported OAuth credentials and an optional Google API Key credential shape. Admin tooling includes secret-bearing JSON/ZIP credential export plus sanitized state, explicit control-plane sync, and bounded capability probing. OAuth requests use the Cloud Code `v1internal` adapter. API Key requests target the Generative Language `v1beta/interactions` endpoint, but ordinary API-key dispatch is fail-closed by default and requires `ANTIGRAVITY_ENABLE_EXPERIMENTAL_INTERACTIONS=true`. The opt-in real-upstream integration test has not succeeded in this environment, so this path remains experimental rather than production-certified. See [docs/ANTIGRAVITY.md](docs/ANTIGRAVITY.md) for endpoints, test instructions, models, channel restrictions, plaintext credential-storage risk, and the certification checklist.
+Antigravity accounts are managed as a dedicated Google channel with browser/imported OAuth credentials and an optional Google API Key credential shape. Admin tooling includes secret-bearing JSON/ZIP credential export plus sanitized state, explicit control-plane sync, and bounded capability probing. OAuth requests use the Cloud Code `v1internal` adapter. API Key requests target the Generative Language `v1beta/interactions` endpoint, but ordinary API-key dispatch is fail-closed by default and requires `AXISRELAY_ANTIGRAVITY_ENABLE_EXPERIMENTAL_INTERACTIONS=true`. The opt-in real-upstream integration test has not succeeded in this environment, so this path remains experimental rather than production-certified. See [docs/ANTIGRAVITY.md](docs/ANTIGRAVITY.md) for endpoints, test instructions, models, channel restrictions, plaintext credential-storage risk, and the certification checklist.
 
 ## Documentation
 
@@ -186,19 +166,19 @@ Antigravity accounts are managed as a dedicated Google channel with browser/impo
 Upgrade the standard image deployment:
 
 ```bash
-git pull && docker compose pull && docker compose up -d && docker compose logs -f codex2api
+git pull && docker compose pull && docker compose up -d && docker compose logs -f axisrelay
 ```
 
 Back up the database before upgrading:
 
 ```bash
-docker exec codex2api-postgres pg_dump -U codex2api codex2api > backup_$(date +%Y%m%d_%H%M%S).sql
+docker exec axisrelay-mysql mysqldump -uaxisrelay -p"$AXISRELAY_DATABASE_PASSWORD" axisrelay > backup_$(date +%Y%m%d_%H%M%S).sql
 ```
 
 Restore from a backup if needed:
 
 ```bash
-docker exec -i codex2api-postgres psql -U codex2api codex2api < backup_xxx.sql
+docker exec -i axisrelay-mysql mysql -uaxisrelay -p"$AXISRELAY_DATABASE_PASSWORD" axisrelay < backup_xxx.sql
 ```
 
 Unless you explicitly need to recreate resources, avoid `docker compose down` during upgrades. `pull + up -d` keeps existing containers and named volumes.
@@ -233,29 +213,27 @@ Vite proxies `/api` and `/health` to the backend. During development, open `http
 
 | Variable | Description |
 | --- | --- |
-| `CODEX_PORT` | HTTP port, default `8080` |
-| `CODEX_MAX_REQUEST_BODY_SIZE_MB` | HTTP request body limit in MB, default `48` |
-| `ADMIN_SECRET` | Admin dashboard secret. When set, `/admin` prompts for authentication |
-| `DATABASE_DRIVER` | Database driver: `postgres` or `sqlite` |
-| `DATABASE_PATH` | SQLite database file path, used when `DATABASE_DRIVER=sqlite` |
-| `DATABASE_HOST` | PostgreSQL host |
-| `DATABASE_PORT` | PostgreSQL port, default `5432` |
-| `DATABASE_USER` | PostgreSQL user |
-| `DATABASE_PASSWORD` | PostgreSQL password |
-| `DATABASE_NAME` | PostgreSQL database name |
-| `DATABASE_SSLMODE` | PostgreSQL SSL mode, default `disable` |
-| `CACHE_DRIVER` | Cache driver: `redis` or `memory` |
-| `REDIS_ADDR` | Redis address, for example `redis:6379`, `redis://default:pass@host:6379/0`, or `rediss://default:pass@host:6379/0` |
-| `REDIS_USERNAME` | Optional Redis ACL username |
-| `REDIS_PASSWORD` | Redis password |
-| `REDIS_DB` | Redis database number |
-| `REDIS_TLS` | Enable TLS for `host:port` Redis addresses |
-| `REDIS_INSECURE_SKIP_VERIFY` | Skip Redis TLS certificate verification, default `false` |
+| `AXISRELAY_PORT` | HTTP port, default `8080` |
+| `AXISRELAY_MAX_REQUEST_BODY_SIZE_MB` | HTTP request body limit in MB, default `48` |
+| `AXISRELAY_ADMIN_SECRET` | Admin dashboard secret. When set, `/admin` prompts for authentication |
+| `AXISRELAY_DATABASE_DRIVER` | Database driver: `mysql` (default) or `postgres` |
+| `AXISRELAY_DATABASE_HOST` | Database host |
+| `AXISRELAY_DATABASE_PORT` | Database port; defaults to `3306` for MySQL and `5432` for PostgreSQL |
+| `AXISRELAY_DATABASE_USER` | Database user |
+| `AXISRELAY_DATABASE_PASSWORD` | Database password |
+| `AXISRELAY_DATABASE_NAME` | Database name |
+| `AXISRELAY_CACHE_DRIVER` | Cache driver: `redis` or `memory` |
+| `AXISRELAY_REDIS_ADDR` | Redis address, for example `redis:6379`, `redis://default:pass@host:6379/0`, or `rediss://default:pass@host:6379/0` |
+| `AXISRELAY_REDIS_USERNAME` | Optional Redis ACL username |
+| `AXISRELAY_REDIS_PASSWORD` | Redis password |
+| `AXISRELAY_REDIS_DB` | Redis database number |
+| `AXISRELAY_REDIS_TLS` | Enable TLS for `host:port` Redis addresses |
+| `AXISRELAY_REDIS_INSECURE_SKIP_VERIFY` | Skip Redis TLS certificate verification, default `false` |
 | `TZ` | Timezone, for example `Asia/Shanghai` |
 
 Cloud Redis providers such as Aiven and Upstash often require TLS. Prefer a `rediss://...` URL when your provider gives one.
 
-The standard `.env.example` declares `DATABASE_DRIVER=postgres` and `CACHE_DRIVER=redis`. For the lightweight SQLite mode, use `.env.sqlite.example`.
+The standard `.env.example` declares `AXISRELAY_DATABASE_DRIVER=mysql` and `AXISRELAY_CACHE_DRIVER=redis`.
 
 ### Runtime Settings
 
@@ -285,7 +263,7 @@ Each successful budget change receives a read-only generation and is polled by e
 
 - Public API keys come from the database API Keys table. If no key is configured, `/v1/*` skips API key authentication.
 - Admin Secret priority:
-  - If `ADMIN_SECRET` is set in `.env`, the environment variable wins.
+  - If `AXISRELAY_ADMIN_SECRET` is set in `.env`, the environment variable wins.
   - Otherwise, the database `AdminSecret` value is used.
   - After login, the frontend sends `X-Admin-Key` when calling `/api/admin/*`.
 
@@ -372,7 +350,7 @@ Import endpoints deduplicate tokens automatically. Existing tokens are not inser
 
 #### OAuth PKCE Authorization
 
-Codex2API supports acquiring Refresh Tokens through the OAuth PKCE flow, useful when manual token extraction is impractical:
+AxisRelay supports acquiring Refresh Tokens through the OAuth PKCE flow, useful when manual token extraction is impractical:
 
 ```bash
 # Step 1: Generate an authorization URL
@@ -419,11 +397,11 @@ Open `/admin/` in a browser.
 
 ### Positioning
 
-Codex2API is not just a forwarding proxy. It is a long-running Codex gateway with a full admin dashboard:
+AxisRelay is not just a forwarding proxy. It is a long-running Codex gateway with a full admin dashboard:
 
 - Exposes a unified OpenAI-style API surface.
 - Maintains a Refresh Token account pool and Access Token lifecycle.
-- Coordinates persistence and runtime state through PostgreSQL + Redis or SQLite + in-memory cache.
+- Coordinates persistence and runtime state through MySQL 8 + Redis, with PostgreSQL compatibility.
 - Provides operational observability through the `/admin` dashboard.
 
 ### Request Flow
@@ -460,7 +438,7 @@ Selection strategy:
 4. Prefer higher `SchedulerPriority`, then `healthy > warm > risky > banned`; within the same priority and tier, prefer higher score and lower concurrency.
 5. In indexed mode, use a per-tier cursor or deterministic affinity offset inside the highest valid priority/health segment.
 
-When multiple end users share one downstream API key, send `X-Codex2API-Affinity-Key` with a stable user or conversation identifier. Codex2API hashes it for local account affinity only and never forwards it upstream.
+When multiple end users share one downstream API key, send `X-AxisRelay-Affinity-Key` with a stable user or conversation identifier. AxisRelay hashes it for local account affinity only and never forwards it upstream.
 
 Concurrency rules:
 
@@ -479,7 +457,7 @@ Observability:
 - `GET /api/admin/ops/overview` shows scheduler engine, indexed/legacy selections, scan volume, event waiters, sparse routing-cache state, shadow parity, and outbox lag in addition to runtime and connection-pool state.
 - `/admin/ops/scheduler` provides the scheduler board.
 
-**Scheduler engine** (`scheduler_engine`, via Admin Settings, or `CODEX_SCHEDULER_ENGINE`):
+**Scheduler engine** (`scheduler_engine`, via Admin Settings, or `AXISRELAY_SCHEDULER_ENGINE`):
 
 | Engine | Behavior |
 | --- | --- |
@@ -487,7 +465,7 @@ Observability:
 | `shadow` | Legacy remains authoritative while 1 in 64 requests compares indexed candidate availability |
 | `indexed` | Priority/health buckets, sparse API-key sub-pools, and event-driven availability waits are authoritative |
 
-For a production rollout, use `legacy → shadow → indexed`. `CODEX_SCHEDULER_ENGINE` overrides the database setting and can pin an instance for a canary or emergency rollback. The old `FAST_SCHEDULER_ENABLED=true` switch remains a compatibility alias for `indexed` when no engine is configured.
+For a production rollout, use `legacy → shadow → indexed`. `AXISRELAY_SCHEDULER_ENGINE` overrides the database setting and can pin an instance for a canary or emergency rollback. Legacy scheduler environment aliases are no longer read.
 
 **Scheduler mode** (`scheduler_mode`, via Admin Settings):
 
@@ -513,7 +491,7 @@ When an account has a credit-based billing model instead of a usage-based Free/P
 ## Project Structure
 
 ```text
-codex2api/
+axisrelay/
 |- main.go                      # Application entrypoint
 |- Dockerfile                   # Multi-stage image build
 |- docker-compose.yml           # Image deployment template
@@ -546,7 +524,7 @@ codex2api/
 
 ## Community
 
-- QQ group: [Join the "codex2api" group chat](https://qun.qq.com/universal-share/share?ac=1&authKey=6vwawW4MeqdACT7PajnHlf2lLkjfuNXEMSos67l9FBiAJ8t%2BKeaXJXB0dgsnhFa1&busi_data=eyJncm91cENvZGUiOiI4MTY3Mzk4NDIiLCJ0b2tlbiI6ImU1YW1KR3dNaXZoUXZDUWpYTWVncmdmMXhQV1RwQ21tbEhkdjB5VW45aWVPSjhFM2grMkRHNGdhWnhEU29oS08iLCJ1aW4iOiIxMTYzNDc2OTQ5In0%3D&data=adSomD6r40Al25rBr8PocFCKumQR5oxi1kq5jXjXxeJ49Z5cj4QLzbNf6vfIQKWMORrJntrZtcoyQuHg2ksUeA&svctype=4&tempid=h5_group_info) (group ID: 816739842)
+- QQ group: [Join the "axisrelay" group chat](https://qun.qq.com/universal-share/share?ac=1&authKey=6vwawW4MeqdACT7PajnHlf2lLkjfuNXEMSos67l9FBiAJ8t%2BKeaXJXB0dgsnhFa1&busi_data=eyJncm91cENvZGUiOiI4MTY3Mzk4NDIiLCJ0b2tlbiI6ImU1YW1KR3dNaXZoUXZDUWpYTWVncmdmMXhQV1RwQ21tbEhkdjB5VW45aWVPSjhFM2grMkRHNGdhWnhEU29oS08iLCJ1aW4iOiIxMTYzNDc2OTQ5In0%3D&data=adSomD6r40Al25rBr8PocFCKumQR5oxi1kq5jXjXxeJ49Z5cj4QLzbNf6vfIQKWMORrJntrZtcoyQuHg2ksUeA&svctype=4&tempid=h5_group_info) (group ID: 816739842)
 - Telegram group: [Join the Telegram group](https://t.me/+9hJAA3ZWQxxmMzE5)
 
 Join the group to discuss deployment, usage, and development questions.
@@ -563,11 +541,11 @@ Join the group to discuss deployment, usage, and development questions.
 
 ## Star History
 
-<a href="https://star-history.dera.page/#james-6-23/codex2api&Date">
+<a href="https://star-history.dera.page/#wuekevin/axisrelay&Date">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://star-history.dera.page/svg?repos=james-6-23/codex2api&type=Date&theme=dark" />
-    <source media="(prefers-color-scheme: light)" srcset="https://star-history.dera.page/svg?repos=james-6-23/codex2api&type=Date" />
-    <img alt="Star History Chart" src="https://star-history.dera.page/svg?repos=james-6-23/codex2api&type=Date" />
+    <source media="(prefers-color-scheme: dark)" srcset="https://star-history.dera.page/svg?repos=wuekevin/axisrelay&type=Date&theme=dark" />
+    <source media="(prefers-color-scheme: light)" srcset="https://star-history.dera.page/svg?repos=wuekevin/axisrelay&type=Date" />
+    <img alt="Star History Chart" src="https://star-history.dera.page/svg?repos=wuekevin/axisrelay&type=Date" />
   </picture>
 </a>
 

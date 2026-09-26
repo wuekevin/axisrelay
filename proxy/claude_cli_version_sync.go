@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/codex2api/auth"
-	"github.com/codex2api/database"
+	"github.com/wuekevin/axisrelay/auth"
+	"github.com/wuekevin/axisrelay/database"
 )
 
 const (
@@ -35,10 +35,10 @@ func SetClaudeVersionSourceURLsForTest(github, npm string) {
 	claudeNpmDistTagsURLForTest = npm
 }
 
-// ClaudeCLIVersionSyncDisabled 报告是否通过 CLAUDE_DISABLE_CLI_VERSION_SYNC 关闭了联网同步。
+// ClaudeCLIVersionSyncDisabled 报告是否通过 AXISRELAY_CLAUDE_DISABLE_CLI_VERSION_SYNC 关闭了联网同步。
 // 关闭后仍会在启动时用当前生效版本做一次本地指纹回写（不联网）；管理端「立即同步」不受影响。
 func ClaudeCLIVersionSyncDisabled() bool {
-	switch strings.ToLower(strings.TrimSpace(os.Getenv("CLAUDE_DISABLE_CLI_VERSION_SYNC"))) {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("AXISRELAY_CLAUDE_DISABLE_CLI_VERSION_SYNC"))) {
 	case "1", "true", "yes", "on":
 		return true
 	}
@@ -79,7 +79,7 @@ func fetchClaudeJSON(ctx context.Context, endpoint string, transport http.RoundT
 		return err
 	}
 	req.Header.Set("Accept", "application/json")
-	req.Header.Set("User-Agent", "codex2api")
+	req.Header.Set("User-Agent", "axisrelay")
 	if github {
 		req.Header.Set("Accept", "application/vnd.github+json")
 		ApplyGithubAuth(req)
@@ -187,7 +187,7 @@ func SyncClaudeCLIVersion(ctx context.Context, db *database.DB, store *auth.Stor
 
 // StartClaudeCLIVersionSync 启动时先用生效版本做一次本地指纹回写（不联网），
 // 然后按 ClaudeConfig 的开关与间隔定时联网同步。
-// 本地回写在后台任务内执行，即使 CLAUDE_DISABLE_CLI_VERSION_SYNC 关闭了联网
+// 本地回写在后台任务内执行，即使 AXISRELAY_CLAUDE_DISABLE_CLI_VERSION_SYNC 关闭了联网
 // 同步也照常运行；只有联网的 runOnce 与定时循环受该开关约束。
 func StartClaudeCLIVersionSync(ctx context.Context, db *database.DB, store *auth.Store, proxyResolver func() string) {
 	if db == nil || store == nil {

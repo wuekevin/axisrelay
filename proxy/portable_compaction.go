@@ -7,12 +7,12 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/codex2api/security"
+	"github.com/wuekevin/axisrelay/security"
 )
 
 const (
 	portableCompactionEnvelopePrefix      = "sub2api-emulated-compaction-v1:"
-	localPortableCompactionEnvelopePrefix = "codex2api-emulated-compaction-v1:"
+	localPortableCompactionEnvelopePrefix = "axisrelay-emulated-compaction-v1:"
 	portableCompactionSummaryOpen         = "<summary>"
 	portableCompactionSummaryClose        = "</summary>"
 	responsesCompactionSummaryPrefix      = "[Conversation summary from earlier turns]\n"

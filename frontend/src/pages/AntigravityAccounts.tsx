@@ -936,7 +936,7 @@ function AntigravityAccounts({ headerSlot }: { headerSlot?: ReactNode } = {}) {
   const { t } = useTranslation();
   const isTableViewport = useMediaQuery("(min-width: 768px)");
   const { columns: visibleColumns, toggleColumn, resetColumns } = useAccountTableColumns(
-    "codex2api:antigravity-accounts:visible-columns",
+    "axisrelay:antigravity-accounts:visible-columns",
     ANTIGRAVITY_TABLE_COLUMNS,
   );
   const { showToast } = useToast();
@@ -1759,7 +1759,7 @@ function AntigravityAccounts({ headerSlot }: { headerSlot?: ReactNode } = {}) {
       const { blob, filename, count: responseCount } =
         await api.exportAntigravityAccounts(ids);
       const count = responseCount ?? (ids?.length || undefined);
-      const fallback = `codex2api-antigravity-${new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19)}.${blob.type.includes("zip") ? "zip" : "json"}`;
+      const fallback = `axisrelay-antigravity-${new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19)}.${blob.type.includes("zip") ? "zip" : "json"}`;
       downloadAntigravityBlob(blob, filename || fallback);
       showToast(
         count === undefined

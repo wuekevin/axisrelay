@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/codex2api/database"
+	"github.com/wuekevin/axisrelay/database"
 )
 
 type modelsListErrorReader struct{}

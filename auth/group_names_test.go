@@ -3,7 +3,7 @@ package auth
 import (
 	"testing"
 
-	"github.com/codex2api/database"
+	"github.com/wuekevin/axisrelay/database"
 )
 
 func TestGroupNameCacheSetResolveDelete(t *testing.T) {

@@ -16,8 +16,8 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/codex2api/security/promptfilter"
 	"github.com/gin-gonic/gin"
+	"github.com/wuekevin/axisrelay/security/promptfilter"
 )
 
 const (
@@ -237,7 +237,7 @@ func (h *Handler) commitPromptGuardSession(c *gin.Context, cfg promptfilter.Conf
 }
 
 // enrichPromptGuardAttachments delegates binary/PDF/OCR extraction to a
-// bounded parser service. Codex2API never fetches user-provided URLs directly,
+// bounded parser service. AxisRelay never fetches user-provided URLs directly,
 // which keeps SSRF and decompression-bomb handling outside the request process.
 func (h *Handler) enrichPromptGuardAttachments(ctx context.Context, cfg promptfilter.Config, envelope *promptfilter.RequestEnvelope) error {
 	if h == nil || envelope == nil || !cfg.Advanced.Attachment.Enabled {
@@ -290,7 +290,7 @@ func (h *Handler) enrichPromptGuardAttachments(ctx context.Context, cfg promptfi
 		return err
 	}
 	req.Header.Set("Content-Type", "application/json")
-	if key := strings.TrimSpace(os.Getenv("PROMPT_FILTER_ATTACHMENT_API_KEY")); key != "" {
+	if key := strings.TrimSpace(os.Getenv("AXISRELAY_PROMPT_FILTER_ATTACHMENT_API_KEY")); key != "" {
 		req.Header.Set("Authorization", "Bearer "+key)
 	}
 	resp, err := http.DefaultClient.Do(req)

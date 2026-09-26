@@ -8,7 +8,7 @@ import (
 )
 
 func TestModelCapabilitiesPersistenceAndGeneration(t *testing.T) {
-	db, err := New("sqlite", filepath.Join(t.TempDir(), "capabilities.db"))
+	db, err := newTestDatabase(t, filepath.Join(t.TempDir(), "capabilities.db"))
 	if err != nil {
 		t.Fatal(err)
 	}

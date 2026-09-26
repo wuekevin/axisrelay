@@ -3,7 +3,7 @@ package proxy
 import (
 	"testing"
 
-	"github.com/codex2api/auth"
+	"github.com/wuekevin/axisrelay/auth"
 )
 
 // issue #446：维护类旁路请求（wham 用量/重置券、模型清单、alpha search、订阅同步）
@@ -12,7 +12,7 @@ import (
 // 与内存持续推高。以下测试锁死「复用同一个池化 Client」这一不变量。
 
 func TestGetCodexMaintenanceClientIsReusedPerAccount(t *testing.T) {
-	t.Setenv("CODEX_TRANSPORT_MODE", "utls_chrome")
+	t.Setenv("AXISRELAY_TRANSPORT_MODE", "utls_chrome")
 	clearMaintenanceClients(t)
 
 	acc := &auth.Account{DBID: 4460}
@@ -30,7 +30,7 @@ func TestGetCodexMaintenanceClientIsReusedPerAccount(t *testing.T) {
 
 // 账号之间必须隔离：同一条 TCP 连接被不同 token 复用会被上游识别。
 func TestGetCodexMaintenanceClientIsolatesAccountsAndProxies(t *testing.T) {
-	t.Setenv("CODEX_TRANSPORT_MODE", "utls_chrome")
+	t.Setenv("AXISRELAY_TRANSPORT_MODE", "utls_chrome")
 	clearMaintenanceClients(t)
 
 	accA := &auth.Account{DBID: 4461}
@@ -61,9 +61,9 @@ func TestMaintenanceClientKeyDoesNotCollideWithResponsesPool(t *testing.T) {
 	}
 }
 
-// 订阅端点在 Cloudflare 后面，必须强制 uTLS 指纹，与 CODEX_TRANSPORT_MODE 无关。
+// 订阅端点在 Cloudflare 后面，必须强制 uTLS 指纹，与 AXISRELAY_TRANSPORT_MODE 无关。
 func TestSubscriptionMaintenanceClientForcesUTLS(t *testing.T) {
-	t.Setenv("CODEX_TRANSPORT_MODE", "standard")
+	t.Setenv("AXISRELAY_TRANSPORT_MODE", "standard")
 	clearMaintenanceClients(t)
 
 	acc := &auth.Account{DBID: 4464}
