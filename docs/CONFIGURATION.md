@@ -61,6 +61,8 @@ AxisRelay 采用三层配置架构：
 | `AXISRELAY_REQUEST_MEMORY_BUDGET_MB` | 否 | 至少 128 | 单进程 HTTP/WS 逻辑正文总预算（MiB），包括读入/解压、排队和处理中正文及 Realtime 会话正文；默认取 128 与单请求上限的较大值，显式配置不能小于单请求上限，重启生效。预算不足时 HTTP 返回 503 和 `Retry-After: 1`，WS 关闭码为 1013。不是 RSS 硬上限，账号导入的流式 multipart 路径仍按独立导入上限处理 |
 | `AXISRELAY_ADMIN_SECRET` | 否 | - | 管理后台登录密钥 |
 | `AXISRELAY_ALLOW_ANONYMOUS` | 否 | `false` | 设为 `true` 时，未配置任何对外 API Key 也允许 `/v1/*` 直接调用（仅限内网测试场景） |
+| `AXISRELAY_PUBLIC_SIGNUP_ENABLED` | 否 | `true` | 是否开放官网用户注册；维护或内测期间可关闭，已有用户登录不受影响 |
+| `AXISRELAY_PUBLIC_USER_DEFAULT_QUOTA_USD` | 否 | `1` | 用户中心每次创建 API Key 时写入的初始额度，必须大于 0 |
 | `AXISRELAY_SCHEDULER_ENGINE` | 否 | 空 | 调度引擎强制值：`legacy` / `shadow` / `indexed`。设置后优先于数据库配置，适合容器级灰度或紧急回退 |
 | `AXISRELAY_SCHEDULER_MAX_WAITERS` | 否 | `4096` | 本实例账号调度等待请求总上限，正整数，重启生效。队列满立即返回可重试的 503 |
 | `AXISRELAY_SCHEDULER_MAX_WAITERS_PER_KEY` | 否 | `256` | 本实例每个 API Key 的调度等待上限，正整数，重启生效；匿名请求共用一个计数 |

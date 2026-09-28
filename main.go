@@ -26,6 +26,7 @@ import (
 	"github.com/wuekevin/axisrelay/database"
 	"github.com/wuekevin/axisrelay/internal/imagestore"
 	"github.com/wuekevin/axisrelay/internal/version"
+	"github.com/wuekevin/axisrelay/portal"
 	"github.com/wuekevin/axisrelay/proxy"
 	"github.com/wuekevin/axisrelay/proxy/wsrelay"
 	"github.com/wuekevin/axisrelay/security"
@@ -454,8 +455,10 @@ func main() {
 	adminHandler.RegisterExternalImageRoutes(r, handler)
 	adminHandler.StartPromptIntelligence(backgroundCtx)
 	adminHandler.RegisterRoutes(r)
+	portalHandler := portal.NewHandler(db)
+	portalHandler.RegisterRoutes(r)
 
-	// 管理后台前端静态文件
+	// 官网、用户中心与管理后台共用同一套前端静态文件。
 	subFS, err := fs.Sub(frontendFS, "frontend/dist")
 	if err != nil {
 		log.Printf("前端静态文件加载失败（开发模式可忽略）: %v", err)
@@ -565,12 +568,21 @@ func main() {
 		r.GET("/account-portal/*filepath", serveAccountPortalFrontend)
 		r.HEAD("/account-portal", serveAccountPortalFrontend)
 		r.HEAD("/account-portal/*filepath", serveAccountPortalFrontend)
-	}
 
-	// 根路径重定向到管理后台（使用 302 避免浏览器永久缓存）
-	r.GET("/", func(c *gin.Context) {
-		c.Redirect(http.StatusFound, "/admin/")
-	})
+		// 官网与用户中心使用明确的 SPA 路由，避免根通配符吞掉 /api 与 /v1。
+		for _, route := range []string{"/", "/models", "/pricing", "/docs", "/status"} {
+			r.GET(route, serveFrontend)
+			r.HEAD(route, serveFrontend)
+		}
+		r.GET("/auth", serveFrontend)
+		r.GET("/auth/*filepath", serveFrontend)
+		r.HEAD("/auth", serveFrontend)
+		r.HEAD("/auth/*filepath", serveFrontend)
+		r.GET("/console", serveFrontend)
+		r.GET("/console/*filepath", serveFrontend)
+		r.HEAD("/console", serveFrontend)
+		r.HEAD("/console/*filepath", serveFrontend)
+	}
 
 	// 健康检查：只做非阻塞的尽力统计，避免账号热路径锁竞争拖死 liveness。
 	// 但账号池读锁连续超过门槛一次都拿不到时视为疑似死锁,降 503 让
@@ -611,6 +623,8 @@ func main() {
 	log.Printf("  AxisRelay v2 已启动")
 	log.Printf("  Listen: %s", addr)
 	log.Printf("  HTTP:   http://%s:%d", displayHost, cfg.Port)
+	log.Printf("  官网:   http://%s:%d/", displayHost, cfg.Port)
+	log.Printf("  用户台: http://%s:%d/console", displayHost, cfg.Port)
 	log.Printf("  管理台: http://%s:%d/admin/", displayHost, cfg.Port)
 	log.Printf("  Key用量: http://%s:%d/key-usage", displayHost, cfg.Port)
 	log.Printf("  生图门户: http://%s:%d/image-studio", displayHost, cfg.Port)
