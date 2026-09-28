@@ -458,50 +458,17 @@ func main() {
 	portalHandler := portal.NewHandler(db)
 	portalHandler.RegisterRoutes(r)
 
-	// 官网、用户中心与管理后台共用同一套前端静态文件。
-	subFS, err := fs.Sub(frontendFS, "frontend/dist")
-	if err != nil {
-		log.Printf("前端静态文件加载失败（开发模式可忽略）: %v", err)
-	} else {
-		httpFS := http.FS(subFS)
-		// 预读 index.html（SPA 回退时直接返回，避免 FileServer 重定向）
-		indexHTML, _ := fs.ReadFile(subFS, "index.html")
-
-		serveFrontend := func(c *gin.Context) {
-			fp := c.Param("filepath")
-			// 尝试打开请求的文件（排除目录和根路径）
-			if fp != "/" && len(fp) > 1 {
-				trimmed := fp[1:] // 去掉开头的 /
-				if f, err := subFS.Open(trimmed); err == nil {
-					fi, statErr := f.Stat()
-					f.Close()
-					if statErr == nil && !fi.IsDir() {
-						if strings.HasPrefix(trimmed, "assets/") {
-							c.Header("Cache-Control", "public, max-age=31536000, immutable")
-						} else {
-							c.Header("Cache-Control", "no-cache")
-						}
-						c.FileFromFS(fp, httpFS)
-						return
-					}
-				}
-				// 带 hash 的静态资源不存在时必须返回 404。若回退到 index.html，
-				// 浏览器会把 HTML 当成 JS/CSS 解析并反复触发 chunk load error。
-				if strings.HasPrefix(trimmed, "assets/") {
-					c.Header("Cache-Control", "no-store, no-cache, must-revalidate")
-					c.Status(http.StatusNotFound)
-					return
-				}
-			}
-			// 文件不存在或者是目录 → 直接返回 index.html 字节（让 React Router 处理）
-			c.Header("Cache-Control", "no-store, no-cache, must-revalidate")
-			c.Header("Pragma", "no-cache")
-			if c.Query("refresh-assets") == "1" {
-				// 仅清理 HTTP cache，不影响登录态、localStorage 或站点配置。
-				c.Header("Clear-Site-Data", `"cache"`)
-			}
-			c.Data(http.StatusOK, "text/html; charset=utf-8", indexHTML)
-		}
+	webFS, webErr := fs.Sub(frontendFS, "frontend/dist/web")
+	adminFS, adminErr := fs.Sub(frontendFS, "frontend/dist/admin")
+	if webErr != nil {
+		log.Printf("官网静态文件加载失败（开发模式可忽略）: %v", webErr)
+	}
+	if adminErr != nil {
+		log.Printf("后台静态文件加载失败（开发模式可忽略）: %v", adminErr)
+	}
+	if webErr == nil && adminErr == nil {
+		serveWeb := newSPAHandler(webFS, "")
+		serveAdmin := newSPAHandler(adminFS, "/admin")
 		serveKeyUsageFrontend := func(c *gin.Context) {
 			ctx, cancel := context.WithTimeout(c.Request.Context(), 3*time.Second)
 			defer cancel()
@@ -516,7 +483,7 @@ func main() {
 				c.Status(http.StatusNotFound)
 				return
 			}
-			serveFrontend(c)
+			serveWeb(c)
 		}
 		serveImageStudioFrontend := func(c *gin.Context) {
 			ctx, cancel := context.WithTimeout(c.Request.Context(), 3*time.Second)
@@ -532,7 +499,7 @@ func main() {
 				c.Status(http.StatusNotFound)
 				return
 			}
-			serveFrontend(c)
+			serveWeb(c)
 		}
 		serveAccountPortalFrontend := func(c *gin.Context) {
 			ctx, cancel := context.WithTimeout(c.Request.Context(), 3*time.Second)
@@ -548,14 +515,14 @@ func main() {
 				c.Status(http.StatusNotFound)
 				return
 			}
-			serveFrontend(c)
+			serveWeb(c)
 		}
 
 		// 同时处理 /admin 和 /admin/*，避免依赖自动补斜杠重定向。
-		r.GET("/admin", serveFrontend)
-		r.GET("/admin/*filepath", serveFrontend)
-		r.HEAD("/admin", serveFrontend)
-		r.HEAD("/admin/*filepath", serveFrontend)
+		r.GET("/admin", serveAdmin)
+		r.GET("/admin/*filepath", serveAdmin)
+		r.HEAD("/admin", serveAdmin)
+		r.HEAD("/admin/*filepath", serveAdmin)
 		r.GET("/key-usage", serveKeyUsageFrontend)
 		r.GET("/key-usage/*filepath", serveKeyUsageFrontend)
 		r.HEAD("/key-usage", serveKeyUsageFrontend)
@@ -571,17 +538,21 @@ func main() {
 
 		// 官网与用户中心使用明确的 SPA 路由，避免根通配符吞掉 /api 与 /v1。
 		for _, route := range []string{"/", "/models", "/pricing", "/docs", "/status"} {
-			r.GET(route, serveFrontend)
-			r.HEAD(route, serveFrontend)
+			r.GET(route, serveWeb)
+			r.HEAD(route, serveWeb)
 		}
-		r.GET("/auth", serveFrontend)
-		r.GET("/auth/*filepath", serveFrontend)
-		r.HEAD("/auth", serveFrontend)
-		r.HEAD("/auth/*filepath", serveFrontend)
-		r.GET("/console", serveFrontend)
-		r.GET("/console/*filepath", serveFrontend)
-		r.HEAD("/console", serveFrontend)
-		r.HEAD("/console/*filepath", serveFrontend)
+		r.GET("/assets/*filepath", serveWeb)
+		r.HEAD("/assets/*filepath", serveWeb)
+		r.GET("/favicon.png", serveWeb)
+		r.HEAD("/favicon.png", serveWeb)
+		r.GET("/auth", serveWeb)
+		r.GET("/auth/*filepath", serveWeb)
+		r.HEAD("/auth", serveWeb)
+		r.HEAD("/auth/*filepath", serveWeb)
+		r.GET("/console", serveWeb)
+		r.GET("/console/*filepath", serveWeb)
+		r.HEAD("/console", serveWeb)
+		r.HEAD("/console/*filepath", serveWeb)
 	}
 
 	// 健康检查：只做非阻塞的尽力统计，避免账号热路径锁竞争拖死 liveness。

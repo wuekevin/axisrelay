@@ -63,6 +63,13 @@ AxisRelay 采用三层配置架构：
 | `AXISRELAY_ALLOW_ANONYMOUS` | 否 | `false` | 设为 `true` 时，未配置任何对外 API Key 也允许 `/v1/*` 直接调用（仅限内网测试场景） |
 | `AXISRELAY_PUBLIC_SIGNUP_ENABLED` | 否 | `true` | 是否开放官网用户注册；维护或内测期间可关闭，已有用户登录不受影响 |
 | `AXISRELAY_PUBLIC_USER_DEFAULT_QUOTA_USD` | 否 | `1` | 用户中心每次创建 API Key 时写入的初始额度，必须大于 0 |
+| `AXISRELAY_PUBLIC_BASE_URL` | 开放注册时是 | - | 官网公开根地址，用于生成验证和密码重置链接，必须是完整 HTTP(S) URL |
+| `AXISRELAY_SMTP_HOST` | 开放注册时是 | - | SMTP 主机；缺失时注册会明确返回邮件服务不可用 |
+| `AXISRELAY_SMTP_PORT` | 否 | `587` | SMTP 端口 |
+| `AXISRELAY_SMTP_USERNAME` / `AXISRELAY_SMTP_PASSWORD` | 否 | - | SMTP 认证；必须成对配置 |
+| `AXISRELAY_SMTP_FROM_ADDRESS` | 开放注册时是 | - | 已获授权的发件邮箱 |
+| `AXISRELAY_SMTP_FROM_NAME` | 否 | `AxisRelay` | 发件人显示名称 |
+| `AXISRELAY_SMTP_TLS_MODE` | 否 | `starttls` | `starttls`、`implicit` 或仅供本地测试的 `none` |
 | `AXISRELAY_SCHEDULER_ENGINE` | 否 | 空 | 调度引擎强制值：`legacy` / `shadow` / `indexed`。设置后优先于数据库配置，适合容器级灰度或紧急回退 |
 | `AXISRELAY_SCHEDULER_MAX_WAITERS` | 否 | `4096` | 本实例账号调度等待请求总上限，正整数，重启生效。队列满立即返回可重试的 503 |
 | `AXISRELAY_SCHEDULER_MAX_WAITERS_PER_KEY` | 否 | `256` | 本实例每个 API Key 的调度等待上限，正整数，重启生效；匿名请求共用一个计数 |

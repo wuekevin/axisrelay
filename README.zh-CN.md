@@ -248,7 +248,7 @@ go run .
 cd frontend && npm ci && npm run dev
 ```
 
-Vite 会自动代理 `/api` 和 `/health` 到后端，开发时访问 `http://localhost:5173/admin/`。
+Vite 会自动代理 `/api` 和 `/health` 到后端。默认 `npm run dev` 启动官网；后台请使用 `npm run dev:admin` 并访问 `/admin/`。
 
 ---
 
@@ -265,6 +265,11 @@ Vite 会自动代理 `/api` 和 `/health` 到后端，开发时访问 `http://lo
 | `AXISRELAY_ADMIN_SECRET` | 管理后台登录密钥；设置后首次访问 `/admin` 会弹出密码输入框 |
 | `AXISRELAY_PUBLIC_SIGNUP_ENABLED` | 是否开放官网用户注册，默认 `true` |
 | `AXISRELAY_PUBLIC_USER_DEFAULT_QUOTA_USD` | 用户自助创建的每把 API Key 初始额度，默认 `1` |
+| `AXISRELAY_PUBLIC_BASE_URL` | 验证和密码重置链接使用的官网 HTTPS 根地址 |
+| `AXISRELAY_SMTP_HOST` / `AXISRELAY_SMTP_PORT` | SMTP 主机与端口，端口默认 `587` |
+| `AXISRELAY_SMTP_USERNAME` / `AXISRELAY_SMTP_PASSWORD` | 可选 SMTP 认证，必须成对配置 |
+| `AXISRELAY_SMTP_FROM_ADDRESS` / `AXISRELAY_SMTP_FROM_NAME` | 发件邮箱与显示名称 |
+| `AXISRELAY_SMTP_TLS_MODE` | `starttls`（推荐）、`implicit` 或仅供本地测试的 `none` |
 | `AXISRELAY_DATABASE_DRIVER` | 数据库驱动：`mysql`（默认）或 `postgres` |
 | `AXISRELAY_DATABASE_HOST` | 数据库主机 |
 | `AXISRELAY_DATABASE_PORT` | 数据库端口；MySQL 默认 `3306`，PostgreSQL 默认 `5432` |
@@ -551,11 +556,11 @@ axisrelay/
 ├─ config/                      # 环境变量加载
 ├─ database/                    # 数据库访问层
 ├─ proxy/                       # 对外代理、转发与限流
-└─ frontend/                    # React + Vite 管理后台
-   ├─ src/pages/                # Dashboard / Accounts / API Keys / Proxies / Images / Prompt Filter / Ops / Usage / Settings / Docs
-   ├─ src/components/           # UI 组件
-   ├─ src/locales/              # 国际化语言文件 (zh/en)
-   └─ vite.config.js            # Vite 配置
+└─ frontend/                    # React + Vite 双应用工作区
+   ├─ web/                      # 官网、认证、用户中心与公开门户
+   ├─ admin/                    # 仅后台管理应用
+   ├─ shared/                   # 无业务路由的共享边界
+   └─ dist/                     # web/ 与 admin/ 独立构建产物
 ```
 
 
@@ -564,7 +569,7 @@ axisrelay/
 ## 常见注意事项
 
 - `docker-compose.yml` 拉取 GHCR 镜像用于部署；`docker-compose.local.yml` 用 `build: .` 做本地构建
-- 前端基路径固定为 `/admin/`，本地开发和生产部署一致
+- 官网使用 `/`，独立构建的后台应用使用 `/admin/`
 - 本地手动构建 Go 二进制前需先执行 `frontend/` 的 `npm run build`
 - `.env` 只负责端口、数据库、Redis 等物理层配置；业务参数在管理台数据库里维护
 - API Key 以数据库为准，在管理台中配置

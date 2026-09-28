@@ -1,12 +1,14 @@
 package portal
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/sha256"
 	"database/sql"
 	"encoding/base64"
 	"encoding/hex"
 	"errors"
+	"log"
 	"net/http"
 	"net/mail"
 	"net/url"
@@ -27,6 +29,8 @@ const (
 	sessionCookieName  = "axisrelay_session"
 	defaultSessionTTL  = 7 * 24 * time.Hour
 	rememberSessionTTL = 30 * 24 * time.Hour
+	verificationTTL    = 24 * time.Hour
+	passwordResetTTL   = 30 * time.Minute
 	maxUserAPIKeys     = 10
 )
 
@@ -43,6 +47,8 @@ type Handler struct {
 	limiter       *attemptLimiter
 	signupEnabled bool
 	defaultQuota  float64
+	mailer        emailSender
+	mailConfig    smtpConfig
 }
 
 type authContext struct {
@@ -54,12 +60,26 @@ type authContext struct {
 const authContextKey = "axisrelay_portal_auth"
 
 func NewHandler(db *database.DB) *Handler {
-	return &Handler{
+	handler := &Handler{
 		db:            db,
 		limiter:       newAttemptLimiter(),
 		signupEnabled: envBoolDefault("AXISRELAY_PUBLIC_SIGNUP_ENABLED", true),
 		defaultQuota:  envFloatDefault("AXISRELAY_PUBLIC_USER_DEFAULT_QUOTA_USD", 1),
 	}
+	config, err := smtpConfigFromEnv()
+	if err != nil {
+		if handler.signupEnabled {
+			log.Printf("公共注册邮件服务尚未就绪: %v", err)
+		}
+		return handler
+	}
+	handler.mailConfig = config
+	handler.mailer = &smtpSender{config: config}
+	return handler
+}
+
+func newHandlerWithMailer(db *database.DB, sender emailSender, config smtpConfig) *Handler {
+	return &Handler{db: db, limiter: newAttemptLimiter(), signupEnabled: true, defaultQuota: 1, mailer: sender, mailConfig: config}
 }
 
 func (h *Handler) RegisterRoutes(r *gin.Engine) {
@@ -69,6 +89,10 @@ func (h *Handler) RegisterRoutes(r *gin.Engine) {
 	auth.POST("/register", h.register)
 	auth.POST("/login", h.login)
 	auth.POST("/logout", h.logout)
+	auth.POST("/email/verify", h.verifyEmail)
+	auth.POST("/email/resend", h.resendVerification)
+	auth.POST("/password/forgot", h.forgotPassword)
+	auth.POST("/password/reset", h.resetPassword)
 
 	user := r.Group("/api/user")
 	user.Use(noStore(), h.sameOrigin(), h.requireSession())
@@ -104,6 +128,10 @@ func (h *Handler) register(c *gin.Context) {
 		writeError(c, http.StatusForbidden, "signup_disabled", "当前站点暂未开放注册")
 		return
 	}
+	if h.mailer == nil {
+		writeError(c, http.StatusServiceUnavailable, "email_service_unavailable", "邮件服务尚未配置，暂时无法注册，请稍后再试")
+		return
+	}
 	if !h.limiter.Allow("register:"+c.ClientIP(), 5, 15*time.Minute) {
 		c.Header("Retry-After", "900")
 		writeError(c, http.StatusTooManyRequests, "too_many_attempts", "注册请求过于频繁，请稍后再试")
@@ -117,6 +145,11 @@ func (h *Handler) register(c *gin.Context) {
 	email, err := normalizeEmail(request.Email)
 	if err != nil {
 		writeError(c, http.StatusBadRequest, "invalid_email", "请输入有效的邮箱地址")
+		return
+	}
+	if !h.limiter.Allow("register:email:"+email, 3, time.Hour) {
+		c.Header("Retry-After", "3600")
+		writeError(c, http.StatusTooManyRequests, "too_many_attempts", "该邮箱的注册请求过于频繁，请稍后再试")
 		return
 	}
 	if message := validatePassword(request.Password); message != "" {
@@ -140,9 +173,9 @@ func (h *Handler) register(c *gin.Context) {
 		writeError(c, http.StatusInternalServerError, "server_error", "暂时无法创建账号")
 		return
 	}
-	token, tokenHash, err := newSecret(32)
+	verificationToken, verificationHash, err := newSecret(32)
 	if err != nil {
-		writeError(c, http.StatusInternalServerError, "server_error", "暂时无法创建会话")
+		writeError(c, http.StatusInternalServerError, "server_error", "暂时无法创建账号")
 		return
 	}
 	publicID, _, err := newSecret(16)
@@ -154,8 +187,7 @@ func (h *Handler) register(c *gin.Context) {
 	if len(publicID) > 26 {
 		publicID = publicID[:26]
 	}
-	expiresAt := time.Now().UTC().Add(defaultSessionTTL)
-	user, _, err := h.db.CreatePortalUser(c.Request.Context(), database.CreatePortalUserInput{
+	user, err := h.db.CreatePendingPortalUser(c.Request.Context(), database.CreatePendingPortalUserInput{
 		PublicID:        publicID,
 		Email:           email,
 		EmailNormalized: email,
@@ -163,10 +195,8 @@ func (h *Handler) register(c *gin.Context) {
 		DisplayName:     displayName,
 		Locale:          preferredLocale(c),
 		Timezone:        "Asia/Shanghai",
-		SessionHash:     tokenHash,
-		ClientIP:        trimString(c.ClientIP(), 45),
-		UserAgent:       trimString(c.Request.UserAgent(), 512),
-		SessionExpires:  expiresAt,
+		TokenHash:       verificationHash,
+		TokenExpires:    time.Now().UTC().Add(verificationTTL),
 	})
 	if errors.Is(err, database.ErrPortalEmailExists) {
 		writeError(c, http.StatusConflict, "email_exists", "该邮箱已注册，请直接登录")
@@ -176,9 +206,15 @@ func (h *Handler) register(c *gin.Context) {
 		writeError(c, http.StatusInternalServerError, "server_error", "账号创建失败，请稍后重试")
 		return
 	}
-	h.setSessionCookie(c, token, expiresAt)
+	mailContext, cancel := contextWithMailTimeout(c.Request.Context())
+	defer cancel()
+	if err := h.mailer.Send(mailContext, verificationMessage(h.mailConfig, email, verificationToken)); err != nil {
+		log.Printf("注册验证邮件投递失败: %v", err)
+		writeError(c, http.StatusBadGateway, "email_delivery_failed", "账号已创建，但验证邮件暂未送达，请稍后重新发送")
+		return
+	}
 	h.limiter.Reset("register:" + c.ClientIP())
-	c.JSON(http.StatusCreated, gin.H{"authenticated": true, "user": user})
+	c.JSON(http.StatusAccepted, gin.H{"authenticated": false, "pending_verification": true, "email": user.Email})
 }
 
 func (h *Handler) login(c *gin.Context) {
@@ -207,14 +243,19 @@ func (h *Handler) login(c *gin.Context) {
 		writeError(c, http.StatusUnauthorized, "invalid_credentials", "邮箱或密码不正确")
 		return
 	}
-	if user.Status != "active" {
-		h.db.RecordPortalLoginFailure(c.Request.Context(), &user.ID, email, "account_inactive", trimString(c.ClientIP(), 45), trimString(c.Request.UserAgent(), 512))
-		writeError(c, http.StatusForbidden, "account_inactive", "账号当前不可用，请联系管理员")
-		return
-	}
 	if bcrypt.CompareHashAndPassword([]byte(passwordHash), []byte(request.Password)) != nil {
 		h.db.RecordPortalLoginFailure(c.Request.Context(), &user.ID, email, "invalid_credentials", trimString(c.ClientIP(), 45), trimString(c.Request.UserAgent(), 512))
 		writeError(c, http.StatusUnauthorized, "invalid_credentials", "邮箱或密码不正确")
+		return
+	}
+	if user.Status == "pending_verification" || user.EmailVerifiedAt == nil {
+		h.db.RecordPortalLoginFailure(c.Request.Context(), &user.ID, email, "email_unverified", trimString(c.ClientIP(), 45), trimString(c.Request.UserAgent(), 512))
+		writeError(c, http.StatusForbidden, "email_unverified", "请先完成邮箱验证后再登录")
+		return
+	}
+	if user.Status != "active" {
+		h.db.RecordPortalLoginFailure(c.Request.Context(), &user.ID, email, "account_inactive", trimString(c.ClientIP(), 45), trimString(c.Request.UserAgent(), 512))
+		writeError(c, http.StatusForbidden, "account_inactive", "账号当前不可用，请稍后再试")
 		return
 	}
 	token, tokenHash, err := newSecret(32)
@@ -234,6 +275,169 @@ func (h *Handler) login(c *gin.Context) {
 	h.setSessionCookie(c, token, expiresAt)
 	h.limiter.Reset(key)
 	c.JSON(http.StatusOK, gin.H{"authenticated": true, "user": user})
+}
+
+type emailRequest struct {
+	Email string `json:"email"`
+}
+
+type tokenRequest struct {
+	Token string `json:"token"`
+}
+
+type resetPasswordRequest struct {
+	Token       string `json:"token"`
+	NewPassword string `json:"new_password"`
+}
+
+func (h *Handler) verifyEmail(c *gin.Context) {
+	var request tokenRequest
+	if err := c.ShouldBindJSON(&request); err != nil || strings.TrimSpace(request.Token) == "" {
+		writeError(c, http.StatusBadRequest, "invalid_token", "验证链接无效或已过期")
+		return
+	}
+	if !h.limiter.Allow("verify:"+c.ClientIP(), 12, 15*time.Minute) {
+		c.Header("Retry-After", "900")
+		writeError(c, http.StatusTooManyRequests, "too_many_attempts", "验证尝试过于频繁，请稍后再试")
+		return
+	}
+	tokenHash := hashSecret(strings.TrimSpace(request.Token))
+	if !h.limiter.Allow("verify:token:"+tokenHash, 5, 15*time.Minute) {
+		c.Header("Retry-After", "900")
+		writeError(c, http.StatusTooManyRequests, "too_many_attempts", "验证尝试过于频繁，请稍后再试")
+		return
+	}
+	sessionToken, sessionHash, err := newSecret(32)
+	if err != nil {
+		writeError(c, http.StatusInternalServerError, "server_error", "暂时无法完成验证")
+		return
+	}
+	expiresAt := time.Now().UTC().Add(defaultSessionTTL)
+	user, err := h.db.ConsumePortalEmailVerification(c.Request.Context(), tokenHash, sessionHash, trimString(c.ClientIP(), 45), trimString(c.Request.UserAgent(), 512), expiresAt)
+	if errors.Is(err, database.ErrPortalTokenInvalid) {
+		writeError(c, http.StatusBadRequest, "invalid_token", "验证链接无效或已过期")
+		return
+	}
+	if err != nil || user == nil {
+		writeError(c, http.StatusInternalServerError, "server_error", "暂时无法完成验证")
+		return
+	}
+	h.setSessionCookie(c, sessionToken, expiresAt)
+	h.limiter.Reset("verify:" + c.ClientIP())
+	c.JSON(http.StatusOK, gin.H{"authenticated": true, "user": user})
+}
+
+func (h *Handler) resendVerification(c *gin.Context) {
+	if h.mailer == nil {
+		writeError(c, http.StatusServiceUnavailable, "email_service_unavailable", "邮件服务暂时不可用，请稍后再试")
+		return
+	}
+	var request emailRequest
+	if err := c.ShouldBindJSON(&request); err != nil {
+		writeError(c, http.StatusBadRequest, "invalid_request", "请求格式不正确")
+		return
+	}
+	email, err := normalizeEmail(request.Email)
+	if err != nil {
+		writeError(c, http.StatusBadRequest, "invalid_email", "请输入有效的邮箱地址")
+		return
+	}
+	if !h.allowEmailAction("resend", c.ClientIP(), email, 5, time.Hour) {
+		c.Header("Retry-After", "3600")
+		writeError(c, http.StatusTooManyRequests, "too_many_attempts", "发送请求过于频繁，请稍后再试")
+		return
+	}
+	user, _, lookupErr := h.db.GetPortalUserCredentialsByEmail(c.Request.Context(), email)
+	if lookupErr != nil || user == nil || user.Status != "pending_verification" || user.EmailVerifiedAt != nil {
+		c.JSON(http.StatusAccepted, gin.H{"message": "如果该邮箱正在等待验证，我们会发送一封新邮件"})
+		return
+	}
+	token, tokenHash, err := newSecret(32)
+	if err != nil || h.db.ReplacePortalEmailToken(c.Request.Context(), user.ID, user.Email, "verify_email", tokenHash, time.Now().UTC().Add(verificationTTL)) != nil {
+		writeError(c, http.StatusInternalServerError, "server_error", "暂时无法发送验证邮件")
+		return
+	}
+	mailContext, cancel := contextWithMailTimeout(c.Request.Context())
+	defer cancel()
+	if err := h.mailer.Send(mailContext, verificationMessage(h.mailConfig, user.Email, token)); err != nil {
+		log.Printf("验证邮件重发失败: %v", err)
+		writeError(c, http.StatusBadGateway, "email_delivery_failed", "验证邮件暂未送达，请稍后再试")
+		return
+	}
+	c.JSON(http.StatusAccepted, gin.H{"message": "如果该邮箱正在等待验证，我们会发送一封新邮件"})
+}
+
+func (h *Handler) forgotPassword(c *gin.Context) {
+	const genericMessage = "如果该邮箱已注册，我们会发送一封密码重置邮件"
+	var request emailRequest
+	if err := c.ShouldBindJSON(&request); err != nil {
+		writeError(c, http.StatusBadRequest, "invalid_request", "请求格式不正确")
+		return
+	}
+	email, err := normalizeEmail(request.Email)
+	if err != nil {
+		c.JSON(http.StatusAccepted, gin.H{"message": genericMessage})
+		return
+	}
+	if !h.allowEmailAction("forgot", c.ClientIP(), email, 5, time.Hour) {
+		c.Header("Retry-After", "3600")
+		writeError(c, http.StatusTooManyRequests, "too_many_attempts", "请求过于频繁，请稍后再试")
+		return
+	}
+	if h.mailer != nil {
+		user, _, lookupErr := h.db.GetPortalUserCredentialsByEmail(c.Request.Context(), email)
+		if lookupErr == nil && user != nil && user.Status == "active" && user.EmailVerifiedAt != nil {
+			token, tokenHash, secretErr := newSecret(32)
+			if secretErr == nil && h.db.ReplacePortalEmailToken(c.Request.Context(), user.ID, user.Email, "reset_password", tokenHash, time.Now().UTC().Add(passwordResetTTL)) == nil {
+				mailContext, cancel := contextWithMailTimeout(c.Request.Context())
+				defer cancel()
+				if sendErr := h.mailer.Send(mailContext, passwordResetMessage(h.mailConfig, user.Email, token)); sendErr != nil {
+					log.Printf("密码重置邮件投递失败: %v", sendErr)
+				}
+			}
+		}
+	}
+	c.JSON(http.StatusAccepted, gin.H{"message": genericMessage})
+}
+
+func (h *Handler) resetPassword(c *gin.Context) {
+	if !h.limiter.Allow("password-reset:"+c.ClientIP(), 10, 15*time.Minute) {
+		c.Header("Retry-After", "900")
+		writeError(c, http.StatusTooManyRequests, "too_many_attempts", "重置尝试过于频繁，请稍后再试")
+		return
+	}
+	var request resetPasswordRequest
+	if err := c.ShouldBindJSON(&request); err != nil || strings.TrimSpace(request.Token) == "" {
+		writeError(c, http.StatusBadRequest, "invalid_token", "重置链接无效或已过期")
+		return
+	}
+	if message := validatePassword(request.NewPassword); message != "" {
+		writeError(c, http.StatusBadRequest, "weak_password", message)
+		return
+	}
+	passwordHash, err := bcrypt.GenerateFromPassword([]byte(request.NewPassword), 12)
+	if err != nil {
+		writeError(c, http.StatusInternalServerError, "server_error", "暂时无法重置密码")
+		return
+	}
+	if err = h.db.ConsumePortalPasswordReset(c.Request.Context(), hashSecret(strings.TrimSpace(request.Token)), string(passwordHash)); errors.Is(err, database.ErrPortalTokenInvalid) {
+		writeError(c, http.StatusBadRequest, "invalid_token", "重置链接无效或已过期")
+		return
+	} else if err != nil {
+		writeError(c, http.StatusInternalServerError, "server_error", "暂时无法重置密码")
+		return
+	}
+	h.clearSessionCookie(c)
+	h.limiter.Reset("password-reset:" + c.ClientIP())
+	c.JSON(http.StatusOK, gin.H{"message": "密码已重置，请使用新密码登录"})
+}
+
+func (h *Handler) allowEmailAction(action, ip, email string, limit int, window time.Duration) bool {
+	return h.limiter.Allow(action+":ip:"+ip, limit, window) && h.limiter.Allow(action+":email:"+email, limit, window)
+}
+
+func contextWithMailTimeout(parent context.Context) (context.Context, context.CancelFunc) {
+	return context.WithTimeout(parent, 12*time.Second)
 }
 
 func (h *Handler) logout(c *gin.Context) {

@@ -1,15 +1,22 @@
 {
-  "name": "axisrelay-admin",
+  "name": "axisrelay-frontends",
   "private": true,
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview",
-    "test": "node --experimental-strip-types --test src/lib/*.test.mjs",
+    "dev": "npm run dev:web",
+    "dev:web": "vite --config web/vite.config.js",
+    "dev:admin": "vite --config admin/vite.config.js",
+    "build": "node scripts/clean-dist.mjs && npm run build:web && npm run build:admin",
+    "build:web": "node scripts/build-web-locales.mjs && vite build --config web/vite.config.js",
+    "build:admin": "vite build --config admin/vite.config.js",
+    "preview:web": "vite preview --config web/vite.config.js",
+    "preview:admin": "vite preview --config admin/vite.config.js",
+    "test": "node --experimental-strip-types --test admin/src/lib/*.test.mjs web/src/lib/*.test.mjs",
     "test:svg": "node --experimental-strip-types --test tests/qualityTestSVG.browser.test.mjs",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "npm run typecheck:web && npm run typecheck:admin",
+    "typecheck:web": "node scripts/build-web-locales.mjs && tsc -p web/tsconfig.json --noEmit",
+    "typecheck:admin": "tsc -p admin/tsconfig.json --noEmit",
     "audit:ci": "node scripts/audit-gate.mjs"
   },
   "dependencies": {
