@@ -42,8 +42,8 @@ func TestProjectSQLMigrationsContract(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(files) != 21 {
-		t.Fatalf("migration files = %d, want 21", len(files))
+	if len(files) != 22 {
+		t.Fatalf("migration files = %d, want 22", len(files))
 	}
 	for i, file := range files {
 		wantVersion := uint64(i + 1)

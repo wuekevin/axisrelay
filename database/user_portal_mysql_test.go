@@ -4,6 +4,9 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"strconv"
+	"strings"
+	"sync"
 	"testing"
 	"time"
 )
@@ -85,5 +88,73 @@ func TestPortalUserAndAPIKeyLifecycleMySQL(t *testing.T) {
 	}
 	if status != "revoked" || gatewayID.Valid {
 		t.Fatalf("revoked portal key audit row = status %q gateway %#v", status, gatewayID)
+	}
+}
+
+func TestPortalEmailVerificationAndPasswordResetMySQL(t *testing.T) {
+	db, err := newTestDatabase(t, "portal-email-verification")
+	if err != nil {
+		t.Fatalf("open test database: %v", err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+	ctx := context.Background()
+	verifyHash := strings.Repeat("a", 64)
+	user, err := db.CreatePendingPortalUser(ctx, CreatePendingPortalUserInput{
+		PublicID: "usr_verify0123456789abcdef", Email: "verify@example.com", EmailNormalized: "verify@example.com",
+		PasswordHash: "old-hash", DisplayName: "Verify User", Locale: "zh-CN", Timezone: "Asia/Shanghai",
+		TokenHash: verifyHash, TokenExpires: time.Now().UTC().Add(time.Hour),
+	})
+	if err != nil || user == nil || user.Status != "pending_verification" {
+		t.Fatalf("CreatePendingPortalUser: user=%#v err=%v", user, err)
+	}
+
+	type result struct {
+		user *PortalUser
+		err  error
+	}
+	results := make(chan result, 2)
+	var wg sync.WaitGroup
+	for index := 0; index < 2; index++ {
+		wg.Add(1)
+		go func(index int) {
+			defer wg.Done()
+			verified, consumeErr := db.ConsumePortalEmailVerification(ctx, verifyHash, strings.Repeat(strconv.Itoa(index+1), 64), "127.0.0.1", "test", time.Now().UTC().Add(time.Hour))
+			results <- result{verified, consumeErr}
+		}(index)
+	}
+	wg.Wait()
+	close(results)
+	successes, invalid := 0, 0
+	for item := range results {
+		if item.err == nil && item.user != nil && item.user.Status == "active" && item.user.EmailVerifiedAt != nil {
+			successes++
+		}
+		if errors.Is(item.err, ErrPortalTokenInvalid) {
+			invalid++
+		}
+	}
+	if successes != 1 || invalid != 1 {
+		t.Fatalf("concurrent verification successes=%d invalid=%d", successes, invalid)
+	}
+
+	resetHash := strings.Repeat("b", 64)
+	if err := db.ReplacePortalEmailToken(ctx, user.ID, user.Email, "reset_password", resetHash, time.Now().UTC().Add(time.Hour)); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.ConsumePortalPasswordReset(ctx, resetHash, "new-hash"); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.ConsumePortalPasswordReset(ctx, resetHash, "another-hash"); !errors.Is(err, ErrPortalTokenInvalid) {
+		t.Fatalf("reused reset token error=%v", err)
+	}
+	if passwordHash, err := db.GetPortalPasswordHash(ctx, user.ID); err != nil || passwordHash != "new-hash" {
+		t.Fatalf("password hash=%q err=%v", passwordHash, err)
+	}
+	var activeSessions int
+	if err := db.conn.QueryRowContext(ctx, "SELECT COUNT(*) FROM sessions WHERE user_id=$1 AND revoked_at IS NULL", user.ID).Scan(&activeSessions); err != nil {
+		t.Fatal(err)
+	}
+	if activeSessions != 0 {
+		t.Fatalf("active sessions=%d, want 0", activeSessions)
 	}
 }

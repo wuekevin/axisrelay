@@ -10,8 +10,9 @@ import (
 )
 
 var (
-	ErrPortalEmailExists = errors.New("portal email already exists")
-	ErrPortalAPIKeyLimit = errors.New("portal api key limit reached")
+	ErrPortalEmailExists  = errors.New("portal email already exists")
+	ErrPortalAPIKeyLimit  = errors.New("portal api key limit reached")
+	ErrPortalTokenInvalid = errors.New("portal token is invalid or expired")
 )
 
 type PortalUser struct {
@@ -127,9 +128,9 @@ func (db *DB) CreatePortalUser(ctx context.Context, input CreatePortalUserInput)
 	defer tx.Rollback()
 
 	result, err := tx.ExecContext(ctx, `
-		INSERT INTO users (public_id, email, email_normalized, password_hash, status)
-		VALUES ($1, $2, $3, $4, 'active')`,
-		input.PublicID, input.Email, input.EmailNormalized, input.PasswordHash,
+		INSERT INTO users (public_id, email, email_normalized, password_hash, status, email_verified_at)
+		VALUES ($1, $2, $3, $4, 'active', $5)`,
+		input.PublicID, input.Email, input.EmailNormalized, input.PasswordHash, time.Now().UTC(),
 	)
 	if err != nil {
 		if portalUniqueViolation(err) {
@@ -167,6 +168,173 @@ func (db *DB) CreatePortalUser(ctx context.Context, input CreatePortalUserInput)
 		return nil, 0, err
 	}
 	return db.GetPortalUserByID(ctx, userID), sessionID, nil
+}
+
+type CreatePendingPortalUserInput struct {
+	PublicID        string
+	Email           string
+	EmailNormalized string
+	PasswordHash    string
+	DisplayName     string
+	Locale          string
+	Timezone        string
+	TokenHash       string
+	TokenExpires    time.Time
+}
+
+func (db *DB) CreatePendingPortalUser(ctx context.Context, input CreatePendingPortalUserInput) (*PortalUser, error) {
+	if db == nil || db.conn == nil {
+		return nil, errors.New("database is unavailable")
+	}
+	tx, err := db.conn.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+	result, err := tx.ExecContext(ctx, `
+		INSERT INTO users (public_id, email, email_normalized, password_hash, status)
+		VALUES ($1, $2, $3, $4, 'pending_verification')`,
+		input.PublicID, input.Email, input.EmailNormalized, input.PasswordHash)
+	if err != nil {
+		if portalUniqueViolation(err) {
+			return nil, ErrPortalEmailExists
+		}
+		return nil, err
+	}
+	userID, err := result.LastInsertId()
+	if err != nil {
+		return nil, err
+	}
+	if _, err = tx.ExecContext(ctx, `
+		INSERT INTO profiles (user_id, display_name, locale, timezone)
+		VALUES ($1, $2, $3, $4)`, userID, input.DisplayName, input.Locale, input.Timezone); err != nil {
+		return nil, err
+	}
+	if _, err = tx.ExecContext(ctx, `
+		INSERT INTO email_verifications (user_id, email, token_hash, purpose, expires_at)
+		VALUES ($1, $2, $3, 'verify_email', $4)`, userID, input.Email, input.TokenHash, input.TokenExpires); err != nil {
+		return nil, err
+	}
+	if err = tx.Commit(); err != nil {
+		return nil, err
+	}
+	return db.GetPortalUserByID(ctx, userID), nil
+}
+
+func (db *DB) ReplacePortalEmailToken(ctx context.Context, userID int64, email, purpose, tokenHash string, expiresAt time.Time) error {
+	tx, err := db.conn.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	now := time.Now().UTC()
+	if _, err = tx.ExecContext(ctx, `
+		UPDATE email_verifications SET consumed_at=$1
+		WHERE user_id=$2 AND purpose=$3 AND consumed_at IS NULL`, now, userID, purpose); err != nil {
+		return err
+	}
+	if _, err = tx.ExecContext(ctx, `
+		INSERT INTO email_verifications (user_id, email, token_hash, purpose, expires_at)
+		VALUES ($1, $2, $3, $4, $5)`, userID, email, tokenHash, purpose, expiresAt); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+func (db *DB) ConsumePortalEmailVerification(ctx context.Context, tokenHash, sessionHash, clientIP, userAgent string, sessionExpires time.Time) (*PortalUser, error) {
+	tx, err := db.conn.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+	now := time.Now().UTC()
+	var verificationID, userID int64
+	var email string
+	var expiresAt time.Time
+	if err = tx.QueryRowContext(ctx, `
+		SELECT id, user_id, email, expires_at FROM email_verifications
+		WHERE token_hash=$1 AND purpose='verify_email' AND consumed_at IS NULL
+		FOR UPDATE`, tokenHash).Scan(&verificationID, &userID, &email, &expiresAt); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrPortalTokenInvalid
+		}
+		return nil, err
+	}
+	if !expiresAt.After(now) {
+		return nil, ErrPortalTokenInvalid
+	}
+	result, err := tx.ExecContext(ctx, `
+		UPDATE email_verifications SET consumed_at=$1
+		WHERE id=$2 AND consumed_at IS NULL`, now, verificationID)
+	if err != nil {
+		return nil, err
+	}
+	if affected, _ := result.RowsAffected(); affected != 1 {
+		return nil, ErrPortalTokenInvalid
+	}
+	userResult, err := tx.ExecContext(ctx, `
+		UPDATE users SET status='active', email_verified_at=$1
+		WHERE id=$2 AND status='pending_verification' AND email_verified_at IS NULL AND deleted_at IS NULL`, now, userID)
+	if err != nil {
+		return nil, err
+	}
+	if affected, _ := userResult.RowsAffected(); affected != 1 {
+		return nil, ErrPortalTokenInvalid
+	}
+	if _, err = tx.ExecContext(ctx, `
+		INSERT INTO sessions (user_id, token_hash, client_ip, user_agent, expires_at, last_seen_at)
+		VALUES ($1, $2, $3, $4, $5, $6)`, userID, sessionHash, clientIP, userAgent, sessionExpires, now); err != nil {
+		return nil, err
+	}
+	if _, err = tx.ExecContext(ctx, `UPDATE users SET last_login_at=$1 WHERE id=$2`, now, userID); err != nil {
+		return nil, err
+	}
+	if _, err = tx.ExecContext(ctx, `
+		INSERT INTO login_logs (user_id, email_normalized, success, client_ip, user_agent)
+		VALUES ($1, $2, 1, $3, $4)`, userID, strings.ToLower(email), clientIP, userAgent); err != nil {
+		return nil, err
+	}
+	if err = tx.Commit(); err != nil {
+		return nil, err
+	}
+	return db.GetPortalUserByID(ctx, userID), nil
+}
+
+func (db *DB) ConsumePortalPasswordReset(ctx context.Context, tokenHash, passwordHash string) error {
+	tx, err := db.conn.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	now := time.Now().UTC()
+	var verificationID, userID int64
+	var expiresAt time.Time
+	if err = tx.QueryRowContext(ctx, `
+		SELECT id, user_id, expires_at FROM email_verifications
+		WHERE token_hash=$1 AND purpose='reset_password' AND consumed_at IS NULL
+		FOR UPDATE`, tokenHash).Scan(&verificationID, &userID, &expiresAt); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrPortalTokenInvalid
+		}
+		return err
+	}
+	if !expiresAt.After(now) {
+		return ErrPortalTokenInvalid
+	}
+	result, err := tx.ExecContext(ctx, `UPDATE email_verifications SET consumed_at=$1 WHERE id=$2 AND consumed_at IS NULL`, now, verificationID)
+	if err != nil {
+		return err
+	}
+	if affected, _ := result.RowsAffected(); affected != 1 {
+		return ErrPortalTokenInvalid
+	}
+	if _, err = tx.ExecContext(ctx, `UPDATE users SET password_hash=$1 WHERE id=$2 AND deleted_at IS NULL`, passwordHash, userID); err != nil {
+		return err
+	}
+	if _, err = tx.ExecContext(ctx, `UPDATE sessions SET revoked_at=$1 WHERE user_id=$2 AND revoked_at IS NULL`, now, userID); err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 
 func (db *DB) GetPortalUserByID(ctx context.Context, userID int64) *PortalUser {
@@ -248,7 +416,7 @@ func (db *DB) GetPortalUserBySession(ctx context.Context, tokenHash string, now 
 	}
 	row := db.conn.QueryRowContext(ctx, portalUserSelect+`
 		JOIN sessions s ON s.user_id=u.id
-		WHERE s.id=$1 AND u.status='active' AND u.deleted_at IS NULL`, sessionID)
+		WHERE s.id=$1 AND u.status='active' AND u.email_verified_at IS NOT NULL AND u.deleted_at IS NULL`, sessionID)
 	user, err := scanPortalUser(row)
 	if err != nil {
 		return nil, 0, err

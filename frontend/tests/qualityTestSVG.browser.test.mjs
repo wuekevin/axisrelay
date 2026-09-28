@@ -2,8 +2,8 @@ import assert from 'node:assert/strict'
 import { after, before, test } from 'node:test'
 import { readFile } from 'node:fs/promises'
 import { chromium } from 'playwright'
-import { qualityTestPreviewDocument } from '../src/lib/qualityTest.ts'
-import { qualityTestSVGExportScript, requestQualityTestSVG, validateQualityTestSVG, QUALITY_TEST_SVG_LIMIT, QUALITY_TEST_SVG_TIMEOUT } from '../src/lib/qualityTestSVG.ts'
+import { qualityTestPreviewDocument } from '../admin/src/lib/qualityTest.ts'
+import { qualityTestSVGExportScript, requestQualityTestSVG, validateQualityTestSVG, QUALITY_TEST_SVG_LIMIT, QUALITY_TEST_SVG_TIMEOUT } from '../admin/src/lib/qualityTestSVG.ts'
 
 let browser
 before(async () => { browser = await chromium.launch({ headless: true }) })

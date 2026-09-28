@@ -218,6 +218,11 @@ Vite proxies `/api` and `/health` to the backend. During development, open `http
 | `AXISRELAY_ADMIN_SECRET` | Admin dashboard secret. When set, `/admin` prompts for authentication |
 | `AXISRELAY_PUBLIC_SIGNUP_ENABLED` | Enable public user registration, default `true` |
 | `AXISRELAY_PUBLIC_USER_DEFAULT_QUOTA_USD` | Initial quota assigned to each self-service API key, default `1` |
+| `AXISRELAY_PUBLIC_BASE_URL` | Public HTTPS origin used in verification and password-reset links |
+| `AXISRELAY_SMTP_HOST` / `AXISRELAY_SMTP_PORT` | SMTP server and port; port defaults to `587` |
+| `AXISRELAY_SMTP_USERNAME` / `AXISRELAY_SMTP_PASSWORD` | Optional SMTP authentication pair |
+| `AXISRELAY_SMTP_FROM_ADDRESS` / `AXISRELAY_SMTP_FROM_NAME` | Verified sender address and display name |
+| `AXISRELAY_SMTP_TLS_MODE` | `starttls` (recommended), `implicit`, or `none` for local testing |
 | `AXISRELAY_DATABASE_DRIVER` | Database driver: `mysql` (default) or `postgres` |
 | `AXISRELAY_DATABASE_HOST` | Database host |
 | `AXISRELAY_DATABASE_PORT` | Database port; defaults to `3306` for MySQL and `5432` for PostgreSQL |
@@ -505,11 +510,11 @@ axisrelay/
 |- config/                      # Environment loading
 |- database/                    # Database access layer
 |- proxy/                       # Public proxy, forwarding, rate limiting
-`- frontend/                    # React + Vite admin dashboard
-   |- src/pages/                # Dashboard / Accounts / API Keys / Proxies / Images / Prompt Filter / Ops / Usage / Settings / Docs
-   |- src/components/           # UI components
-   |- src/locales/              # zh/en locales
-   `- vite.config.js            # Vite config
+`- frontend/                    # React + Vite workspace
+   |- web/                      # Website, authentication, user center, public portals
+   |- admin/                    # Admin-only application
+   |- shared/                   # Business-neutral shared boundary
+   `- dist/                     # Independent web/ and admin/ build outputs
 ```
 
 ---
@@ -517,7 +522,7 @@ axisrelay/
 ## Notes
 
 - `docker-compose.yml` pulls the GHCR image for deployment. `docker-compose.local.yml` uses `build: .` for local source builds.
-- The frontend base path is fixed at `/admin/` for both local development and production.
+- Web is served from `/`; the independently built Admin application is served from `/admin/`.
 - Before manually building the Go binary, run `npm run build` in `frontend/`.
 - `.env` controls physical runtime settings such as port, database, and Redis. Business settings are stored in the database and managed from the admin dashboard.
 - API keys are stored in the database and configured through the admin dashboard.
