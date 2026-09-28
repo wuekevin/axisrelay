@@ -263,6 +263,8 @@ Vite 会自动代理 `/api` 和 `/health` 到后端，开发时访问 `http://lo
 | `AXISRELAY_PORT` | HTTP 端口，默认 `8080` |
 | `AXISRELAY_MAX_REQUEST_BODY_SIZE_MB` | HTTP 请求体上限，单位 MB，默认 `48` |
 | `AXISRELAY_ADMIN_SECRET` | 管理后台登录密钥；设置后首次访问 `/admin` 会弹出密码输入框 |
+| `AXISRELAY_PUBLIC_SIGNUP_ENABLED` | 是否开放官网用户注册，默认 `true` |
+| `AXISRELAY_PUBLIC_USER_DEFAULT_QUOTA_USD` | 用户自助创建的每把 API Key 初始额度，默认 `1` |
 | `AXISRELAY_DATABASE_DRIVER` | 数据库驱动：`mysql`（默认）或 `postgres` |
 | `AXISRELAY_DATABASE_HOST` | 数据库主机 |
 | `AXISRELAY_DATABASE_PORT` | 数据库端口；MySQL 默认 `3306`，PostgreSQL 默认 `5432` |

@@ -216,6 +216,8 @@ Vite proxies `/api` and `/health` to the backend. During development, open `http
 | `AXISRELAY_PORT` | HTTP port, default `8080` |
 | `AXISRELAY_MAX_REQUEST_BODY_SIZE_MB` | HTTP request body limit in MB, default `48` |
 | `AXISRELAY_ADMIN_SECRET` | Admin dashboard secret. When set, `/admin` prompts for authentication |
+| `AXISRELAY_PUBLIC_SIGNUP_ENABLED` | Enable public user registration, default `true` |
+| `AXISRELAY_PUBLIC_USER_DEFAULT_QUOTA_USD` | Initial quota assigned to each self-service API key, default `1` |
 | `AXISRELAY_DATABASE_DRIVER` | Database driver: `mysql` (default) or `postgres` |
 | `AXISRELAY_DATABASE_HOST` | Database host |
 | `AXISRELAY_DATABASE_PORT` | Database port; defaults to `3306` for MySQL and `5432` for PostgreSQL |

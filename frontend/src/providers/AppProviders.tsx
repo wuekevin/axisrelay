@@ -17,6 +17,8 @@ import RouteErrorBoundary from '../components/RouteErrorBoundary'
 import StateShell from '../components/StateShell'
 import { ToastProvider } from '../components/ToastProvider'
 import { ThemeProvider } from '../hooks/useTheme'
+import { portalAPI } from '../portal/api'
+import type { AuthSessionResponse, PortalUser } from '../portal/types'
 import {
   ADMIN_AUTH_CHANGED_EVENT,
   ADMIN_AUTH_REQUIRED_EVENT,
@@ -28,8 +30,12 @@ import {
 const queryClient = new QueryClient()
 
 type UserAuthContextValue = {
+  status: 'loading' | 'authenticated' | 'anonymous'
   authenticated: boolean
-  setAuthenticated: (authenticated: boolean) => void
+  user: PortalUser | null
+  setSession: (session: AuthSessionResponse) => void
+  refresh: () => Promise<void>
+  logout: () => Promise<void>
 }
 
 const UserAuthContext = createContext<UserAuthContextValue | null>(null)
@@ -43,10 +49,42 @@ export function useUserAuth() {
 }
 
 function UserAuthProvider({ children }: PropsWithChildren) {
-  const [authenticated, setAuthenticated] = useState(false)
+  const [status, setStatus] = useState<UserAuthContextValue['status']>('loading')
+  const [user, setUser] = useState<PortalUser | null>(null)
+
+  const setSession = useCallback((session: AuthSessionResponse) => {
+    if (session.authenticated && session.user) {
+      setUser(session.user)
+      setStatus('authenticated')
+      return
+    }
+    setUser(null)
+    setStatus('anonymous')
+  }, [])
+
+  const refresh = useCallback(async () => {
+    try {
+      setSession(await portalAPI.session())
+    } catch {
+      setSession({ authenticated: false })
+    }
+  }, [setSession])
+
+  const logout = useCallback(async () => {
+    try {
+      await portalAPI.logout()
+    } finally {
+      setSession({ authenticated: false })
+    }
+  }, [setSession])
+
+  useEffect(() => {
+    void refresh()
+  }, [refresh])
+
   const value = useMemo(
-    () => ({ authenticated, setAuthenticated }),
-    [authenticated],
+    () => ({ status, authenticated: status === 'authenticated', user, setSession, refresh, logout }),
+    [logout, refresh, setSession, status, user],
   )
 
   return <UserAuthContext.Provider value={value}>{children}</UserAuthContext.Provider>

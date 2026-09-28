@@ -122,7 +122,8 @@ export function BrandingProvider({ children }: PropsWithChildren) {
   const faviconHref = siteLogo || DEFAULT_FAVICON
 
   useEffect(() => {
-    document.title = `${siteName} 管理后台`
+    const publicSiteName = siteName === DEFAULT_SITE_NAME ? 'AxisRelay' : siteName
+    document.title = window.location.pathname.startsWith('/admin') ? `${siteName} 管理后台` : publicSiteName
     setIconLink('icon', faviconHref)
     setIconLink('apple-touch-icon', faviconHref)
   }, [faviconHref, siteName])

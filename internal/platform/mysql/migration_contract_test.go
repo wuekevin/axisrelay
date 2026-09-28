@@ -42,8 +42,8 @@ func TestProjectSQLMigrationsContract(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(files) != 20 {
-		t.Fatalf("migration files = %d, want 20", len(files))
+	if len(files) != 21 {
+		t.Fatalf("migration files = %d, want 21", len(files))
 	}
 	for i, file := range files {
 		wantVersion := uint64(i + 1)
@@ -146,6 +146,7 @@ func TestProjectSQLMigrationsContract(t *testing.T) {
 		"UNIQUE KEY uk_users_email (email)",
 		"UNIQUE KEY uk_users_email_normalized (email_normalized)",
 		"UNIQUE KEY uk_sessions_token_hash (token_hash)",
+		"UNIQUE KEY uk_user_api_keys_gateway (gateway_api_key_id)",
 		"UNIQUE KEY uk_wallets_user_id (user_id)",
 		"UNIQUE KEY uk_orders_order_no (order_no)",
 		"UNIQUE KEY uk_payments_payment_no (payment_no)",
