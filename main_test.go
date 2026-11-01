@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"fmt"
 	"log"
 	"net/http"
 	"net/http/httptest"
@@ -45,6 +46,36 @@ func TestStartupLogUsesAxisRelayIdentityAndMachineReadableDrivers(t *testing.T) 
 		if strings.Contains(got, forbidden) {
 			t.Fatalf("startup log contains forbidden legacy identity %q: %s", forbidden, got)
 		}
+	}
+}
+
+func TestDatabaseConnectionDiagnosticsAreSafeAndClassified(t *testing.T) {
+	cfg := config.DatabaseConfig{
+		Driver:   "mysql",
+		Host:     "mysql8.internal",
+		Port:     3306,
+		User:     "axisrelay",
+		Password: "sensitive-password",
+		DBName:   "axisrelay",
+	}
+	target := cfg.SafeTarget()
+	if !strings.Contains(target, `host="mysql8.internal"`) || !strings.Contains(target, `user="axisrelay"`) || !strings.Contains(target, `database="axisrelay"`) {
+		t.Fatalf("safe target is incomplete: %s", target)
+	}
+	if strings.Contains(target, cfg.Password) {
+		t.Fatalf("safe target leaked password: %s", target)
+	}
+
+	err := fmt.Errorf("database auth failed for %s: password=%s: could not use requested auth plugin 'mysql_native_password'", cfg.DSN(), cfg.Password)
+	if got := databaseConnectionErrorKind(err); got != "authentication" {
+		t.Fatalf("databaseConnectionErrorKind() = %q, want authentication", got)
+	}
+	safe := safeDatabaseConnectionError(cfg, err)
+	if strings.Contains(safe, cfg.Password) || strings.Contains(safe, cfg.DSN()) {
+		t.Fatalf("safe error leaked credentials or DSN: %s", safe)
+	}
+	if !strings.Contains(safe, "could not use requested auth plugin") {
+		t.Fatalf("safe error hid the actionable authentication error: %s", safe)
 	}
 }
 

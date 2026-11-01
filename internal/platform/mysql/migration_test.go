@@ -33,11 +33,23 @@ func TestConfigDSNUsesCommercialMySQLContract(t *testing.T) {
 	if !parsed.ParseTime {
 		t.Fatal("parseTime must be true")
 	}
+	if !parsed.AllowNativePasswords {
+		t.Fatal("official driver defaults must not disable native-password negotiation")
+	}
+	if parsed.AllowCleartextPasswords {
+		t.Fatal("cleartext password authentication must remain disabled")
+	}
+	if parsed.AllowOldPasswords {
+		t.Fatal("pre-4.1 password authentication must remain disabled")
+	}
 	if parsed.Loc != time.UTC {
 		t.Fatalf("loc = %v, want UTC", parsed.Loc)
 	}
 	if !strings.Contains(dsn, "charset=utf8mb4") {
 		t.Fatalf("dsn %q does not force charset=utf8mb4", dsn)
+	}
+	if strings.Contains(dsn, "allowNativePasswords=false") {
+		t.Fatalf("dsn unexpectedly disables native-password negotiation: %q", dsn)
 	}
 }
 

@@ -110,22 +110,25 @@ func (c Config) DSN() (string, error) {
 		return "", err
 	}
 
-	driverConfig := drivermysql.Config{
-		User:         c.User,
-		Passwd:       c.Password,
-		Net:          "tcp",
-		Addr:         c.Address(),
-		DBName:       c.Database,
-		ParseTime:    true,
-		Loc:          time.UTC,
-		Collation:    DefaultCollation,
-		Timeout:      c.ConnectTimeout,
-		ReadTimeout:  c.ReadTimeout,
-		WriteTimeout: c.WriteTimeout,
-		Params: map[string]string{
-			"charset":   DefaultCharset,
-			"time_zone": "'+00:00'",
-		},
+	// Start from the driver's official defaults. A zero-value mysql.Config has
+	// AllowNativePasswords=false, while mysql.NewConfig keeps the supported
+	// authentication negotiation defaults (including caching_sha2_password)
+	// without forcing a specific server-side plugin.
+	driverConfig := drivermysql.NewConfig()
+	driverConfig.User = c.User
+	driverConfig.Passwd = c.Password
+	driverConfig.Net = "tcp"
+	driverConfig.Addr = c.Address()
+	driverConfig.DBName = c.Database
+	driverConfig.ParseTime = true
+	driverConfig.Loc = time.UTC
+	driverConfig.Collation = DefaultCollation
+	driverConfig.Timeout = c.ConnectTimeout
+	driverConfig.ReadTimeout = c.ReadTimeout
+	driverConfig.WriteTimeout = c.WriteTimeout
+	driverConfig.Params = map[string]string{
+		"charset":   DefaultCharset,
+		"time_zone": "'+00:00'",
 	}
 	return driverConfig.FormatDSN(), nil
 }
