@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
 	"strconv"
@@ -54,6 +55,41 @@ func logStartupConfig(cfg *config.Config) {
 	)
 }
 
+func databaseConnectionErrorKind(err error) string {
+	if err == nil {
+		return "none"
+	}
+	message := strings.ToLower(err.Error())
+	for _, marker := range []string{"authentication", "auth plugin", "access denied", "password"} {
+		if strings.Contains(message, marker) {
+			return "authentication"
+		}
+	}
+	for _, marker := range []string{"connection refused", "no such host", "network is unreachable", "i/o timeout", "deadline exceeded"} {
+		if strings.Contains(message, marker) {
+			return "network"
+		}
+	}
+	return "database"
+}
+
+func safeDatabaseConnectionError(cfg config.DatabaseConfig, err error) string {
+	if err == nil {
+		return ""
+	}
+	message := err.Error()
+	redactions := []string{cfg.DSN(), cfg.Password}
+	if cfg.Password != "" {
+		redactions = append(redactions, url.QueryEscape(cfg.Password), url.PathEscape(cfg.Password))
+	}
+	for _, secret := range redactions {
+		if secret != "" {
+			message = strings.ReplaceAll(message, secret, "[REDACTED]")
+		}
+	}
+	return message
+}
+
 // main 加载配置、初始化存储与路由，并启动 AxisRelay HTTP 服务。
 func main() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
@@ -68,9 +104,16 @@ func main() {
 	logStartupConfig(cfg)
 
 	// 2. 初始化数据库
+	databaseTarget := cfg.Database.SafeTarget()
+	log.Printf("database connection target: %s", databaseTarget)
 	db, err := database.New(cfg.Database.Driver, cfg.Database.DSN())
 	if err != nil {
-		log.Fatalf("数据库初始化失败: %v", err)
+		log.Fatalf(
+			"数据库初始化失败: category=%s target=(%s) error=%s",
+			databaseConnectionErrorKind(err),
+			databaseTarget,
+			safeDatabaseConnectionError(cfg.Database, err),
+		)
 	}
 	defer db.Close()
 	proxy.SetCodexTurnStateTemplateDatabase(db)

@@ -24,6 +24,31 @@ type DatabaseConfig struct {
 	DBName   string
 }
 
+// SafeTarget returns the configured database endpoint without credentials or
+// a DSN. Quoted fields prevent control characters from forging log lines.
+func (d *DatabaseConfig) SafeTarget() string {
+	if d == nil {
+		return "driver=unknown"
+	}
+	port := d.Port
+	if port == 0 {
+		switch strings.ToLower(strings.TrimSpace(d.Driver)) {
+		case "mysql":
+			port = 3306
+		case "postgres", "postgresql":
+			port = 5432
+		}
+	}
+	return fmt.Sprintf(
+		"driver=%s host=%q port=%d user=%q database=%q",
+		strings.ToLower(strings.TrimSpace(d.Driver)),
+		strings.TrimSpace(d.Host),
+		port,
+		strings.TrimSpace(d.User),
+		strings.TrimSpace(d.DBName),
+	)
+}
+
 // DSN 返回当前驱动的连接字符串。
 func (d *DatabaseConfig) DSN() string {
 	switch strings.ToLower(strings.TrimSpace(d.Driver)) {

@@ -56,6 +56,29 @@ func TestLoadDefaultsToMySQLAndRedis(t *testing.T) {
 	}
 }
 
+func TestLoadReadsMySQLConnectionTarget(t *testing.T) {
+	t.Setenv("AXISRELAY_DATABASE_DRIVER", "mysql")
+	t.Setenv("AXISRELAY_DATABASE_HOST", "mysql8.internal")
+	t.Setenv("AXISRELAY_DATABASE_PORT", "3307")
+	t.Setenv("AXISRELAY_DATABASE_USER", "axisrelay_app")
+	t.Setenv("AXISRELAY_DATABASE_PASSWORD", "not-logged")
+	t.Setenv("AXISRELAY_DATABASE_NAME", "axisrelay_prod")
+	t.Setenv("AXISRELAY_CACHE_DRIVER", "redis")
+	t.Setenv("AXISRELAY_REDIS_ADDR", "127.0.0.1:6379")
+
+	cfg, err := Load("__not_exists__.env")
+	if err != nil {
+		t.Fatalf("Load() returned error: %v", err)
+	}
+	got := cfg.Database
+	if got.Driver != "mysql" || got.Host != "mysql8.internal" || got.Port != 3307 || got.User != "axisrelay_app" || got.DBName != "axisrelay_prod" {
+		t.Fatalf("database target was not read from AXISRELAY_DATABASE_*: %+v", got)
+	}
+	if summary := got.SafeTarget(); strings.Contains(summary, got.Password) || strings.Contains(summary, "not-logged") {
+		t.Fatalf("safe database target leaked the password: %s", summary)
+	}
+}
+
 func TestLoadRejectsSQLiteDatabaseDriver(t *testing.T) {
 	keys := []string{
 		"AXISRELAY_PORT",
