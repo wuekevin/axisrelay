@@ -208,8 +208,7 @@ func TestGPT56VariantPricing(t *testing.T) {
 	}
 }
 
-// gpt-6-astra 在 Codex 中不收长上下文溢价：跨过 272K 后仍使用同一组单价。
-// standard $10/$50、缓存 $1；保留现有 fast 2× 倍率。
+// gpt-6-astra 跨过 272K 后按长上下文价格计费。
 // 变体后缀 / 思考强度别名同价；未知 gpt-6 变体按 astra 兜底，绝不能掉进默认价。
 func TestGPT6AstraPricing(t *testing.T) {
 	for _, model := range []string{"gpt-6-astra", "gpt-6-astra-high", "gpt-6-astra(xhigh)", "GPT-6-Astra", "gpt-6", "gpt-6-nova"} {
@@ -220,9 +219,9 @@ func TestGPT6AstraPricing(t *testing.T) {
 		assertFloatEqual(t, p.InputPricePerMToken, 10.0)
 		assertFloatEqual(t, p.OutputPricePerMToken, 50.0)
 		assertFloatEqual(t, p.CacheReadPricePerMToken, 1.0)
-		assertFloatEqual(t, p.LongInputPricePerMToken, 0)
-		assertFloatEqual(t, p.LongOutputPricePerMToken, 0)
-		assertFloatEqual(t, p.LongCacheReadPricePerMToken, 0)
+		assertFloatEqual(t, p.LongInputPricePerMToken, 20)
+		assertFloatEqual(t, p.LongOutputPricePerMToken, 75)
+		assertFloatEqual(t, p.LongCacheReadPricePerMToken, 2)
 	}
 
 	for _, input := range []int{100_000, 271_999, 272_000, 272_001, 1_000_000} {
@@ -232,13 +231,18 @@ func TestGPT6AstraPricing(t *testing.T) {
 		}{{"", 1}, {"fast", 2}, {"priority", 2}, {"flex", 0.5}} {
 			const cached, output = 100_000, 1_000
 			got := CalculateCostBreakdown(input, output, cached, "gpt-6-astra", tier.name)
-			if got.LongContext {
-				t.Fatalf("Astra applied long-context pricing at input=%d tier=%q: %+v", input, tier.name, got)
+			long := input >= 272000
+			if got.LongContext != long {
+				t.Fatalf("Astra long-context=%v at input=%d tier=%q, want %v: %+v", got.LongContext, input, tier.name, long, got)
 			}
-			assertFloatEqual(t, got.InputPricePerMToken, 10*tier.multiplier)
-			assertFloatEqual(t, got.CacheReadPricePerMToken, tier.multiplier)
-			assertFloatEqual(t, got.OutputPricePerMToken, 50*tier.multiplier)
-			want := (float64(input-cached)*10 + cached + output*50) / 1_000_000 * tier.multiplier
+			inputPrice, cachePrice, outputPrice := 10.0, 1.0, 50.0
+			if long {
+				inputPrice, cachePrice, outputPrice = 20, 2, 75
+			}
+			assertFloatEqual(t, got.InputPricePerMToken, inputPrice*tier.multiplier)
+			assertFloatEqual(t, got.CacheReadPricePerMToken, cachePrice*tier.multiplier)
+			assertFloatEqual(t, got.OutputPricePerMToken, outputPrice*tier.multiplier)
+			want := (float64(input-cached)*inputPrice + cached*cachePrice + output*outputPrice) / 1_000_000 * tier.multiplier
 			assertFloatEqual(t, got.TotalCost, want)
 		}
 	}

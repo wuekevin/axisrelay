@@ -235,6 +235,17 @@ func TestValidateResponsesAPIRequestAcceptsAgentMessageInput(t *testing.T) {
 	}
 }
 
+func TestValidateResponsesAPIRequestAcceptsConfigurationUpdateInput(t *testing.T) {
+	result := ValidateResponsesAPIRequest(
+		[]byte(`{"model":"gpt-5.5","input":[{"type":"configuration_update","session":{"mode":"default"}}]}`),
+		[]string{"gpt-5.5"},
+	)
+
+	if !result.Valid {
+		t.Fatalf("expected configuration_update input to be valid, got %#v", result.Errors)
+	}
+}
+
 func TestSendListIncludesOptionalHasMore(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	w := httptest.NewRecorder()

@@ -64,12 +64,26 @@ var (
 	defaultModelPricing = &ModelPricing{InputPricePerMToken: 1.0, OutputPricePerMToken: 2.0}
 
 	modelPricingRules = []modelPricingRule{
-		// gpt-6-astra：Codex 长上下文例外，超过 272K 仍按 $10/$50、缓存 $1。
-		// 保留现有 fast（priority）2× 倍率，由 serviceTierCostMultiplier 兜底。
+		// gpt-6-astra：超过 272K 按长上下文价计费（输入/缓存 2×、输出 1.5×）。
 		{model: "gpt-6-astra", pricing: ModelPricing{
-			InputPricePerMToken:     10.0,
-			OutputPricePerMToken:    50.0,
-			CacheReadPricePerMToken: 1.0,
+			InputPricePerMToken:         10.0,
+			OutputPricePerMToken:        50.0,
+			CacheReadPricePerMToken:     1.0,
+			LongInputPricePerMToken:     20.0,
+			LongOutputPricePerMToken:    75.0,
+			LongCacheReadPricePerMToken: 2.0,
+		}},
+		// gpt-6.1-sol has its own published prices and must not fall through to
+		// the more expensive generic GPT-6/Astra fallback.
+		{model: "gpt-6.1-sol", pricing: ModelPricing{
+			InputPricePerMToken:         2.0,
+			OutputPricePerMToken:        10.0,
+			CacheReadPricePerMToken:     0.1,
+			CacheWrite5mPricePerMToken:  2.5,
+			CacheWrite1hPricePerMToken:  2.5,
+			LongInputPricePerMToken:     4.0,
+			LongOutputPricePerMToken:    15.0,
+			LongCacheReadPricePerMToken: 0.2,
 		}},
 		{model: "gpt-5.5", pricing: ModelPricing{
 			InputPricePerMToken:                 5.0,
@@ -465,6 +479,8 @@ func normalizeBillingModelName(model string) string {
 func normalizeCodexBillingModel(model string) (string, bool) {
 	compact := strings.NewReplacer(" ", "-", "_", "-").Replace(strings.ToLower(model))
 	switch {
+	case strings.HasPrefix(compact, "gpt-6.1-sol") || strings.HasPrefix(compact, "gpt6.1-sol"):
+		return "gpt-6.1-sol", true
 	// gpt-6 世代（官方定价页 2026-09）：目前只有 astra 一个公开型号，
 	// 未知 gpt-6 变体按 astra 兜底，避免掉进 $1/$2 的默认价严重低估。
 	// 只认 gpt-6- / gpt-6. / 裸 gpt-6 前缀，gpt-5.6 不含 "gpt-6" 不会误命中。

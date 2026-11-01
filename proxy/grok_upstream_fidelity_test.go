@@ -4,9 +4,12 @@ import (
 	"bytes"
 	"compress/gzip"
 	"net/http"
+	"regexp"
 	"testing"
 
 	"github.com/andybalholm/brotli"
+	"github.com/google/uuid"
+	"github.com/klauspost/compress/zstd"
 	"github.com/wuekevin/axisrelay/auth"
 )
 
@@ -18,10 +21,11 @@ func TestApplyGrokRequestHeadersAlignsOfficialCLI(t *testing.T) {
 	account := &auth.Account{DBID: 1, UpstreamType: auth.UpstreamGrok, AccessToken: "at"}
 	applyGrokRequestHeaders(req, account, "tok", nil, nil)
 	checks := map[string]string{
-		"Accept":                   "text/event-stream",
-		"x-grok-doom-loop-check":   "1024",
-		"x-compactions-remaining":  "1",
-		"x-grok-client-identifier": grokClientIdentifier,
+		"Accept":                        "text/event-stream",
+		"x-grok-doom-loop-check":        "1024",
+		"x-grok-exact-repetition-check": "64",
+		"x-compactions-remaining":       "1",
+		"x-grok-client-identifier":      grokClientIdentifier,
 	}
 	for key, want := range checks {
 		if got := req.Header.Get(key); got != want {
@@ -113,6 +117,44 @@ func TestApplyGrokRequestHeadersReusesConversationID(t *testing.T) {
 	}
 	if req1.Header.Get("x-grok-req-id") == req2.Header.Get("x-grok-req-id") {
 		t.Fatal("req-id must stay unique per request")
+	}
+	if _, err := uuid.Parse(req1.Header.Get("x-grok-req-id")); err != nil {
+		t.Fatalf("req-id is not a UUID: %q", req1.Header.Get("x-grok-req-id"))
+	}
+	if got := req1.Header.Get("traceparent"); !regexp.MustCompile(`^00-[0-9a-f]{32}-[0-9a-f]{16}-01$`).MatchString(got) {
+		t.Fatalf("traceparent = %q", got)
+	}
+}
+
+func TestEnsureGrokPromptCacheKey(t *testing.T) {
+	headers := make(http.Header)
+	headers.Set("Session-Id", "stable-session")
+	body := []byte(`{"model":"grok-4.7-fast","input":"hello"}`)
+	got := ensureGrokPromptCacheKey(body, headers, body)
+	if !bytes.Contains(got, []byte(`"prompt_cache_key":"stable-session"`)) {
+		t.Fatalf("missing stable prompt cache key: %s", got)
+	}
+	explicit := []byte(`{"model":"grok-4.7-fast","prompt_cache_key":"memory-scope","input":"hello"}`)
+	if got := ensureGrokPromptCacheKey(explicit, headers, body); !bytes.Equal(got, explicit) {
+		t.Fatalf("explicit prompt cache key changed: %s", got)
+	}
+}
+
+func TestCompressGrokRequestBodyForOAuth(t *testing.T) {
+	account := &auth.Account{UpstreamType: auth.UpstreamGrok, AccessToken: "oauth-token"}
+	body := bytes.Repeat([]byte(`{"type":"message","role":"user","content":"compress me"}`), 2000)
+	compressed, encoding := compressGrokRequestBody(account, body)
+	if encoding != "zstd" || len(compressed) >= len(body) {
+		t.Fatalf("encoding=%q compressed=%d original=%d", encoding, len(compressed), len(body))
+	}
+	decoder, err := zstd.NewReader(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer decoder.Close()
+	decoded, err := decoder.DecodeAll(compressed, nil)
+	if err != nil || !bytes.Equal(decoded, body) {
+		t.Fatalf("decode compressed request: %v", err)
 	}
 }
 

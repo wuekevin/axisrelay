@@ -33,7 +33,6 @@ type grokPreflightResult struct {
 // grokDroppedTopLevelFields 是 Codex 管道注入、Grok 上游不接受的顶层字段。
 var grokDroppedTopLevelFields = map[string]struct{}{
 	"client_metadata":   {},
-	"prompt_cache_key":  {},
 	"service_tier":      {},
 	"safety_identifier": {},
 }

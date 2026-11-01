@@ -22,12 +22,10 @@ import (
 	"github.com/wuekevin/axisrelay/auth"
 )
 
-// Grok CLI 请求头契约的默认值（与 Grok CLI 0.2.106 实抓流量对齐），可用环境变量覆盖，
-// 上游升级 CLI 版本导致指纹校验失败时无需改代码。
-// 0.2.106 契约：UA 为 "grok-pager/<v> grok-shell/<v> (<os>; <arch>)"，
-// identifier=grok-pager、mode=interactive，不再携带 client-surface / client-name 头。
+// Grok CLI 请求头契约的默认值（与 Grok CLI 1.0.46 交互模式实抓流量对齐）。
+// 上游会直接以 426 拒绝过旧版本，环境变量仍可用于紧急覆盖。
 var (
-	grokClientVersion    = grokEnv("AXISRELAY_GROK_CLIENT_VERSION", "0.2.106")
+	grokClientVersion    = grokEnv("AXISRELAY_GROK_CLIENT_VERSION", "1.0.46")
 	grokClientIdentifier = grokEnv("AXISRELAY_GROK_CLIENT_IDENTIFIER", "grok-pager")
 	grokClientMode       = grokEnv("AXISRELAY_GROK_CLIENT_MODE", "interactive")
 	grokTokenAuth        = grokEnv("AXISRELAY_GROK_TOKEN_AUTH", "xai-grok-cli")
@@ -35,10 +33,15 @@ var (
 	// context window 500k × 80%；环境变量非空时作为逃生阀直接覆盖推导结果。
 	grokCompactionAtOverride = strings.TrimSpace(os.Getenv("AXISRELAY_GROK_COMPACTION_AT"))
 	grokCompactionAtDefault  = "400000"
-	// 官方 Grok CLI 1.0.4 实抓：doom-loop 窗口 1024、会话内剩余压缩次数 1。
+	// 官方 Grok CLI 1.0.46 实抓：doom-loop 窗口 1024、会话内剩余压缩次数 1。
 	grokDoomLoopCheck        = grokEnv("AXISRELAY_GROK_DOOM_LOOP_CHECK", "1024")
 	grokCompactionsRemaining = grokEnv("AXISRELAY_GROK_COMPACTIONS_REMAINING", "1")
+	grokExactRepetitionCheck = grokEnv("AXISRELAY_GROK_EXACT_REPETITION_CHECK", "64")
 )
+
+// grokRequestCompressionMinBytes matches the official CLI's behavior: small
+// requests remain plain JSON and larger OAuth requests use zstd.
+const grokRequestCompressionMinBytes = 64 << 10
 
 func grokEnv(key, fallback string) string {
 	if value := strings.TrimSpace(os.Getenv(key)); value != "" {
@@ -61,9 +64,56 @@ func grokCompactionAtForAccount(account *auth.Account) string {
 		return grokCompactionAtOverride
 	}
 	if window := account.GetGrokContextWindow(); window > 0 {
-		return strconv.FormatInt(window*grokCompactionThresholdPercent/100, 10)
+		derived := window * grokCompactionThresholdPercent / 100
+		floor, err := strconv.ParseInt(grokCompactionAtDefault, 10, 64)
+		if err != nil || derived < floor {
+			return grokCompactionAtDefault
+		}
+		return strconv.FormatInt(derived, 10)
 	}
 	return grokCompactionAtDefault
+}
+
+func grokRequestCompressionEnabled(account *auth.Account) bool {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("AXISRELAY_GROK_REQUEST_COMPRESSION"))) {
+	case "zstd", "on", "true", "1":
+		return true
+	case "off", "none", "false", "0", "plain":
+		return false
+	}
+	return account != nil && account.GrokAuthKind() != auth.GrokAuthKindAPIKey
+}
+
+func compressGrokRequestBody(account *auth.Account, body []byte) ([]byte, string) {
+	if len(body) < grokRequestCompressionMinBytes || !grokRequestCompressionEnabled(account) {
+		return body, ""
+	}
+	encoder := codexRequestZstdEncoder()
+	if encoder == nil {
+		return body, ""
+	}
+	compressed := encoder.EncodeAll(body, nil)
+	if len(compressed) == 0 || len(compressed) >= len(body) {
+		return body, ""
+	}
+	return compressed, "zstd"
+}
+
+// ensureGrokPromptCacheKey preserves an explicit key and otherwise aligns it
+// with the stable Grok conversation identity used by the official CLI.
+func ensureGrokPromptCacheKey(body []byte, headers http.Header, conversationBody []byte) []byte {
+	if strings.TrimSpace(gjson.GetBytes(body, "prompt_cache_key").String()) != "" {
+		return body
+	}
+	key := resolveGrokConversationID(headers, conversationBody)
+	if key == "" {
+		return body
+	}
+	updated, err := sjson.SetBytes(body, "prompt_cache_key", key)
+	if err != nil {
+		return body
+	}
+	return updated
 }
 
 // grokUserAgentOS 返回 UA 里的平台名。官方 CLI 用 "macos" 而非 Go 的 "darwin"。
@@ -74,22 +124,35 @@ func grokUserAgentOS() string {
 	return runtime.GOOS
 }
 
-func grokUserAgent() string {
-	if grokClientIdentifier == "grok-shell" {
-		return fmt.Sprintf("grok-shell/%s (%s; %s)", grokClientVersion, grokUserAgentOS(), runtime.GOARCH)
+func grokUserAgentArch() string {
+	switch runtime.GOARCH {
+	case "arm64":
+		return "aarch64"
+	case "amd64":
+		return "x86_64"
+	default:
+		return runtime.GOARCH
 	}
-	return fmt.Sprintf("%s/%s grok-shell/%s (%s; %s)", grokClientIdentifier, grokClientVersion, grokClientVersion, grokUserAgentOS(), runtime.GOARCH)
 }
 
-// grokAgentID 为每个账号生成稳定的 agent 标识（32 位 hex，与 Grok CLI 的
-// global agent id 形态一致）。
+func grokUserAgent() string {
+	if grokClientIdentifier == "grok-shell" {
+		return fmt.Sprintf("grok-shell/%s (%s; %s)", grokClientVersion, grokUserAgentOS(), grokUserAgentArch())
+	}
+	return fmt.Sprintf("%s/%s grok-shell/%s (%s; %s)", grokClientIdentifier, grokClientVersion, grokClientVersion, grokUserAgentOS(), grokUserAgentArch())
+}
+
+// grokAgentID 为每个账号生成稳定的 UUIDv5 agent 标识。
 func grokAgentID(account *auth.Account) string {
-	sum := sha256.Sum256(fmt.Appendf(nil, "axisrelay:grok-agent:%d", account.ID()))
-	return hex.EncodeToString(sum[:16])
+	return uuid.NewSHA1(uuid.NameSpaceOID, fmt.Appendf(nil, "axisrelay:grok-agent:%d", account.ID())).String()
 }
 
 func grokRandomHexID() string {
 	return strings.ReplaceAll(uuid.New().String(), "-", "")
+}
+
+func grokTraceparent() string {
+	return "00-" + grokRandomHexID() + "-" + grokRandomHexID()[:16] + "-01"
 }
 
 // resolveGrokConversationID 给官方 Grok CLI 的 session/conv 头一个跨轮稳定值。
@@ -165,6 +228,7 @@ func applyGrokRequestHeaders(req *http.Request, account *auth.Account, bearer st
 	req.Header.Set("x-grok-client-identifier", grokClientIdentifier)
 	req.Header.Set("x-grok-client-mode", grokClientMode)
 	req.Header.Set("x-grok-doom-loop-check", grokDoomLoopCheck)
+	req.Header.Set("x-grok-exact-repetition-check", grokExactRepetitionCheck)
 	req.Header.Set("x-compactions-remaining", grokCompactionsRemaining)
 	if compactionAt := grokCompactionAtForAccount(account); compactionAt != "" {
 		req.Header.Set("x-compaction-at", compactionAt)
@@ -178,7 +242,8 @@ func applyGrokRequestHeaders(req *http.Request, account *auth.Account, bearer st
 	sessionID := resolveGrokConversationID(downstreamHeaders, inboundBody)
 	req.Header.Set("x-grok-session-id", sessionID)
 	req.Header.Set("x-grok-conv-id", sessionID)
-	req.Header.Set("x-grok-req-id", grokRandomHexID())
+	req.Header.Set("x-grok-req-id", uuid.NewString())
+	req.Header.Set("traceparent", grokTraceparent())
 
 	if userID := account.GrokUserID(); userID != "" && !isAPIKey {
 		req.Header.Set("x-userid", userID)
@@ -229,11 +294,16 @@ func ExecuteGrokRequest(ctx context.Context, account *auth.Account, requestBody 
 	model := preflight.Model
 
 	send := func(body []byte) (*http.Response, error) {
-		req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(body))
+		body = ensureGrokPromptCacheKey(body, headers, conversationBody)
+		outbound, encoding := compressGrokRequestBody(account, body)
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(outbound))
 		if err != nil {
 			return nil, ErrInternalError("创建请求失败", err)
 		}
 		applyGrokRequestHeaders(req, account, bearer, headers, conversationBody)
+		if encoding != "" {
+			req.Header.Set("Content-Encoding", encoding)
+		}
 		// 与官方 CLI 对齐的指纹头：会话内轮次序号 + 完整 Accept-Encoding。
 		req.Header.Set("x-grok-turn-idx", strconv.Itoa(turnIdx))
 		req.Header.Set("Accept-Encoding", "gzip, br, deflate")
@@ -359,11 +429,12 @@ func recordGrokRateLimitHeaders(account *auth.Account, header http.Header) {
 }
 
 // sanitizeGrokRequestBody 剥离 Codex 管道注入的、Grok 上游不接受的字段。
+// prompt_cache_key is accepted by cli-chat-proxy and must survive for cache routing.
 func sanitizeGrokRequestBody(body []byte) []byte {
 	if !gjson.ValidBytes(body) {
 		return body
 	}
-	for _, path := range []string{"client_metadata", "prompt_cache_key", "service_tier", "safety_identifier"} {
+	for _, path := range []string{"client_metadata", "service_tier", "safety_identifier"} {
 		if gjson.GetBytes(body, path).Exists() {
 			if updated, err := sjson.DeleteBytes(body, path); err == nil {
 				body = updated
