@@ -83,3 +83,28 @@ func TestParseAnthropicOfficialPricingHTMLIncludesCacheWriteAndRead(t *testing.T
 		t.Fatalf("Fable 5 pricing = %+v", fable5)
 	}
 }
+
+func TestParseOpenAIOfficialPricingMarkdownReadsColumnsByHeader(t *testing.T) {
+	body := []byte(`
+### Standard pricing data
+
+| Model | Short context input | Short context output | Short context cached input | Short context 30m write | Short context 12h write | Long context input | Long context output | Long context cached input | Long context 30m write | Long context 12h write |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| gpt-6-astra | $10.00 | $50.00 | $1.00 | $12.50 | $25.00 | $20.00 | $75.00 | $2.00 | $25.00 | $50.00 |
+| gpt-6.1-sol | $2.00 | $10.00 | $0.10 | $2.50 | $5.00 | $4.00 | $15.00 | $0.20 | $5.00 | $10.00 |
+`)
+	got, err := ParseOpenAIOfficialPricingMarkdown(body)
+	if err != nil {
+		t.Fatalf("parse official OpenAI pricing: %v", err)
+	}
+	astra := got["gpt-6-astra"]
+	if astra.Input != 10 || astra.Output != 50 || astra.CachedInput != 1 || astra.InputLong != 20 || astra.OutputLong != 75 || astra.CachedInputLong != 2 {
+		t.Fatalf("Astra prices = %+v", astra)
+	}
+	if astra.LongContextThresholdTokens != 272000 {
+		t.Fatalf("threshold = %d", astra.LongContextThresholdTokens)
+	}
+	if sol := got["gpt-6.1-sol"]; sol.Input != 2 || sol.Output != 10 || sol.CachedInput != 0.1 || sol.OutputLong != 15 {
+		t.Fatalf("gpt-6.1-sol prices = %+v", sol)
+	}
+}

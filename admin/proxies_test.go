@@ -563,6 +563,15 @@ func TestShouldFallbackToIPv6Probe(t *testing.T) {
 	}) {
 		t.Fatal("SOCKS IPv4 target unreachable must fallback")
 	}
+	for _, message := range []string{
+		"代理检测服务暂时不可用 (HTTP 502)",
+		"代理检测服务暂时不可用 (HTTP 504)",
+		"连接失败: proxyconnect tcp: 502 Bad Gateway",
+	} {
+		if !shouldFallbackToIPv6Probe(proxyProbeResult{Error: message}) {
+			t.Fatalf("HTTP target failure %q must fall back to IPv6 probe", message)
+		}
+	}
 }
 
 func TestParseProxyProbeExitIP(t *testing.T) {

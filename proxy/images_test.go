@@ -28,6 +28,29 @@ import (
 
 const tinyPNGBase64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII="
 
+func TestImagesKeepaliveSkipsNonStreamingHTTP102(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	newContext := func() *gin.Context {
+		c, _ := gin.CreateTestContext(httptest.NewRecorder())
+		c.Request = httptest.NewRequest(http.MethodPost, "/v1/images/generations", strings.NewReader(`{"model":"gpt-image-2"}`))
+		return c
+	}
+
+	nonStream := newContext()
+	stop := installImagesContinuousRetryKeepalive(nonStream, false)
+	defer stop()
+	if got := continuousRetryKeepaliveForContext(nonStream.Request.Context()); got != nil {
+		t.Fatalf("non-streaming Images installed a keepalive: %T", got)
+	}
+
+	stream := newContext()
+	stopStream := installImagesContinuousRetryKeepalive(stream, true)
+	defer stopStream()
+	if got := continuousRetryKeepaliveForContext(stream.Request.Context()); got == nil {
+		t.Fatal("streaming Images did not install SSE keepalive")
+	}
+}
+
 func TestBuildImagesAPIResponseCloudURL(t *testing.T) {
 	// 用本地 httptest 充当 S3 端点：PUT 返回 200 让上传成功；
 	// presign 是离线签名，生成的 GET 直链会指向该测试服务器。

@@ -9041,6 +9041,8 @@ var knownAPIKeyPlanFilters = map[string]struct{}{
 	// labels so a Claude-bound key's plan gate survives normalization.
 	"claude": {}, "max": {}, "max-5x": {}, "max-20x": {},
 	"enterprise": {}, "business": {},
+	// Antigravity canonical tier keys; free/pro/api are shared above.
+	"ultra": {}, "standard": {},
 }
 
 // cleanPlanAllow 归一账号套餐白名单:小写去空白、丢弃未知值并去重。

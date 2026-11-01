@@ -1583,6 +1583,15 @@ func (h *Handler) nextImageAccount(c *gin.Context, apiKeyID int64, exclude map[i
 	return h.nextAccountForSessionWithFilter("", apiKeyID, exclude, h.applyScopeBudgetFilter(c, fallbackFilter))
 }
 
+func installImagesContinuousRetryKeepalive(c *gin.Context, stream bool) func() {
+	if !stream {
+		return func() {}
+	}
+	stop := installContinuousRetrySSEKeepalive(c, true, "text/event-stream")
+	activateContinuousRetryKeepalive(c.Request.Context())
+	return stop
+}
+
 // forwardImagesRequest 执行 Images 请求的账号调度、上游重试、响应聚合和下游输出。
 func (h *Handler) forwardImagesRequest(c *gin.Context, inboundEndpoint, requestModel, logModel, logEffectiveModel string, responsesBody []byte, responseFormat, streamPrefix string, stream bool) {
 	if strings.TrimSpace(logModel) == "" {
@@ -1601,9 +1610,10 @@ func (h *Handler) forwardImagesRequest(c *gin.Context, inboundEndpoint, requestM
 	rememberContinuousRetryPolicyForRequest(c, continuousRetryPolicy)
 	stopRetryDeadline := installContinuousRetryHTTPDeadline(c, continuousRetryPolicy, continuousRetryProtocolResponses)
 	defer stopRetryDeadline()
-	stopRetryKeepalive := installContinuousRetrySSEKeepalive(c, stream, "text/event-stream")
+	// Some reverse proxies misframe HTTP 102. Non-streaming Codex/GPT Images
+	// therefore waits for the final JSON/status without an informational response.
+	stopRetryKeepalive := installImagesContinuousRetryKeepalive(c, stream)
 	defer stopRetryKeepalive()
-	activateContinuousRetryKeepalive(c.Request.Context())
 	maxRetries := h.getMaxRetries()
 	maxRateLimitRetries := h.getMaxRateLimitRetries()
 	generalRetries := 0
