@@ -1,20 +1,21 @@
-CREATE TABLE IF NOT EXISTS admin_users (
-    id BIGINT NOT NULL AUTO_INCREMENT,
-    username VARCHAR(64) NOT NULL,
-    username_normalized VARCHAR(64) NOT NULL,
-    password_hash VARCHAR(255) NOT NULL,
-    status VARCHAR(32) NOT NULL DEFAULT 'active',
-    must_change_password TINYINT(1) NOT NULL DEFAULT 0,
-    last_login_at DATETIME(6) NULL,
-    created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-    updated_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
-    PRIMARY KEY (id),
-    UNIQUE KEY uk_admin_users_username_normalized (username_normalized)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+-- admin_users already exists from 000003_admin_rbac.sql. Extend it in place so
+-- installations with existing RBAC rows keep their IDs, roles and passwords.
+ALTER TABLE admin_users
+    ADD COLUMN username_normalized VARCHAR(64) NULL AFTER username,
+    ADD COLUMN must_change_password TINYINT(1) NOT NULL DEFAULT 0 AFTER status;
+
+UPDATE admin_users
+SET username_normalized = LOWER(TRIM(username))
+WHERE username_normalized IS NULL OR username_normalized = '';
+
+ALTER TABLE admin_users
+    MODIFY COLUMN username_normalized VARCHAR(64) NOT NULL,
+    MODIFY COLUMN email VARCHAR(320) NULL,
+    ADD UNIQUE KEY uk_admin_users_username_normalized (username_normalized);
 
 CREATE TABLE IF NOT EXISTS admin_sessions (
-    id BIGINT NOT NULL AUTO_INCREMENT,
-    admin_user_id BIGINT NOT NULL,
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    admin_user_id BIGINT UNSIGNED NOT NULL,
     token_hash CHAR(64) NOT NULL,
     ip_address VARCHAR(64) NOT NULL DEFAULT '',
     user_agent VARCHAR(512) NOT NULL DEFAULT '',

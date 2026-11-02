@@ -2,8 +2,10 @@ package database
 
 import (
 	"context"
+	"crypto/rand"
 	"crypto/sha256"
 	"database/sql"
+	"encoding/base64"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -43,6 +45,14 @@ func HashAdminSessionToken(token string) string {
 	return hex.EncodeToString(sum[:])
 }
 
+func newAdminPublicID() (string, error) {
+	random := make([]byte, 16)
+	if _, err := rand.Read(random); err != nil {
+		return "", err
+	}
+	return "adm_" + base64.RawURLEncoding.EncodeToString(random), nil
+}
+
 func (db *DB) AdminUserCount(ctx context.Context) (int64, error) {
 	var count int64
 	if err := db.conn.QueryRowContext(ctx, `SELECT COUNT(*) FROM admin_users`).Scan(&count); err != nil {
@@ -69,7 +79,12 @@ func (db *DB) CreateAdminUser(ctx context.Context, username, passwordHash string
 		}
 		return &AdminUser{ID: id, Username: strings.TrimSpace(username), PasswordHash: passwordHash, Status: "active", MustChangePassword: mustChange}, nil
 	}
-	result, err := db.conn.ExecContext(ctx, query, strings.TrimSpace(username), normalized, passwordHash, flag)
+	publicID, err := newAdminPublicID()
+	if err != nil {
+		return nil, err
+	}
+	query = `INSERT INTO admin_users (public_id, username, username_normalized, email, password_hash, status, must_change_password) VALUES (?, ?, ?, NULL, ?, 'active', ?)`
+	result, err := db.conn.ExecContext(ctx, query, publicID, strings.TrimSpace(username), normalized, passwordHash, flag)
 	if err != nil {
 		return nil, err
 	}
