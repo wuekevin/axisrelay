@@ -465,6 +465,9 @@ func New(driver string, dsn string) (*DB, error) {
 		} else if err := db.migrate(ctx); err != nil {
 			return nil, fmt.Errorf("数据库迁移失败: %w", err)
 		}
+		if err := db.EnsureAdminAuthSchema(ctx); err != nil {
+			return nil, fmt.Errorf("初始化管理员账号表失败: %w", err)
+		}
 		if db.isMySQL() {
 			if err := db.installSchedulerOutboxTriggers(ctx); err != nil {
 				backgroundTaskCancel()

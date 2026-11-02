@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { getAdminKey, resetAdminAuthState } from "../api";
+import { resetAdminAuthState } from "../api";
 import {
   collectAccountOperationResult,
   snapshotAccountOperationResults,
@@ -99,8 +99,6 @@ export async function postAdminSSE(
   body?: unknown,
 ): Promise<Response> {
   const headers: Record<string, string> = {};
-  const adminKey = getAdminKey();
-  if (adminKey) headers["X-Admin-Key"] = adminKey;
   if (body !== undefined) headers["Content-Type"] = "application/json";
 
   const res = await fetch(`/api/admin${path}`, {

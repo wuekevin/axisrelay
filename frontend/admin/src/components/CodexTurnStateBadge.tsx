@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
 import { RefreshCw } from 'lucide-react'
-import { getAdminKey } from '../api'
 import { useToast } from '../hooks/useToast'
 import { readTurnStateRefresh } from '../lib/turnStateRefresh'
 import { useTranslation } from 'react-i18next'
@@ -44,10 +43,8 @@ export default function CodexTurnStateBadge({ account }: { account: AccountRow }
     setBusy(true)
     const failures: string[] = []
     try {
-      const key = getAdminKey()
       const response = await fetch(`/api/admin/accounts/${account.id}/turn-state/refresh`, {
         method: 'POST',
-        headers: key ? { 'X-Admin-Key': key } : {},
         signal: controller.signal,
       })
       if (!response.ok) {

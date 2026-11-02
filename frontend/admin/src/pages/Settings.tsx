@@ -1,7 +1,7 @@
 import type { ChangeEvent, FocusEvent, ReactNode } from 'react'
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { api, resetAdminAuthState, setAdminKey } from '../api'
+import { api } from '../api'
 import { formatBeijingTime, getTimezone, setTimezone } from '../utils/time'
 import PageHeader from '../components/PageHeader'
 import StateShell from '../components/StateShell'
@@ -2359,7 +2359,6 @@ export default function Settings() {
     ? t(`settings.responseCache.validation.${responseCacheValidationError}`)
     : ''
   const [testingImageStorage, setTestingImageStorage] = useState(false)
-  const [loadedAdminSecret, setLoadedAdminSecret] = useState('')
   const [modelList, setModelList] = useState<string[]>([])
   const [modelItems, setModelItems] = useState<ModelInfo[]>([])
   const [modelsLastSyncedAt, setModelsLastSyncedAt] = useState<string | undefined>()
@@ -2657,7 +2656,6 @@ export default function Settings() {
     }
     persistedBrandingRef.current = branding
     applyBranding(branding)
-    setLoadedAdminSecret(settings.admin_secret ?? '')
     setSyncedCliVersion(settings.codex_synced_cli_version ?? '')
     setEffectiveCliVersion(settings.codex_effective_cli_version ?? '')
     setModelList(modelsResp.models ?? [])
@@ -2688,8 +2686,8 @@ export default function Settings() {
     }
     setSavingSettings(true)
     try {
-      const adminSecretChanged = settingsForm.admin_auth_source !== 'env' && settingsForm.admin_secret !== loadedAdminSecret
 	      const payload: Partial<SystemSettings> = buildWritableSettingsPayload(normalized)
+	      delete payload.admin_secret
       // 自定义 Prompt 规则由规则页单独保存，避免普通设置提交覆盖并发发布结果。
       delete payload.prompt_filter_custom_patterns
       const updated = await api.updateSettings(payload)
@@ -2705,14 +2703,6 @@ export default function Settings() {
       }
       persistedBrandingRef.current = branding
       applyBranding(branding)
-      setLoadedAdminSecret(updated.admin_secret ?? '')
-      if (updated.admin_auth_source !== 'env') {
-        setAdminKey(updated.admin_secret ?? '')
-      }
-      if (adminSecretChanged) {
-        resetAdminAuthState()
-        return
-      }
       if (updated.expired_cleaned && updated.expired_cleaned > 0) {
         showToast(t('settings.expiredCleanedResult', { count: updated.expired_cleaned }))
       } else {
@@ -2875,7 +2865,7 @@ export default function Settings() {
   // Resin 生效与否以后端摘要为准(保存后随响应刷新),不按表单里未保存的草稿猜。
   const codexEgress = persistedSettings?.codex_egress
   const resinActive = Boolean(codexEgress?.resin_enabled)
-  const canConfigureRemoteMigration = settingsForm.admin_auth_source === 'env' || settingsForm.admin_secret.trim() !== ''
+  const canConfigureRemoteMigration = true
   const saveButtonLabel = savingSettings ? t('common.saving') : t('settings.saveSettings')
   const siteLogoPreview = sanitizeBrandingLogo(settingsForm.site_logo) || DEFAULT_SITE_LOGO
   const backgroundImagePreview = sanitizeBrandingImage(settingsForm.background_image)
@@ -5914,26 +5904,6 @@ export default function Settings() {
                     </div>
 
                     <div className={SETTINGS_FIELD_GRID}>
-                      <SettingField
-                        label={t('settings.adminSecret')}
-                        description={t('settings.adminSecretDesc')}
-                        warning={settingsForm.admin_auth_source === 'env' ? t('settings.adminSecretEnvOverride') : undefined}
-                      >
-                        <Input
-                          type="text"
-                          placeholder={t('settings.adminSecretPlaceholder')}
-                          value={settingsForm.admin_secret}
-                          disabled={settingsForm.admin_auth_source === 'env'}
-                          onChange={(e: ChangeEvent<HTMLInputElement>) => setSettingsForm(f => {
-                            const nextSecret = e.target.value
-                            return {
-                              ...f,
-                              admin_secret: nextSecret,
-                              allow_remote_migration: nextSecret.trim() === '' ? false : f.allow_remote_migration,
-                            }
-                          })}
-                        />
-                      </SettingField>
                       <SettingField label={t('settings.promptFilterMode')} description={t('settings.promptFilterModeDesc')}>
                         <Select
                           value={settingsForm.prompt_filter_mode}

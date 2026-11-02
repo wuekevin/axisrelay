@@ -98,7 +98,17 @@ func main() {
 	// 1. 加载配置 (.env)
 	cfg, err := config.Load(".env")
 	if err != nil {
-		log.Fatalf("加载核心环境配置失败 (请检查 .env 文件): %v", err)
+		if installationLocked() || existingInstallConfig() {
+			log.Fatalf("检测到已有安装锁或 .env，但核心配置无效；为保护现有数据不会重新开放安装页，请修复 .env: %v", err)
+		}
+		log.Printf("尚未检测到可用配置，进入首次安装: %v", err)
+		if installErr := runFirstInstall(); installErr != nil {
+			log.Fatalf("首次安装失败: %v", installErr)
+		}
+		cfg, err = config.Load(".env")
+		if err != nil {
+			log.Fatalf("安装配置加载失败: %v", err)
+		}
 	}
 	proxy.ConfigureDownstreamKeepaliveFromEnv()
 	logStartupConfig(cfg)
@@ -116,6 +126,9 @@ func main() {
 		)
 	}
 	defer db.Close()
+	if err := admin.MigrateLegacyAdminSecret(db, cfg.AdminSecret); err != nil {
+		log.Fatalf("迁移旧管理员认证失败: %v", err)
+	}
 	proxy.SetCodexTurnStateTemplateDatabase(db)
 	if migrateOnlyEnabled() {
 		log.Println("数据库迁移完成，AXISRELAY_MIGRATE_ONLY 已启用，进程退出")
@@ -396,7 +409,7 @@ func main() {
 
 	// 全局 RPM 限流器
 	rateLimiter := proxy.NewRateLimiter(settings.GlobalRPM)
-	adminHandler := admin.NewHandler(store, db, tc, rateLimiter, cfg.AdminSecret)
+	adminHandler := admin.NewHandler(store, db, tc, rateLimiter, "")
 	// 初始化 admin handler 的连接池设置跟踪
 	adminHandler.SetPoolSizes(settings.PgMaxConns, settings.RedisPoolSize)
 	store.SetUsageProbeFunc(adminHandler.ProbeUsageSnapshot)
@@ -761,17 +774,18 @@ func loggerMiddleware() gin.HandlerFunc {
 	}
 }
 
-// printSecurityBanner 启动时打印安全状态自检 banner：
-//   - 不再自动生成 AXISRELAY_ADMIN_SECRET。若两端都空，则提示用户首次访问页面进行初始化。
-//   - 检查 API Key 数量、监听地址、匿名开关，命中风险时给出对应提示。
+// printSecurityBanner 启动时打印管理员账号、API Key 与监听地址安全状态。
 func printSecurityBanner(db *database.DB, cfg *config.Config, settings *database.SystemSettings) {
 	if db == nil || cfg == nil || settings == nil {
 		return
 	}
 
-	envSecret := strings.TrimSpace(cfg.AdminSecret)
-	dbSecret := strings.TrimSpace(settings.AdminSecret)
-	needsBootstrap := envSecret == "" && dbSecret == ""
+	adminCount := int64(0)
+	{
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		adminCount, _ = db.AdminUserCount(ctx)
+		cancel()
+	}
 
 	apiKeyCount := 0
 	{
@@ -789,16 +803,10 @@ func printSecurityBanner(db *database.DB, cfg *config.Config, settings *database
 	log.Println("[SECURITY] AxisRelay 安全状态自检")
 	log.Println(sep)
 
-	switch {
-	case needsBootstrap:
-		log.Println("⚠ 尚未配置 AXISRELAY_ADMIN_SECRET（环境变量与数据库均为空）。")
-		log.Printf("  请使用浏览器访问管理台 http://%s:%d/admin/ 完成首次初始化，", bannerDisplayHost(bind), cfg.Port)
-		log.Println("  设置一个强随机的管理密钥；该密钥也将作为登录密钥。")
-		log.Println("  在初始化完成之前，所有 /api/admin/* 接口（除初始化端点外）均返回 503。")
-	case envSecret != "":
-		log.Println("✓ AXISRELAY_ADMIN_SECRET 来源：环境变量 (.env)")
-	default:
-		log.Println("✓ AXISRELAY_ADMIN_SECRET 来源：数据库（如需修改请进入「设置」页面）")
+	if adminCount == 0 {
+		log.Println("⚠ 尚未创建管理员账号；请从本机或可信私有网络访问 /admin/ 创建。")
+	} else {
+		log.Printf("✓ 已配置 %d 个管理员账号，后台使用账号密码与 HttpOnly 安全会话。", adminCount)
 	}
 
 	if apiKeyCount == 0 {
@@ -815,7 +823,7 @@ func printSecurityBanner(db *database.DB, cfg *config.Config, settings *database
 
 	if publicBind {
 		log.Printf("ℹ 监听地址 = %s （所有网卡，兼容 Docker / 反代 / 公网）。", bind)
-		log.Println("  生产环境请确认已部署反向代理 + HTTPS、配置防火墙白名单，并使用强 AXISRELAY_ADMIN_SECRET 与 API Key。")
+		log.Println("  生产环境请确认已部署反向代理 + HTTPS、配置防火墙白名单，并使用强管理员密码与 API Key。")
 		log.Println("  如希望服务只在本机回环可达，可设置 AXISRELAY_BIND=127.0.0.1。")
 	} else {
 		log.Printf("✓ 监听地址 = %s （受限访问）。", bind)

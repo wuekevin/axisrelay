@@ -12,9 +12,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gin-gonic/gin"
 	"github.com/wuekevin/axisrelay/auth"
 	"github.com/wuekevin/axisrelay/database"
-	"github.com/gin-gonic/gin"
 )
 
 // grokExportEntry 是单个 Grok 账号的导出形态：Grok CLI auth.json 的超集。
@@ -192,8 +192,8 @@ func (h *Handler) ExportGrokAccounts(c *gin.Context) {
 
 	// 与 /accounts/export 同一道门禁：导出文件含明文 refresh_token。
 	if c.Query("remote") == "true" {
-		if !h.hasConfiguredAdminSecret(c.Request.Context()) {
-			writeError(c, http.StatusForbidden, "请先设置管理密钥，再启用远程迁移")
+		if !h.hasAdminAccount(c.Request.Context()) {
+			writeError(c, http.StatusForbidden, "请先创建管理员账号，再启用远程迁移")
 			return
 		}
 		if !h.store.GetAllowRemoteMigration() {

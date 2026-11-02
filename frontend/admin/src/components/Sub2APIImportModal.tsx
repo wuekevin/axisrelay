@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import { getAdminKey } from "../api";
 import Modal from "./Modal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -64,8 +63,6 @@ export default function Sub2APIImportModal({
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
     };
-    const key = getAdminKey();
-    if (key) headers["X-Admin-Key"] = key;
     return headers;
   };
 

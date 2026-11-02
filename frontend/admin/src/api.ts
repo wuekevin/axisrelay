@@ -161,25 +161,22 @@ export const ADMIN_AUTH_CHANGED_EVENT = 'axisrelay:admin-auth-changed'
 const ADMIN_AUTH_RESET_KEY = 'admin_auth_reset_at'
 
 export function getAdminKey(): string {
-  return localStorage.getItem('admin_key') ?? ''
+  return ''
 }
 
 export function clearAdminKey() {
   localStorage.removeItem('admin_key')
 }
 
-export function setAdminKey(key: string) {
-  if (key) {
-    localStorage.setItem('admin_key', key)
-  } else {
-    clearAdminKey()
-  }
+export function setAdminKey(_key: string) {
+  clearAdminKey()
   window.dispatchEvent(new Event(ADMIN_AUTH_CHANGED_EVENT))
 }
 
 export function resetAdminAuthState() {
   clearAdminKey()
   localStorage.setItem(ADMIN_AUTH_RESET_KEY, String(Date.now()))
+  void fetch('/api/admin/auth/logout', { method: 'POST', cache: 'no-store' }).catch(() => undefined)
   window.dispatchEvent(new Event(ADMIN_AUTH_REQUIRED_EVENT))
 }
 
@@ -218,11 +215,6 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   const isFormData = typeof FormData !== 'undefined' && options.body instanceof FormData
   if (options.body !== undefined && options.body !== null && !isFormData && !headers.has('Content-Type')) {
     headers.set('Content-Type', 'application/json')
-  }
-
-  const adminKey = getAdminKey()
-  if (adminKey) {
-    headers.set('X-Admin-Key', adminKey)
   }
 
   // 可选的客户端超时:调用方通过 timeoutMs 显式开启,不传则保持原有“无超时”行为,
@@ -410,11 +402,6 @@ function parseOptionalCountHeader(header: string | null): number | undefined {
 async function requestNamedBlob(path: string, options: RequestInit = {}): Promise<NamedBlob> {
   const headers = new Headers(options.headers)
 
-  const adminKey = getAdminKey()
-  if (adminKey) {
-    headers.set('X-Admin-Key', adminKey)
-  }
-
   const res = await fetch(BASE + path, {
     ...options,
     cache: options.cache ?? 'no-store',
@@ -438,11 +425,6 @@ async function requestNamedBlob(path: string, options: RequestInit = {}): Promis
 
 async function requestBlob(path: string, options: RequestInit = {}): Promise<Blob> {
   const headers = new Headers(options.headers)
-
-  const adminKey = getAdminKey()
-  if (adminKey) {
-    headers.set('X-Admin-Key', adminKey)
-  }
 
   const res = await fetch(BASE + path, {
     ...options,
@@ -1602,7 +1584,7 @@ export const api = {
     const query = sp.toString()
     return requestNamedBlob(`/accounts/antigravity/export${query ? `?${query}` : ''}`)
   },
-  migrateAccounts: (data: { url: string; admin_key: string }) =>
+  migrateAccounts: (data: { url: string; admin_username: string; admin_password: string }) =>
     request<{ message: string; total: number; imported: number; duplicate: number; failed: number }>(
       '/accounts/migrate', { method: 'POST', body: JSON.stringify(data) }),
   // Proxies

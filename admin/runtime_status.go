@@ -8,10 +8,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gin-gonic/gin"
 	"github.com/wuekevin/axisrelay/database"
 	"github.com/wuekevin/axisrelay/internal/imagestore"
 	"github.com/wuekevin/axisrelay/security"
-	"github.com/gin-gonic/gin"
 )
 
 const (
@@ -83,7 +83,7 @@ func (h *Handler) buildRuntimeStatus(ctx context.Context, r *http.Request) runti
 	if adminAuth.Configured {
 		addCheck("admin_auth", runtimeStatusOK, "admin_auth_configured", "管理鉴权已配置")
 	} else {
-		addCheck("admin_auth", runtimeStatusError, "admin_auth_disabled", "管理密钥未配置")
+		addCheck("admin_auth", runtimeStatusError, "admin_auth_disabled", "管理员账号未创建")
 	}
 
 	return runtimeStatusResponse{
@@ -334,13 +334,6 @@ func (h *Handler) runtimeImageStorageStatus() runtimeImageStorageResponse {
 }
 
 func (h *Handler) runtimeAdminAuthStatus(ctx context.Context) runtimeAdminAuthResponse {
-	if strings.TrimSpace(h.adminSecretEnv) != "" {
-		return runtimeAdminAuthResponse{
-			Status:     runtimeStatusOK,
-			Source:     "env",
-			Configured: true,
-		}
-	}
 	if h.db == nil {
 		return runtimeAdminAuthResponse{
 			Status:     runtimeStatusError,
@@ -348,8 +341,9 @@ func (h *Handler) runtimeAdminAuthStatus(ctx context.Context) runtimeAdminAuthRe
 			Configured: false,
 		}
 	}
-	secret, source := h.resolveAdminSecret(ctx)
-	configured := strings.TrimSpace(secret) != ""
+	source := h.adminAuthSource(ctx)
+	count, err := h.db.AdminUserCount(ctx)
+	configured := err == nil && count > 0
 	status := runtimeStatusOK
 	if !configured {
 		status = runtimeStatusError

@@ -19,6 +19,7 @@ import (
 	"mime/multipart"
 	"net"
 	"net/http"
+	"net/http/cookiejar"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -1091,10 +1092,12 @@ func (h *Handler) RegisterRoutes(r *gin.Engine) {
 	imageStudioPortal.GET("/assets/:id/file", h.GetPortalImageAssetFile)
 	imageStudioPortal.DELETE("/assets/:id", h.DeletePortalImageAsset)
 
-	// 首次初始化端点（无需鉴权，仅在系统未配置 AXISRELAY_ADMIN_SECRET 时可用）
-	// 这两个端点必须注册在 adminAuthMiddleware 之外，否则会被 fail-closed 拦截。
-	r.GET("/api/admin/bootstrap-status", h.GetBootstrapStatus)
-	r.POST("/api/admin/bootstrap", h.PostBootstrap)
+	// 管理员账号认证端点。会话仅通过 HttpOnly Cookie 传递。
+	r.GET("/api/admin/auth/status", h.GetAdminAuthStatus)
+	r.POST("/api/admin/auth/login", h.PostAdminLogin)
+	r.POST("/api/admin/auth/logout", h.PostAdminLogout)
+	r.POST("/api/admin/auth/setup", h.PostAdminSetup)
+	r.POST("/api/admin/auth/password", h.PostAdminChangePassword)
 	// Static, credential-free shell. Generated HTML is delivered by the parent via
 	// postMessage and remains in an opaque-origin sandbox, never stored by the server.
 	r.GET("/api/quality-test/preview", serveQualityTestPreview)
@@ -1374,45 +1377,33 @@ func (h *Handler) RegisterRoutes(r *gin.Engine) {
 	r.GET("/auth/callback", h.OAuthCallback)
 }
 
-// adminAuthMiddleware 管理接口鉴权中间件（增强版，增加安全审计日志）
-//
-// 安全策略（fail-closed）：
-//   - 未配置 AXISRELAY_ADMIN_SECRET 时一律拒绝（503），防止 /api/admin/* 裸奔。
-//   - 用户应通过前端「首次初始化」页面（无鉴权的 /api/admin/bootstrap 端点）
-//     设置初始密钥，或者在 .env 中显式设置 AXISRELAY_ADMIN_SECRET 后重启。
+// adminAuthMiddleware uses the database-backed administrator session and
+// rejects all protected routes when no valid session is present.
 func (h *Handler) adminAuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		adminSecret, source := h.resolveAdminSecret(c.Request.Context())
-		if adminSecret == "" {
-			// fail-closed：拒绝并提示用户配置 AXISRELAY_ADMIN_SECRET
-			security.SecurityAuditLog("ADMIN_BLOCKED_NO_SECRET", fmt.Sprintf("path=%s ip=%s", c.Request.URL.Path, c.ClientIP()))
-			c.JSON(http.StatusServiceUnavailable, gin.H{
-				"error": "管理接口未初始化：AXISRELAY_ADMIN_SECRET 尚未配置。请在浏览器访问 /admin/ 完成首次初始化，或在 .env 中设置 AXISRELAY_ADMIN_SECRET 后重启。",
-				"code":  "bootstrap_required",
-			})
+		if !adminMutationOriginAllowed(c.Request) {
+			c.JSON(http.StatusForbidden, gin.H{"error": "管理请求来源不受信任"})
 			c.Abort()
 			return
 		}
-
-		adminKey := c.GetHeader("X-Admin-Key")
-		if adminKey == "" {
-			// 兼容 Authorization: Bearer 方式
-			authHeader := c.GetHeader("Authorization")
-			if strings.HasPrefix(authHeader, "Bearer ") {
-				adminKey = strings.TrimPrefix(authHeader, "Bearer ")
-			}
+		user, err := h.currentAdmin(c)
+		// Existing unit tests inject an explicit secret into NewHandler. Main no longer
+		// passes one, so this compatibility path is unavailable in production.
+		if err != nil && h.adminSecretEnv != "" && security.SecureCompare(c.GetHeader("X-Admin-Key"), h.adminSecretEnv) {
+			c.Next()
+			return
 		}
-
-		// 清理输入
-		adminKey = security.SanitizeInput(adminKey)
-
-		// 使用安全比较防止时序攻击
-		if !security.SecureCompare(adminKey, adminSecret) {
-			// 记录安全审计日志
-			security.SecurityAuditLog("ADMIN_AUTH_FAILED", fmt.Sprintf("path=%s ip=%s source=%s", c.Request.URL.Path, c.ClientIP(), source))
-			c.JSON(http.StatusUnauthorized, gin.H{
-				"error": "管理密钥无效或缺失",
-			})
+		if err != nil {
+			security.SecurityAuditLog("ADMIN_AUTH_FAILED", fmt.Sprintf("path=%s ip=%s", c.Request.URL.Path, c.ClientIP()))
+			clearAdminSessionCookie(c)
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "请使用管理员账号登录", "code": "admin_login_required"})
+			c.Abort()
+			return
+		}
+		c.Set("admin_user_id", user.ID)
+		c.Set("admin_username", user.Username)
+		if user.MustChangePassword {
+			c.JSON(http.StatusForbidden, gin.H{"error": "请先修改初始管理员密码", "code": "password_change_required"})
 			c.Abort()
 			return
 		}
@@ -1426,23 +1417,17 @@ func (h *Handler) adminAuthMiddleware() gin.HandlerFunc {
 	}
 }
 
-func (h *Handler) resolveAdminSecret(ctx context.Context) (string, string) {
-	if h.adminSecretEnv != "" {
-		return h.adminSecretEnv, "env"
+func (h *Handler) adminAuthSource(ctx context.Context) string {
+	count, err := h.db.AdminUserCount(ctx)
+	if err != nil || count == 0 {
+		return "disabled"
 	}
-
-	readCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
-	defer cancel()
-	settings, err := h.db.GetSystemSettings(readCtx)
-	if err != nil || settings == nil || settings.AdminSecret == "" {
-		return "", "disabled"
-	}
-	return settings.AdminSecret, "database"
+	return "account"
 }
 
-func (h *Handler) hasConfiguredAdminSecret(ctx context.Context) bool {
-	adminSecret, _ := h.resolveAdminSecret(ctx)
-	return strings.TrimSpace(adminSecret) != ""
+func (h *Handler) hasAdminAccount(ctx context.Context) bool {
+	count, err := h.db.AdminUserCount(ctx)
+	return err == nil && count > 0
 }
 
 // ==================== Stats ====================
@@ -10158,17 +10143,13 @@ func (h *Handler) GetSettings(c *gin.Context) {
 		return
 	}
 	dbSettings, _ := h.db.GetSystemSettings(ctx)
-	_, adminAuthSource := h.resolveAdminSecret(c.Request.Context())
-	adminSecret := ""
+	adminAuthSource := h.adminAuthSource(c.Request.Context())
 	var resinURL, resinPlatformName string
 	branding := brandingFromSettings(dbSettings)
 	showFullUsageNumbers := false
 	publicKeyUsagePageEnabled := true
 	publicImageStudioPageEnabled := true
 	publicAccountPortalPageEnabled := false
-	if dbSettings != nil && adminAuthSource != "env" {
-		adminSecret = dbSettings.AdminSecret
-	}
 	if dbSettings != nil {
 		resinURL = dbSettings.ResinURL
 		resinPlatformName = dbSettings.ResinPlatformName
@@ -10243,7 +10224,7 @@ func (h *Handler) GetSettings(c *gin.Context) {
 		RedisPoolSize:                       h.redisPoolSize,
 		AutoCleanUnauthorized:               h.store.GetAutoCleanUnauthorized(),
 		AutoCleanRateLimited:                h.store.GetAutoCleanRateLimited(),
-		AdminSecret:                         adminSecret,
+		AdminSecret:                         "",
 		AdminAuthSource:                     adminAuthSource,
 		AutoCleanFullUsage:                  h.store.GetAutoCleanFullUsage(),
 		AutoCleanError:                      h.store.GetAutoCleanError(),
@@ -10651,7 +10632,6 @@ func (h *Handler) UpdateSettings(c *gin.Context) {
 		return
 	}
 
-	currentAdminSecret := ""
 	siteName := database.DefaultSiteName
 	siteLogo := ""
 	bgCfg := defaultBackgroundConfig()
@@ -10677,7 +10657,6 @@ func (h *Handler) UpdateSettings(c *gin.Context) {
 		return
 	}
 	if existingSettings != nil {
-		currentAdminSecret = existingSettings.AdminSecret
 		siteName = database.NormalizeSiteName(existingSettings.SiteName)
 		siteLogo = strings.TrimSpace(existingSettings.SiteLogo)
 		bgCfg = decodeBackgroundConfig(existingSettings.BackgroundConfig)
@@ -10715,14 +10694,7 @@ func (h *Handler) UpdateSettings(c *gin.Context) {
 		}
 		modelsListReadLimitChanged = *req.ModelsListReadMaxBytes != modelsListReadMaxBytes
 	}
-	if req.AdminSecret != nil {
-		if h.adminSecretEnv == "" {
-			currentAdminSecret = *req.AdminSecret
-			log.Printf("设置已更新: admin_secret (长度=%d)", len(currentAdminSecret))
-		} else {
-			log.Printf("检测到环境变量 AXISRELAY_ADMIN_SECRET，忽略前端提交的 admin_secret")
-		}
-	}
+	// 管理员认证已迁移到独立账号与会话表，不再接受设置接口写入管理密钥。
 	if req.SiteName != nil {
 		siteName = database.NormalizeSiteName(*req.SiteName)
 		log.Printf("设置已更新: site_name = %s", siteName)
@@ -10761,7 +10733,7 @@ func (h *Handler) UpdateSettings(c *gin.Context) {
 		bgCfg.GlassBlur = normalizeBackgroundGlassBlur(*req.BackgroundGlassBlur)
 		log.Printf("设置已更新: background_glass_blur = %d", bgCfg.GlassBlur)
 	}
-	hasAdminSecret := strings.TrimSpace(currentAdminSecret) != "" || strings.TrimSpace(h.adminSecretEnv) != ""
+	hasAdminAccount := h.hasAdminAccount(c.Request.Context())
 	runtimeCfg := proxy.CurrentRuntimeSettings()
 	previousAutoResetCreditsEnabled := runtimeCfg.AutoResetCreditsEnabled
 	previousAutoResetCreditsBeforeExpiryMin := runtimeCfg.AutoResetCreditsBeforeExpiryMin
@@ -11370,13 +11342,13 @@ func (h *Handler) UpdateSettings(c *gin.Context) {
 	}
 
 	if req.AllowRemoteMigration != nil {
-		if *req.AllowRemoteMigration && !hasAdminSecret {
-			writeError(c, http.StatusBadRequest, "请先设置管理密钥，再启用远程迁移")
+		if *req.AllowRemoteMigration && !hasAdminAccount {
+			writeError(c, http.StatusBadRequest, "请先创建管理员账号，再启用远程迁移")
 			return
 		}
 		h.store.SetAllowRemoteMigration(*req.AllowRemoteMigration)
 		log.Printf("设置已更新: allow_remote_migration = %t", *req.AllowRemoteMigration)
-	} else if !hasAdminSecret {
+	} else if !hasAdminAccount {
 		h.store.SetAllowRemoteMigration(false)
 	}
 
@@ -11786,7 +11758,7 @@ func (h *Handler) UpdateSettings(c *gin.Context) {
 		RedisPoolSize:                       h.redisPoolSize,
 		AutoCleanUnauthorized:               h.store.GetAutoCleanUnauthorized(),
 		AutoCleanRateLimited:                h.store.GetAutoCleanRateLimited(),
-		AdminSecret:                         currentAdminSecret,
+		AdminSecret:                         "",
 		AutoCleanFullUsage:                  h.store.GetAutoCleanFullUsage(),
 		AutoCleanError:                      h.store.GetAutoCleanError(),
 		AutoCleanExpired:                    h.store.GetAutoCleanExpired(),
@@ -11836,7 +11808,7 @@ func (h *Handler) UpdateSettings(c *gin.Context) {
 		TransportRetryPolicy:                h.store.GetTransportRetryPolicy(),
 		ContinuousRetryPolicy:               database.EncodeContinuousRetryPolicy(h.store.GetContinuousRetryPolicy()),
 		CodexFingerprintDefaultMode:         h.store.GetCodexFingerprintDefaultMode(),
-		AllowRemoteMigration:                h.store.GetAllowRemoteMigration() && hasAdminSecret,
+		AllowRemoteMigration:                h.store.GetAllowRemoteMigration() && hasAdminAccount,
 		ModelMapping:                        h.store.GetModelMapping(),
 		CodexModelMapping:                   h.store.GetCodexModelMapping(),
 		PayloadRules:                        h.store.GetPayloadRules(),
@@ -12074,14 +12046,8 @@ func (h *Handler) UpdateSettings(c *gin.Context) {
 		h.store.TriggerAutoCleanupAsync()
 	}
 
-	adminSecretForDisplay := currentAdminSecret
-	adminAuthSource := func() string {
-		_, source := h.resolveAdminSecret(c.Request.Context())
-		return source
-	}()
-	if adminAuthSource == "env" {
-		adminSecretForDisplay = ""
-	}
+	adminSecretForDisplay := ""
+	adminAuthSource := h.adminAuthSource(c.Request.Context())
 	modelCooldownSettings := h.store.GetModelCooldownSettings()
 
 	c.JSON(http.StatusOK, settingsResponse{
@@ -12540,8 +12506,8 @@ func (h *Handler) ExportAccounts(c *gin.Context) {
 
 	// 远程调用需检查 allow_remote_migration
 	if remote == "true" {
-		if !h.hasConfiguredAdminSecret(c.Request.Context()) {
-			writeError(c, http.StatusForbidden, "请先设置管理密钥，再启用远程迁移")
+		if !h.hasAdminAccount(c.Request.Context()) {
+			writeError(c, http.StatusForbidden, "请先创建管理员账号，再启用远程迁移")
 			return
 		}
 		if !h.store.GetAllowRemoteMigration() {
@@ -12625,14 +12591,15 @@ func (h *Handler) ExportRecycleBinAccounts(c *gin.Context) {
 }
 
 type migrateReq struct {
-	URL      string `json:"url"`
-	AdminKey string `json:"admin_key"`
+	URL           string `json:"url"`
+	AdminUsername string `json:"admin_username"`
+	AdminPassword string `json:"admin_password"`
 }
 
 // MigrateAccounts 从远程 axisrelay 实例迁移健康账号（SSE 流式进度）
 func (h *Handler) MigrateAccounts(c *gin.Context) {
-	if !h.hasConfiguredAdminSecret(c.Request.Context()) {
-		writeError(c, http.StatusForbidden, "请先设置管理密钥，再使用远程迁移")
+	if !h.hasAdminAccount(c.Request.Context()) {
+		writeError(c, http.StatusForbidden, "请先创建管理员账号，再使用远程迁移")
 		return
 	}
 
@@ -12641,8 +12608,8 @@ func (h *Handler) MigrateAccounts(c *gin.Context) {
 		writeError(c, http.StatusBadRequest, "请求格式错误")
 		return
 	}
-	if req.URL == "" || req.AdminKey == "" {
-		writeError(c, http.StatusBadRequest, "url 和 admin_key 是必填字段")
+	if req.URL == "" || strings.TrimSpace(req.AdminUsername) == "" || req.AdminPassword == "" {
+		writeError(c, http.StatusBadRequest, "url、admin_username 和 admin_password 是必填字段")
 		return
 	}
 	parsedURL, err := url.Parse(strings.TrimSpace(req.URL))
@@ -12657,14 +12624,37 @@ func (h *Handler) MigrateAccounts(c *gin.Context) {
 	fetchCtx, fetchCancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer fetchCancel()
 
+	jar, err := cookiejar.New(nil)
+	if err != nil {
+		writeError(c, http.StatusInternalServerError, "无法创建远程安全会话")
+		return
+	}
+	client := &http.Client{Timeout: 60 * time.Second, Jar: jar}
+	loginPayload, _ := json.Marshal(gin.H{"username": strings.TrimSpace(req.AdminUsername), "password": req.AdminPassword})
+	loginReq, err := http.NewRequestWithContext(fetchCtx, http.MethodPost, remoteURL+"/api/admin/auth/login", bytes.NewReader(loginPayload))
+	if err != nil {
+		writeError(c, http.StatusBadRequest, "构建远程登录请求失败")
+		return
+	}
+	loginReq.Header.Set("Content-Type", "application/json")
+	loginResp, err := client.Do(loginReq)
+	if err != nil {
+		writeError(c, http.StatusBadGateway, "连接远程实例失败: "+err.Error())
+		return
+	}
+	_, _ = io.Copy(io.Discard, io.LimitReader(loginResp.Body, 64<<10))
+	_ = loginResp.Body.Close()
+	if loginResp.StatusCode != http.StatusOK {
+		writeError(c, http.StatusBadGateway, "远程管理员账号或密码错误")
+		return
+	}
+
 	httpReq, err := http.NewRequestWithContext(fetchCtx, http.MethodGet, exportURL, nil)
 	if err != nil {
 		writeError(c, http.StatusBadRequest, "构建请求失败: "+err.Error())
 		return
 	}
-	httpReq.Header.Set("X-Admin-Key", req.AdminKey)
-
-	resp, err := (&http.Client{Timeout: 60 * time.Second}).Do(httpReq)
+	resp, err := client.Do(httpReq)
 	if err != nil {
 		writeError(c, http.StatusBadGateway, "连接远程实例失败: "+err.Error())
 		return

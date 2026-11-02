@@ -215,7 +215,7 @@ Vite proxies `/api` and `/health` to the backend. During development, open `http
 | --- | --- |
 | `AXISRELAY_PORT` | HTTP port, default `8080` |
 | `AXISRELAY_MAX_REQUEST_BODY_SIZE_MB` | HTTP request body limit in MB, default `48` |
-| `AXISRELAY_ADMIN_SECRET` | Admin dashboard secret. When set, `/admin` prompts for authentication |
+| `AXISRELAY_INSTALL_ALLOWED_CIDR` | Temporary public IP/CIDR allowed to submit the first-run installer; remove it after installation |
 | `AXISRELAY_PUBLIC_SIGNUP_ENABLED` | Enable public user registration, default `true` |
 | `AXISRELAY_PUBLIC_USER_DEFAULT_QUOTA_USD` | Initial quota assigned to each self-service API key, default `1` |
 | `AXISRELAY_PUBLIC_BASE_URL` | Public HTTPS origin used in verification and password-reset links |
@@ -246,7 +246,7 @@ The standard `.env.example` declares `AXISRELAY_DATABASE_DRIVER=mysql` and `AXIS
 
 Runtime business settings are stored in the database `SystemSettings` table and can be updated from the admin settings page.
 
-Examples include `MaxConcurrency`, `GlobalRPM`, `TestModel`, `TestContent`, `TestConcurrency`, `ProxyURL`, `PgMaxConns`, `RedisPoolSize`, `AdminSecret`, `SchedulerMode`, and auto-cleanup switches.
+Examples include `MaxConcurrency`, `GlobalRPM`, `TestModel`, `TestContent`, `TestConcurrency`, `ProxyURL`, `PgMaxConns`, `RedisPoolSize`, `SchedulerMode`, and auto-cleanup switches.
 
 Default settings are written automatically on first startup.
 
@@ -266,13 +266,10 @@ With Redis, a shared context that is within the reconstruction limit but above t
 
 Each successful budget change receives a read-only generation and is polled by every instance every five seconds. Operations shows effective/applied generations, synchronization state, logical cache bytes and counters, process memory, Go heap fields, and GC count. Logical cache bytes do not include Go/container overhead and are not an RSS or process-memory hard limit. During a rolling upgrade, a newer frontend tolerates an older backend that omits the new settings or Operations fields.
 
-### API Keys and Admin Secret
+### API Keys and Administrator Accounts
 
 - Public API keys come from the database API Keys table. If no key is configured, `/v1/*` skips API key authentication.
-- Admin Secret priority:
-  - If `AXISRELAY_ADMIN_SECRET` is set in `.env`, the environment variable wins.
-  - Otherwise, the database `AdminSecret` value is used.
-  - After login, the frontend sends `X-Admin-Key` when calling `/api/admin/*`.
+- The first-run installer creates a dedicated administrator username and password. Dashboard login uses an HttpOnly SameSite session cookie; admin APIs no longer accept a shared secret or `X-Admin-Key`. A legacy `AXISRELAY_ADMIN_SECRET` is only converted once into the initial `admin` password during an upgrade.
 
 ---
 
@@ -297,20 +294,26 @@ See [API.md](docs/API.md) for full request formats, response formats, and error 
 
 ### Token Upload and Account Management
 
-The following admin endpoints require the `X-Admin-Key` header.
+Log in first and save the HttpOnly administrator session cookie before using the examples below:
+
+```bash
+curl -c cookies.txt -X POST http://localhost:8080/api/admin/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"admin","password":"your administrator password"}'
+```
 
 #### Add Refresh Token Accounts
 
 ```bash
 # Single account
 curl -X POST http://localhost:8080/api/admin/accounts \
-  -H "X-Admin-Key: your-admin-secret" \
+  -b cookies.txt \
   -H "Content-Type: application/json" \
   -d '{"name": "my-account", "refresh_token": "rt_xxxxxxxxxxxx"}'
 
 # Batch import, newline separated, up to 100 tokens per request
 curl -X POST http://localhost:8080/api/admin/accounts \
-  -H "X-Admin-Key: your-admin-secret" \
+  -b cookies.txt \
   -H "Content-Type: application/json" \
   -d '{"name": "batch", "refresh_token": "rt_xxx1\nrt_xxx2\nrt_xxx3"}'
 ```
@@ -320,13 +323,13 @@ curl -X POST http://localhost:8080/api/admin/accounts \
 ```bash
 # Single AT-only account
 curl -X POST http://localhost:8080/api/admin/accounts/at \
-  -H "X-Admin-Key: your-admin-secret" \
+  -b cookies.txt \
   -H "Content-Type: application/json" \
   -d '{"name": "my-at", "access_token": "eyJhbGciOiJSUzI1NiIs..."}'
 
 # Batch import, newline separated
 curl -X POST http://localhost:8080/api/admin/accounts/at \
-  -H "X-Admin-Key: your-admin-secret" \
+  -b cookies.txt \
   -H "Content-Type: application/json" \
   -d '{"access_token": "eyJtoken1...\neyJtoken2...\neyJtoken3..."}'
 ```
@@ -336,19 +339,19 @@ curl -X POST http://localhost:8080/api/admin/accounts/at \
 ```bash
 # Import Refresh Tokens from TXT, one token per line
 curl -X POST http://localhost:8080/api/admin/accounts/import \
-  -H "X-Admin-Key: your-admin-secret" \
+  -b cookies.txt \
   -F "file=@tokens.txt" \
   -F "format=txt"
 
 # Import Refresh Tokens from JSON
 curl -X POST http://localhost:8080/api/admin/accounts/import \
-  -H "X-Admin-Key: your-admin-secret" \
+  -b cookies.txt \
   -F "file=@credentials.json" \
   -F "format=json"
 
 # Import Access Tokens from TXT, one token per line
 curl -X POST http://localhost:8080/api/admin/accounts/import \
-  -H "X-Admin-Key: your-admin-secret" \
+  -b cookies.txt \
   -F "file=@access_tokens.txt" \
   -F "format=at_txt"
 ```
@@ -362,14 +365,14 @@ AxisRelay supports acquiring Refresh Tokens through the OAuth PKCE flow, useful 
 ```bash
 # Step 1: Generate an authorization URL
 curl -X POST http://localhost:8080/api/admin/oauth/generate-auth-url \
-  -H "X-Admin-Key: your-admin-secret" \
+  -b cookies.txt \
   -H "Content-Type: application/json" \
   -d '{}'
 
 # Step 2: Open the returned auth_url in a browser, complete authorization
 # Step 3: Exchange the authorization code for a token (auto-creates account)
 curl -X POST http://localhost:8080/api/admin/oauth/exchange-code \
-  -H "X-Admin-Key: your-admin-secret" \
+  -b cookies.txt \
   -H "Content-Type: application/json" \
   -d '{"session_id": "...", "code": "...", "state": "..."}'
 ```

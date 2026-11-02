@@ -343,19 +343,13 @@ step_mysql_config() {
   ask "MySQL 数据库名" "$(env_default AXISRELAY_DATABASE_NAME "axisrelay")" DB_NAME
 }
 
-# ---------- 第四步：密钥 ----------
+# ---------- 第四步：管理员 ----------
 step_secrets() {
   echo ""
-  printf "${BOLD}${CYAN}━━━ 4/6 安全密钥 ━━━${NC}\n"
+  printf "${BOLD}${CYAN}━━━ 4/6 管理员账号 ━━━${NC}\n"
   echo ""
 
-  ask_secret "管理后台密钥 (AXISRELAY_ADMIN_SECRET)" "$(env_default AXISRELAY_ADMIN_SECRET "")" AXISRELAY_ADMIN_SECRET
-  if [[ -z "$AXISRELAY_ADMIN_SECRET" ]]; then
-    AXISRELAY_ADMIN_SECRET=$(gen_secret)
-    success "已自动生成管理密钥"
-  fi
-
-  echo ""
+  info "启动后访问 /admin 创建管理员账号；后台使用账号密码与安全会话登录。"
 }
 
 # ---------- 第五步：构建方式 ----------
@@ -399,7 +393,6 @@ step_confirm() {
   echo "  数据库名:   $DB_NAME"
   echo "  缓存:       redis"
   echo "  构建方式:   $( [[ "$BUILD_MODE" == "image" ]] && echo "拉取镜像" || echo "本地构建" )"
-  echo "  管理密钥:   ${AXISRELAY_ADMIN_SECRET}"
   echo ""
   ask "确认部署? (y/n)" "y" CONFIRM
   if [[ "$CONFIRM" != "y" && "$CONFIRM" != "Y" ]]; then
@@ -429,9 +422,6 @@ AXISRELAY_PORT=${PORT}
 
 # 端口绑定地址 (127.0.0.1=仅本机, 0.0.0.0=全部网络)
 AXISRELAY_BIND_HOST=${AXISRELAY_BIND_HOST}
-
-# 管理后台密钥
-AXISRELAY_ADMIN_SECRET=${AXISRELAY_ADMIN_SECRET}
 
 # 数据库 — MySQL 8.0
 AXISRELAY_DATABASE_DRIVER=mysql
@@ -543,7 +533,7 @@ deploy() {
     fi
   fi
   echo ""
-  echo "  管理密钥 : ${AXISRELAY_ADMIN_SECRET}"
+  echo "  管理后台 : 首次访问 /admin 创建管理员账号"
   echo "  查看日志 : $(compose_cmd_display) logs -f"
   echo "  停止服务 : $(compose_cmd_display) down"
   echo ""

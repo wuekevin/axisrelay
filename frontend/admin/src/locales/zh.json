@@ -695,8 +695,8 @@
   },
   "auth": {
     "title": "管理后台",
-    "subtitle": "请输入管理密钥",
-    "placeholder": "输入管理密钥…",
+    "subtitle": "请输入管理员账号和密码",
+    "placeholder": "输入管理员密码…",
     "login": "进入控制台",
     "error": "密钥错误，请重试"
   },
@@ -960,8 +960,10 @@
     "migrateDesc": "从另一个 axisrelay 实例导入健康账号。远程实例需在系统设置中开启「允许远程迁移」。",
     "migrateUrlLabel": "远程实例地址",
     "migrateUrlPlaceholder": "例如 https://other-instance.com",
-    "migrateKeyLabel": "远程管理密钥",
-    "migrateKeyPlaceholder": "输入远程实例的管理密钥",
+    "migrateUsernameLabel": "远程管理员账号",
+    "migrateUsernamePlaceholder": "输入远程管理员账号",
+    "migratePasswordLabel": "远程管理员密码",
+    "migratePasswordPlaceholder": "输入远程管理员密码",
     "migrateConfirm": "开始导入",
     "migrating": "导入中…",
     "migrateSuccess": "迁移完成：导入 {{imported}} 个，重复跳过 {{duplicate}} 个，失败 {{failed}} 个",
@@ -2311,7 +2313,7 @@
       "image_storage_degraded": "图片存储处于降级状态",
       "image_storage_error": "图片存储异常",
       "admin_auth_configured": "管理鉴权已配置",
-      "admin_auth_disabled": "管理密钥未配置"
+      "admin_auth_disabled": "管理员账号未创建"
     },
     "service": "服务进程",
     "database": "数据库",
@@ -4229,7 +4231,7 @@
       "appearance": "外观",
       "appearanceDesc": "站点名称、Logo、时区与背景",
       "security": "安全",
-      "securityDesc": "管理密钥与内容过滤",
+      "securityDesc": "管理员认证与内容过滤",
       "models": "模型",
       "modelsDesc": "模型注册表与映射",
       "reference": "参考",
@@ -4497,7 +4499,7 @@
     },
     "allowRemoteMigration": "允许远程迁移",
     "allowRemoteMigrationDesc": "开启后，其他 axisrelay 实例可通过导出接口拉取本实例的健康账号。",
-    "allowRemoteMigrationRequiresSecret": "请先设置管理密钥，未设置密码时不能启用远程迁移。",
+    "allowRemoteMigrationRequiresSecret": "请先创建管理员账号，未完成管理员认证时不能启用远程迁移。",
     "resinTitle": "Resin 粘性代理池",
     "resinDesc": "配置后 Codex 渠道所有携带账号身份的出站（对话、WS、用量/订阅查询、令牌刷新）全部改经 Resin 反向代理，实现按账号粘性 IP。两个字段都填写后生效，清空任一即禁用。Resin 是整层覆盖：启用期间账号代理、分组代理、代理池与全局代理对 Codex 渠道均不参与出站；Claude / Grok / Antigravity 不受影响。",
     "resinActiveBadge": "生效中",
@@ -4509,10 +4511,10 @@
     "resinPlatformName": "平台标识",
     "resinPlatformNameDesc": "Resin 中的平台名称，用于区分不同业务。例如 axisrelay",
     "security": "安全",
-    "adminSecret": "管理密钥",
+    "adminSecret": "管理员认证",
     "adminSecretPlaceholder": "留空则不启用管理接口鉴权",
-    "adminSecretDesc": "设置后，所有 /api/admin/* 管理接口需要携带 X-Admin-Key 请求头。留空则关闭鉴权。",
-    "adminSecretEnvOverride": "当前已启用环境变量 AXISRELAY_ADMIN_SECRET，后台登录优先使用环境变量中的密钥。",
+    "adminSecretDesc": "管理后台使用独立账号密码和 HttpOnly 安全会话。",
+    "adminSecretEnvOverride": "旧版管理密钥仅用于升级迁移，不再用于登录。",
     "promptFilterEnabled": "Prompt 检查",
     "promptFilterEnabledDesc": "系统级开关，详细规则在侧边栏 Prompt 检查中配置。",
     "promptFilterMode": "Prompt 处理模式",
@@ -6089,7 +6091,7 @@
       "desc": "检查服务状态和可用账号数量。此端点不需要认证。"
     },
     "accountSection": "账号管理接口",
-    "accountSectionDesc": "以下接口用于管理 Codex 账号，需要通过 X-Admin-Key 请求头传递管理密钥。",
+    "accountSectionDesc": "以下接口用于管理 Codex 账号，需要先登录管理员账号并使用安全会话。",
     "addAccount": {
       "title": "Add Account (Refresh Token)",
       "desc": "通过 Refresh Token 添加单个账号。添加后自动刷新 Access Token 并加入号池。name 为可选项，proxy_url 可留空。"
@@ -6209,7 +6211,7 @@
     },
     "authentication": {
       "title": "认证方式",
-      "description": "所有端点（除 /health 外）需要密钥；管理接口额外需要 X-Admin-Key。",
+      "description": "公共端点需要 API Key；管理接口使用管理员账号的安全会话。",
       "bearerNote": "标准方式（推荐）",
       "xApiKeyNote": "Anthropic SDK 默认",
       "adminNote": "管理接口专用"
@@ -6220,7 +6222,7 @@
     },
     "adminApi": {
       "title": "账号管理 API",
-      "description": "用于添加、删除、列出号池账号；所有接口需 X-Admin-Key。"
+      "description": "用于添加、删除、列出号池账号；需要管理员安全会话。"
     }
   },
   "imageStudioPortal": {

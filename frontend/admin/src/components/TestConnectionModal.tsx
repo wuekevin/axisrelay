@@ -14,7 +14,7 @@ import {
   RotateCcw,
   XCircle,
 } from "lucide-react";
-import { api, getAdminKey } from "../api";
+import { api } from "../api";
 import type { AccountRow } from "../types";
 import type { CodexTestDiagnostics, CodexTestWindow } from "../lib/codexConnectionTest";
 import {
@@ -293,7 +293,6 @@ export default function TestConnectionModal({
           `/api/admin/accounts/${account.id}/test?${params.toString()}`,
           {
             signal: controller.signal,
-            headers: getAdminKey() ? { "X-Admin-Key": getAdminKey() } : {},
           },
         );
 
