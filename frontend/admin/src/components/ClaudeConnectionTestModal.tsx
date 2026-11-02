@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Check, CheckCircle2, ChevronRight, Copy, Loader2, RefreshCw, XCircle } from "lucide-react";
-import { api, getAdminKey } from "../api";
+import { api } from "../api";
 import type { AccountRow } from "../types";
 import { claudeTestTokenMetrics, readClaudeTestEvents } from "../lib/claudeConnectionTest";
 import type { ClaudeTestDiagnostics } from "../lib/claudeConnectionTest";
@@ -94,10 +94,8 @@ export default function ClaudeConnectionTestModal({ account, onClose, onSettled 
       const translate = translationRef.current;
       try {
         const query = new URLSearchParams({ model });
-        const key = getAdminKey();
         const response = await fetch(`/api/admin/accounts/${account.id}/test?${query.toString()}`, {
           signal: controller.signal,
-          headers: key ? { "X-Admin-Key": key } : {},
         });
         if (!response.ok) {
           const body = await response.text();

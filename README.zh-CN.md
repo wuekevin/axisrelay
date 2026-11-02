@@ -102,7 +102,7 @@
 
 `deploy.sh` 提供 6 步交互式向导，依次询问 **端口 / 监听范围 / 数据库 / 密钥 / 构建方式 / 确认**，会先尝试拉取最新代码，再自动生成 `.env` 并拉起容器。
 
-如果当前目录已有 `.env`，脚本会读取其中的端口、监听地址、数据库、Redis、管理密钥和 API 密钥作为默认值，后续重跑脚本时可直接回车复用原配置。
+如果当前目录已有 `.env`，脚本会读取其中的端口、监听地址、数据库、Redis 和 API 密钥作为默认值，后续重跑脚本时可直接回车复用原配置。管理员使用独立账号密码登录，不再配置共享管理密钥。
 
 脚本会先检查当前系统是首次部署还是已有部署；如果发现已有 `.env` 或 compose 服务，会读取现有配置作为默认值，再进入完整部署向导。
 
@@ -262,7 +262,7 @@ Vite 会自动代理 `/api` 和 `/health` 到后端。默认 `npm run dev` 启�
 | --- | --- |
 | `AXISRELAY_PORT` | HTTP 端口，默认 `8080` |
 | `AXISRELAY_MAX_REQUEST_BODY_SIZE_MB` | HTTP 请求体上限，单位 MB，默认 `48` |
-| `AXISRELAY_ADMIN_SECRET` | 管理后台登录密钥；设置后首次访问 `/admin` 会弹出密码输入框 |
+| `AXISRELAY_INSTALL_ALLOWED_CIDR` | 首装时临时允许提交安装配置的公网 IP/CIDR；安装完成后删除 |
 | `AXISRELAY_PUBLIC_SIGNUP_ENABLED` | 是否开放官网用户注册，默认 `true` |
 | `AXISRELAY_PUBLIC_USER_DEFAULT_QUOTA_USD` | 用户自助创建的每把 API Key 初始额度，默认 `1` |
 | `AXISRELAY_PUBLIC_BASE_URL` | 验证和密码重置链接使用的官网 HTTPS 根地址 |
@@ -293,7 +293,7 @@ Vite 会自动代理 `/api` 和 `/health` 到后端。默认 `npm run dev` 启�
 
 以下参数**保存在数据库 `SystemSettings` 中**，通过管理台设置页面修改：
 
-`MaxConcurrency`、`GlobalRPM`、`TestModel`、`TestContent`、`TestConcurrency`、`ProxyURL`、`PgMaxConns`、`RedisPoolSize`、`AdminSecret`、`SchedulerMode`、自动清理开关等。
+`MaxConcurrency`、`GlobalRPM`、`TestModel`、`TestContent`、`TestConcurrency`、`ProxyURL`、`PgMaxConns`、`RedisPoolSize`、`SchedulerMode`、自动清理开关等。
 
 首次启动时程序会自动写入默认设置。
 
@@ -313,13 +313,10 @@ Redis 模式下，共享上下文只要没有超过重建上限，即使大于 L
 
 每次成功修改预算都会生成只读 generation，各实例每 5 秒轮询一次并应用更新。运维页展示 effective/applied generation、同步状态、缓存逻辑字节与计数器、进程内存、Go heap 和 GC 次数。缓存逻辑字节不包含 Go/容器开销，也不是 RSS 或进程内存硬上限。滚动升级期间，新前端会兼容尚未返回这些设置或运维字段的旧后端。
 
-### API Key 与管理密钥
+### API Key 与管理员账号
 
 - **对外 API Key**：以数据库中的 API Keys 为准。如果没有配置任何 Key，则 `/v1/*` 跳过鉴权。
-- **管理后台 Admin Secret**：
-  - 如果 `.env` 中设置了 `AXISRELAY_ADMIN_SECRET`，则优先使用环境变量。
-  - 如果未设置 `AXISRELAY_ADMIN_SECRET`，则回退到数据库中的 `AdminSecret`。
-  - 鉴权生效时，首次访问 `/admin` 会弹出密码输入框；前端登录成功后通过 `X-Admin-Key` 请求头访问 `/api/admin/*`。
+- **管理后台**：首次安装创建独立管理员账号和密码。登录后使用 HttpOnly、SameSite 会话 Cookie，管理接口不再接受共享管理密钥或 `X-Admin-Key`。旧版 `AXISRELAY_ADMIN_SECRET` 仅在升级时一次性转换成 `admin` 初始密码。
 
 ---
 
@@ -340,20 +337,26 @@ Redis 模式下，共享上下文只要没有超过重建上限，即使大于 L
 
 ### Token 上传与账号管理
 
-以下接口需要 `X-Admin-Key` 认证头。
+以下示例先登录管理员账号并保存 HttpOnly 会话 Cookie；请将账号密码替换为你的实际值：
+
+```bash
+curl -c cookies.txt -X POST http://localhost:8080/api/admin/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"admin","password":"你的管理员密码"}'
+```
 
 #### 添加 Refresh Token 账号
 
 ```bash
 # 单个添加
 curl -X POST http://localhost:8080/api/admin/accounts \
-  -H "X-Admin-Key: your-admin-secret" \
+  -b cookies.txt \
   -H "Content-Type: application/json" \
   -d '{"name": "my-account", "refresh_token": "rt_xxxxxxxxxxxx"}'
 
 # 批量添加（换行分隔，单次最多 100 个）
 curl -X POST http://localhost:8080/api/admin/accounts \
-  -H "X-Admin-Key: your-admin-secret" \
+  -b cookies.txt \
   -H "Content-Type: application/json" \
   -d '{"name": "batch", "refresh_token": "rt_xxx1\nrt_xxx2\nrt_xxx3"}'
 ```
@@ -363,13 +366,13 @@ curl -X POST http://localhost:8080/api/admin/accounts \
 ```bash
 # 单个添加
 curl -X POST http://localhost:8080/api/admin/accounts/at \
-  -H "X-Admin-Key: your-admin-secret" \
+  -b cookies.txt \
   -H "Content-Type: application/json" \
   -d '{"name": "my-at", "access_token": "eyJhbGciOiJSUzI1NiIs..."}'
 
 # 批量添加（换行分隔）
 curl -X POST http://localhost:8080/api/admin/accounts/at \
-  -H "X-Admin-Key: your-admin-secret" \
+  -b cookies.txt \
   -H "Content-Type: application/json" \
   -d '{"access_token": "eyJtoken1...\neyJtoken2...\neyJtoken3..."}'
 ```
@@ -379,19 +382,19 @@ curl -X POST http://localhost:8080/api/admin/accounts/at \
 ```bash
 # 导入 Refresh Token（TXT，每行一个）
 curl -X POST http://localhost:8080/api/admin/accounts/import \
-  -H "X-Admin-Key: your-admin-secret" \
+  -b cookies.txt \
   -F "file=@tokens.txt" \
   -F "format=txt"
 
 # 导入 Refresh Token（JSON 格式）
 curl -X POST http://localhost:8080/api/admin/accounts/import \
-  -H "X-Admin-Key: your-admin-secret" \
+  -b cookies.txt \
   -F "file=@credentials.json" \
   -F "format=json"
 
 # 导入 Access Token（AT-TXT，每行一个）
 curl -X POST http://localhost:8080/api/admin/accounts/import \
-  -H "X-Admin-Key: your-admin-secret" \
+  -b cookies.txt \
   -F "file=@access_tokens.txt" \
   -F "format=at_txt"
 ```
@@ -405,14 +408,14 @@ AxisRelay 支持通过 OAuth PKCE 流程获取 Refresh Token，适用于无法�
 ```bash
 # 步骤 1：生成授权 URL
 curl -X POST http://localhost:8080/api/admin/oauth/generate-auth-url \
-  -H "X-Admin-Key: your-admin-secret" \
+  -b cookies.txt \
   -H "Content-Type: application/json" \
   -d '{}'
 
 # 步骤 2：在浏览器中打开返回的 auth_url，完成授权
 # 步骤 3：用授权码兑换 Token（自动创建账号）
 curl -X POST http://localhost:8080/api/admin/oauth/exchange-code \
-  -H "X-Admin-Key: your-admin-secret" \
+  -b cookies.txt \
   -H "Content-Type: application/json" \
   -d '{"session_id": "...", "code": "...", "state": "..."}'
 ```

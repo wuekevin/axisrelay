@@ -201,9 +201,7 @@ function TryItDialog({
       const headers: Record<string, string> = {
         "Content-Type": "application/json",
       };
-      if (isAdmin) {
-        headers["X-Admin-Key"] = token;
-      } else if (path.startsWith("/v1/messages")) {
+      if (path.startsWith("/v1/messages")) {
         headers["x-api-key"] = token;
         headers["anthropic-version"] = "2023-06-01";
       } else if (path !== "/health") {
@@ -304,7 +302,7 @@ function TryItDialog({
                           {path.startsWith("/v1/messages")
                             ? "x-api-key"
                             : path.startsWith("/api/admin")
-                              ? "X-Admin-Key"
+                              ? "HttpOnly admin session"
                               : "Authorization"}
                         </span>
                         <span className="code-inline text-[11px]">string</span>
@@ -316,7 +314,7 @@ function TryItDialog({
                         {t("apiRef.tryIt.required")}
                       </Badge>
                     </div>
-                    <input
+                    {!path.startsWith("/api/admin") && <input
                       type="password"
                       autoComplete="off"
                       data-1p-ignore="true"
@@ -326,7 +324,7 @@ function TryItDialog({
                       placeholder={t("apiRef.tryIt.keyPlaceholder")}
                       value={token}
                       onChange={(e) => setToken(e.target.value)}
-                    />
+                    />}
                   </div>
                   {allKeys.length > 0 && (
                     <div className="flex flex-wrap items-center gap-2">

@@ -242,9 +242,7 @@ function TryItDialog({ open, onClose, method, path, defaultBody, apiKey, baseUrl
     try {
       const isAdmin = path.startsWith('/api/admin')
       const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-      if (isAdmin) {
-        headers['X-Admin-Key'] = token
-      } else if (path === '/v1/messages') {
+      if (path === '/v1/messages') {
         headers['x-api-key'] = token
         headers['anthropic-version'] = '2023-06-01'
       } else {
@@ -255,7 +253,7 @@ function TryItDialog({ open, onClose, method, path, defaultBody, apiKey, baseUrl
       const url = baseUrl + path
       const res = await fetch(url, {
         method,
-        headers: isGet ? { 'Authorization': `Bearer ${token}`, 'X-Admin-Key': token } : headers,
+        headers: isGet ? (isAdmin ? {} : { 'Authorization': `Bearer ${token}` }) : headers,
         body: isGet ? undefined : body.trim() || undefined,
       })
       setStatus(res.status)
@@ -310,18 +308,18 @@ function TryItDialog({ open, onClose, method, path, defaultBody, apiKey, baseUrl
                   <div>
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-semibold text-foreground">
-                        {path === '/v1/messages' ? 'x-api-key' : path.startsWith('/api/admin') ? 'X-Admin-Key' : 'Authorization'}
+                        {path === '/v1/messages' ? 'x-api-key' : path.startsWith('/api/admin') ? 'HttpOnly 管理员会话' : 'Authorization'}
                       </span>
                       <span className="text-[11px] text-muted-foreground font-mono">string</span>
                     </div>
                     <Badge variant="destructive" className="mt-1 text-[10px] px-1.5 py-0">required</Badge>
                   </div>
-                  <input
+                  {!path.startsWith('/api/admin') && <input
                     className="w-52 px-3 py-1.5 rounded-lg border border-border bg-background text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary/30"
                     placeholder="enter token"
                     value={token}
                     onChange={e => setToken(e.target.value)}
-                  />
+                  />}
                 </div>
                 {allKeys.length > 0 && (
                   <div className="flex items-center gap-2">
@@ -1043,7 +1041,7 @@ export default function ApiReference() {
 }`}
         curlExample={`curl --request POST \\
   --url ${baseUrl}/api/admin/accounts \\
-  --header 'X-Admin-Key: <admin_secret>' \\
+  --header 'Cookie: axisrelay_admin_session=<session_cookie>' \\
   --header 'Content-Type: application/json' \\
   --data '{
   "name": "my-account",
@@ -1082,7 +1080,7 @@ export default function ApiReference() {
 }`}
         curlExample={`curl --request POST \\
   --url ${baseUrl}/api/admin/accounts \\
-  --header 'X-Admin-Key: <admin_secret>' \\
+  --header 'Cookie: axisrelay_admin_session=<session_cookie>' \\
   --header 'Content-Type: application/json' \\
   --data '{
   "name": "batch",
@@ -1115,7 +1113,7 @@ export default function ApiReference() {
 }`}
         curlExample={`curl --request POST \\
   --url ${baseUrl}/api/admin/accounts/at \\
-  --header 'X-Admin-Key: <admin_secret>' \\
+  --header 'Cookie: axisrelay_admin_session=<session_cookie>' \\
   --header 'Content-Type: application/json' \\
   --data '{
   "name": "at-account",
@@ -1147,7 +1145,7 @@ export default function ApiReference() {
         curlExample={`# TXT 格式（每行一个 Refresh Token）
 curl --request POST \\
   --url ${baseUrl}/api/admin/accounts/import \\
-  --header 'X-Admin-Key: <admin_secret>' \\
+  --header 'Cookie: axisrelay_admin_session=<session_cookie>' \\
   --form 'file=@tokens.txt' \\
   --form 'format=txt' \\
   --form 'proxy_url='
@@ -1155,7 +1153,7 @@ curl --request POST \\
 # JSON 格式（兼容 CLIProxyAPI 凭证导出）
 curl --request POST \\
   --url ${baseUrl}/api/admin/accounts/import \\
-  --header 'X-Admin-Key: <admin_secret>' \\
+  --header 'Cookie: axisrelay_admin_session=<session_cookie>' \\
   --form 'file=@credentials.json' \\
   --form 'format=json' \\
   --form 'proxy_url='
@@ -1163,7 +1161,7 @@ curl --request POST \\
 # AT TXT 格式（每行一个 Access Token）
 curl --request POST \\
   --url ${baseUrl}/api/admin/accounts/import \\
-  --header 'X-Admin-Key: <admin_secret>' \\
+  --header 'Cookie: axisrelay_admin_session=<session_cookie>' \\
   --form 'file=@access_tokens.txt' \\
   --form 'format=at_txt' \\
   --form 'proxy_url='`}
@@ -1193,7 +1191,7 @@ curl --request POST \\
         allKeys={allKeys}
         curlExample={`curl --request DELETE \\
   --url ${baseUrl}/api/admin/accounts/1 \\
-  --header 'X-Admin-Key: <admin_secret>'`}
+  --header 'Cookie: axisrelay_admin_session=<session_cookie>'`}
         responseExamples={[
           { code: 200, body: `{
   "message": "账号已删除"
@@ -1216,7 +1214,7 @@ curl --request POST \\
         allKeys={allKeys}
         curlExample={`curl --request GET \\
   --url ${baseUrl}/api/admin/accounts \\
-  --header 'X-Admin-Key: <admin_secret>'`}
+  --header 'Cookie: axisrelay_admin_session=<session_cookie>'`}
         responseExamples={[
           { code: 200, body: `{
   "accounts": [
@@ -1244,8 +1242,8 @@ curl --request POST \\
         </div>
         <p className="text-sm text-muted-foreground">
           {copy(
-            '以下接口用于导入、维护和验证 Claude OAuth 账号。所有接口均需要 X-Admin-Key；示例中的 Token、code、state 与账号 ID 都是占位符。',
-            'Use these endpoints to import, maintain, and verify Claude OAuth accounts. Every endpoint requires X-Admin-Key; all tokens, codes, states, and account IDs below are placeholders.',
+            '以下接口用于导入、维护和验证 Claude OAuth 账号。所有接口均需要 管理员安全会话；示例中的 Token、code、state 与账号 ID 都是占位符。',
+            'Use these endpoints to import, maintain, and verify Claude OAuth accounts. Every endpoint uses an authenticated administrator session; all tokens, codes, states, and account IDs below are placeholders.',
           )}
         </p>
       </div>
@@ -1264,7 +1262,7 @@ curl --request POST \\
         allKeys={allKeys}
         curlExample={`curl --request GET \\
   --url '${baseUrl}/api/admin/accounts?channel=claude' \\
-  --header 'X-Admin-Key: <admin_secret>'`}
+  --header 'Cookie: axisrelay_admin_session=<session_cookie>'`}
         responseExamples={[
           { code: 200, body: `{
   "accounts": [
@@ -1304,7 +1302,7 @@ curl --request POST \\
 }`}
         curlExample={`curl --request POST \\
   --url ${baseUrl}/api/admin/accounts/claude/oauth/auth-url \\
-  --header 'X-Admin-Key: <admin_secret>' \\
+  --header 'Cookie: axisrelay_admin_session=<session_cookie>' \\
   --header 'Content-Type: application/json' \\
   --data '{"mode":"setup_token"}'`}
         responseExamples={[
@@ -1340,7 +1338,7 @@ curl --request POST \\
 }`}
         curlExample={`curl --request POST \\
   --url ${baseUrl}/api/admin/accounts/claude/oauth/exchange-code \\
-  --header 'X-Admin-Key: <admin_secret>' \\
+  --header 'Cookie: axisrelay_admin_session=<session_cookie>' \\
   --header 'Content-Type: application/json' \\
   --data '{
   "state": "<state>",
@@ -1382,7 +1380,7 @@ curl --request POST \\
 }`}
         curlExample={`curl --request POST \\
   --url ${baseUrl}/api/admin/accounts/claude/oauth/exchange-session-key \\
-  --header 'X-Admin-Key: <admin_secret>' \\
+  --header 'Cookie: axisrelay_admin_session=<session_cookie>' \\
   --header 'Content-Type: application/json' \\
   --data '{
   "session_key": "sk-ant-sid01-...",
@@ -1424,7 +1422,7 @@ curl --request POST \\
 }`}
         curlExample={`curl --request POST \\
   --url ${baseUrl}/api/admin/accounts/claude/import \\
-  --header 'X-Admin-Key: <admin_secret>' \\
+  --header 'Cookie: axisrelay_admin_session=<session_cookie>' \\
   --header 'Content-Type: application/json' \\
   --data '{
   "access_token": "<access-token>",
@@ -1467,7 +1465,7 @@ curl --request POST \\
 }`}
         curlExample={`curl --request POST \\
   --url ${baseUrl}/api/admin/accounts/claude/import-tokens \\
-  --header 'X-Admin-Key: <admin_secret>' \\
+  --header 'Cookie: axisrelay_admin_session=<session_cookie>' \\
   --header 'Content-Type: application/json' \\
   --data '{
   "tokens": ["sk-ant-oat01-...", "sk-ant-ort01-..."],
@@ -1499,7 +1497,7 @@ curl --request POST \\
         allKeys={allKeys}
         curlExample={`curl --request GET \\
   --url '${baseUrl}/api/admin/accounts/claude/export?ids=42&filter=all&format=json' \\
-  --header 'X-Admin-Key: <admin_secret>' \\
+  --header 'Cookie: axisrelay_admin_session=<session_cookie>' \\
   --output claude-account.json`}
         responseExamples={[
           { code: 200, body: `{
@@ -1537,7 +1535,7 @@ curl --request POST \\
         allKeys={allKeys}
         curlExample={`curl --request POST \\
   --url ${baseUrl}/api/admin/accounts/42/refresh \\
-  --header 'X-Admin-Key: <admin_secret>'`}
+  --header 'Cookie: axisrelay_admin_session=<session_cookie>'`}
         responseExamples={[
           { code: 200, body: `{"message":"账号刷新成功"}` },
           { code: 404, body: `{"error":"账号不存在"}` },
@@ -1559,7 +1557,7 @@ curl --request POST \\
         allKeys={allKeys}
         curlExample={`curl --request POST \\
   --url ${baseUrl}/api/admin/accounts/42/claude/models \\
-  --header 'X-Admin-Key: <admin_secret>'`}
+  --header 'Cookie: axisrelay_admin_session=<session_cookie>'`}
         responseExamples={[
           { code: 200, body: `{
   "message": "已更新可用模型",
@@ -1586,7 +1584,7 @@ curl --request POST \\
         defaultBody="{}"
         curlExample={`curl --request POST \\
   --url ${baseUrl}/api/admin/accounts/claude/models/refresh \\
-  --header 'X-Admin-Key: <admin_secret>' \\
+  --header 'Cookie: axisrelay_admin_session=<session_cookie>' \\
   --header 'Content-Type: application/json' \\
   --data '{}'`}
         responseExamples={[
@@ -1614,7 +1612,7 @@ curl --request POST \\
         allKeys={allKeys}
         curlExample={`curl --request POST \\
   --url ${baseUrl}/api/admin/accounts/42/models/sync-upstream \\
-  --header 'X-Admin-Key: <admin_secret>'`}
+  --header 'Cookie: axisrelay_admin_session=<session_cookie>'`}
         responseExamples={[
           { code: 200, body: `{
   "models": ["claude-haiku-4-5", "claude-sonnet-4-5"]
@@ -1640,7 +1638,7 @@ curl --request POST \\
 }`}
         curlExample={`curl --request PATCH \\
   --url ${baseUrl}/api/admin/accounts/42/models \\
-  --header 'X-Admin-Key: <admin_secret>' \\
+  --header 'Cookie: axisrelay_admin_session=<session_cookie>' \\
   --header 'Content-Type: application/json' \\
   --data '{"models":["claude-haiku-4-5","claude-sonnet-4-5"]}'`}
         responseExamples={[
@@ -1664,7 +1662,7 @@ curl --request POST \\
         allKeys={allKeys}
         curlExample={`curl --request POST \\
   --url ${baseUrl}/api/admin/accounts/42/usage/refresh \\
-  --header 'X-Admin-Key: <admin_secret>'`}
+  --header 'Cookie: axisrelay_admin_session=<session_cookie>'`}
         responseExamples={[
           { code: 200, body: `{
   "refreshed": true,
@@ -1692,7 +1690,7 @@ curl --request POST \\
         allKeys={allKeys}
         curlExample={`curl --request GET \\
   --url '${baseUrl}/api/admin/accounts/42/usage?days=30' \\
-  --header 'X-Admin-Key: <admin_secret>'`}
+  --header 'Cookie: axisrelay_admin_session=<session_cookie>'`}
         responseExamples={[
           { code: 200, body: `{
   "account_id": 42,
@@ -1722,12 +1720,12 @@ curl --request POST \\
         curlExample={`# JSON result
 curl --request POST \\
   --url '${baseUrl}/api/admin/accounts/42/models/probe?stream=false' \\
-  --header 'X-Admin-Key: <admin_secret>'
+  --header 'Cookie: axisrelay_admin_session=<session_cookie>'
 
 # Optional SSE progress
 curl --request POST \\
   --url '${baseUrl}/api/admin/accounts/42/models/probe?stream=true' \\
-  --header 'X-Admin-Key: <admin_secret>'`}
+  --header 'Cookie: axisrelay_admin_session=<session_cookie>'`}
         responseExamples={[
           { code: 200, body: `{
   "available": ["claude-haiku-4-5"],
@@ -1758,7 +1756,7 @@ data: {"type":"done","available":["claude-haiku-4-5"]}` },
         allKeys={allKeys}
         curlExample={`curl --no-buffer --request GET \\
   --url '${baseUrl}/api/admin/accounts/42/test?model=claude-haiku-4-5' \\
-  --header 'X-Admin-Key: <admin_secret>'`}
+  --header 'Cookie: axisrelay_admin_session=<session_cookie>'`}
         responseExamples={[
           { code: 200, body: `data: {"type":"test_start","model":"claude-haiku-4-5"}
 
@@ -1785,7 +1783,7 @@ data: {"type":"error","error":"Claude 上游返回了有效响应，但账号仍
         allKeys={allKeys}
         curlExample={`curl --request GET \\
   --url ${baseUrl}/api/admin/settings/claude-config \\
-  --header 'X-Admin-Key: <admin_secret>'`}
+  --header 'Cookie: axisrelay_admin_session=<session_cookie>'`}
         responseExamples={[
           { code: 200, body: `{
   "fingerprint_mode": "preserve",
@@ -1830,7 +1828,7 @@ data: {"type":"error","error":"Claude 上游返回了有效响应，但账号仍
 }`}
         curlExample={`curl --request PUT \\
   --url ${baseUrl}/api/admin/settings/claude-config \\
-  --header 'X-Admin-Key: <admin_secret>' \\
+  --header 'Cookie: axisrelay_admin_session=<session_cookie>' \\
   --header 'Content-Type: application/json' \\
   --data '{
   "fingerprint_mode": "preserve",

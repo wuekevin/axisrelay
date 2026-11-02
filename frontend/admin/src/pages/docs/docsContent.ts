@@ -424,7 +424,7 @@ export function buildAdminSpecs(
 }`,
       curl: `curl --request POST \\
   --url ${baseUrl}/api/admin/accounts \\
-  --header 'X-Admin-Key: <admin_secret>' \\
+  --header 'Cookie: axisrelay_admin_session=<session_cookie>' \\
   --header 'Content-Type: application/json' \\
   --data '{
   "name": "my-account",
@@ -471,7 +471,7 @@ export function buildAdminSpecs(
 }`,
       curl: `curl --request POST \\
   --url ${baseUrl}/api/admin/accounts/at \\
-  --header 'X-Admin-Key: <admin_secret>' \\
+  --header 'Cookie: axisrelay_admin_session=<session_cookie>' \\
   --header 'Content-Type: application/json' \\
   --data '{
   "name": "at-account",
@@ -506,7 +506,7 @@ export function buildAdminSpecs(
       curl: `# TXT — one Refresh Token per line
 curl --request POST \\
   --url ${baseUrl}/api/admin/accounts/import \\
-  --header 'X-Admin-Key: <admin_secret>' \\
+  --header 'Cookie: axisrelay_admin_session=<session_cookie>' \\
   --form 'file=@tokens.txt' \\
   --form 'format=txt' \\
   --form 'proxy_url='
@@ -514,7 +514,7 @@ curl --request POST \\
 # JSON — CLIProxyAPI credential export
 curl --request POST \\
   --url ${baseUrl}/api/admin/accounts/import \\
-  --header 'X-Admin-Key: <admin_secret>' \\
+  --header 'Cookie: axisrelay_admin_session=<session_cookie>' \\
   --form 'file=@credentials.json' \\
   --form 'format=json' \\
   --form 'proxy_url='
@@ -522,7 +522,7 @@ curl --request POST \\
 # AT TXT — one Access Token per line
 curl --request POST \\
   --url ${baseUrl}/api/admin/accounts/import \\
-  --header 'X-Admin-Key: <admin_secret>' \\
+  --header 'Cookie: axisrelay_admin_session=<session_cookie>' \\
   --form 'file=@access_tokens.txt' \\
   --form 'format=at_txt' \\
   --form 'proxy_url='`,
@@ -552,7 +552,7 @@ curl --request POST \\
       ),
       curl: `curl --request DELETE \\
   --url ${baseUrl}/api/admin/accounts/1 \\
-  --header 'X-Admin-Key: <admin_secret>'`,
+  --header 'Cookie: axisrelay_admin_session=<session_cookie>'`,
       responses: [
         { code: 200, body: `{"message": "账号已删除"}` },
         { code: 404, body: `{"error": "账号不存在"}` },
@@ -570,17 +570,17 @@ curl --request POST \\
       ),
       curl: `curl --request GET \\
   --url ${baseUrl}/api/admin/accounts \\
-  --header 'X-Admin-Key: <admin_secret>'
+  --header 'Cookie: axisrelay_admin_session=<session_cookie>'
 
 # Grok only
 curl --request GET \\
   --url '${baseUrl}/api/admin/accounts?channel=grok' \\
-  --header 'X-Admin-Key: <admin_secret>'
+  --header 'Cookie: axisrelay_admin_session=<session_cookie>'
 
 # Claude only
 curl --request GET \\
   --url '${baseUrl}/api/admin/accounts?channel=claude' \\
-  --header 'X-Admin-Key: <admin_secret>'`,
+  --header 'Cookie: axisrelay_admin_session=<session_cookie>'`,
       responses: [
         {
           code: 200,
@@ -630,7 +630,7 @@ curl --request GET \\
 }`,
       curl: `curl --request PATCH \\
   --url ${baseUrl}/api/admin/accounts/1/scheduler \\
-  --header 'X-Admin-Key: <admin_secret>' \\
+  --header 'Cookie: axisrelay_admin_session=<session_cookie>' \\
   --header 'Content-Type: application/json' \\
   --data '{
   "tags": ["team", "paid"],
@@ -659,7 +659,7 @@ curl --request GET \\
       ),
       curl: `curl --request GET \\
   --url ${baseUrl}/api/admin/keys \\
-  --header 'X-Admin-Key: <admin_secret>'`,
+  --header 'Cookie: axisrelay_admin_session=<session_cookie>'`,
       responses: [
         {
           code: 200,
@@ -700,7 +700,7 @@ curl --request GET \\
 }`,
       curl: `curl --request POST \\
   --url ${baseUrl}/api/admin/keys \\
-  --header 'X-Admin-Key: <admin_secret>' \\
+  --header 'Cookie: axisrelay_admin_session=<session_cookie>' \\
   --header 'Content-Type: application/json' \\
   --data '{
   "name": "Claude Code",
@@ -745,7 +745,7 @@ curl --request GET \\
 }`,
       curl: `curl --request PATCH \\
   --url ${baseUrl}/api/admin/keys/2 \\
-  --header 'X-Admin-Key: <admin_secret>' \\
+  --header 'Cookie: axisrelay_admin_session=<session_cookie>' \\
   --header 'Content-Type: application/json' \\
   --data '{
   "name": "Cherry Studio",
@@ -771,7 +771,7 @@ curl --request GET \\
       ),
       curl: `curl --request DELETE \\
   --url ${baseUrl}/api/admin/keys/2 \\
-  --header 'X-Admin-Key: <admin_secret>'`,
+  --header 'Cookie: axisrelay_admin_session=<session_cookie>'`,
       responses: [{ code: 200, body: `{"message": "已删除"}` }],
     },
     {
@@ -786,7 +786,7 @@ curl --request GET \\
       ),
       curl: `curl --request GET \\
   --url ${baseUrl}/api/admin/account-groups \\
-  --header 'X-Admin-Key: <admin_secret>'`,
+  --header 'Cookie: axisrelay_admin_session=<session_cookie>'`,
       responses: [
         {
           code: 200,
@@ -815,7 +815,7 @@ curl --request GET \\
 }`,
       curl: `curl --request POST \\
   --url ${baseUrl}/api/admin/account-groups \\
-  --header 'X-Admin-Key: <admin_secret>' \\
+  --header 'Cookie: axisrelay_admin_session=<session_cookie>' \\
   --header 'Content-Type: application/json' \\
   --data '{"name":"Team","description":"付费团队账号","color":"#2563eb"}'`,
       responses: [
@@ -841,7 +841,7 @@ curl --request GET \\
 }`,
       curl: `curl --request PATCH \\
   --url ${baseUrl}/api/admin/account-groups/1 \\
-  --header 'X-Admin-Key: <admin_secret>' \\
+  --header 'Cookie: axisrelay_admin_session=<session_cookie>' \\
   --header 'Content-Type: application/json' \\
   --data '{"name":"Team Plus","description":"高优先级账号","color":"#16a34a","sort_order":10}'`,
       responses: [
@@ -861,7 +861,7 @@ curl --request GET \\
       ),
       curl: `curl --request DELETE \\
   --url '${baseUrl}/api/admin/account-groups/1?force=true' \\
-  --header 'X-Admin-Key: <admin_secret>'`,
+  --header 'Cookie: axisrelay_admin_session=<session_cookie>'`,
       responses: [
         { code: 200, body: `{"message": "分组已删除"}` },
         { code: 409, body: `{"error": "分组仍有账号，确认后可强制删除"}` },

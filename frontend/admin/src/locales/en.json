@@ -695,8 +695,8 @@
   },
   "auth": {
     "title": "Admin Panel",
-    "subtitle": "Enter admin secret",
-    "placeholder": "Enter admin secret…",
+    "subtitle": "Enter the administrator username and password",
+    "placeholder": "Enter administrator password…",
     "login": "Sign In",
     "error": "Invalid secret, please retry"
   },
@@ -962,8 +962,10 @@
     "migrateDesc": "Import healthy accounts from another axisrelay instance. The remote instance must have 'Allow Remote Migration' enabled in Settings.",
     "migrateUrlLabel": "Remote Instance URL",
     "migrateUrlPlaceholder": "e.g. https://other-instance.com",
-    "migrateKeyLabel": "Remote Admin Key",
-    "migrateKeyPlaceholder": "Enter the remote admin secret",
+    "migrateUsernameLabel": "Remote administrator username",
+    "migrateUsernamePlaceholder": "Enter the remote administrator username",
+    "migratePasswordLabel": "Remote administrator password",
+    "migratePasswordPlaceholder": "Enter the remote administrator password",
     "migrateConfirm": "Import",
     "migrating": "Importing…",
     "migrateSuccess": "Migration complete: {{imported}} imported, {{duplicate}} skipped, {{failed}} failed",
@@ -2311,7 +2313,7 @@
       "image_storage_degraded": "Image storage is degraded",
       "image_storage_error": "Image storage failed",
       "admin_auth_configured": "Admin auth is configured",
-      "admin_auth_disabled": "Admin secret is not configured"
+      "admin_auth_disabled": "No administrator account exists"
     },
     "service": "Service",
     "database": "Database",
@@ -4232,7 +4234,7 @@
       "appearance": "Appearance",
       "appearanceDesc": "Site name, logo, timezone, background",
       "security": "Security",
-      "securityDesc": "Admin secret and content filtering",
+      "securityDesc": "Administrator authentication and content filtering",
       "models": "Models",
       "modelsDesc": "Model registry and mappings",
       "reference": "Reference",
@@ -4500,7 +4502,7 @@
     },
     "allowRemoteMigration": "Allow Remote Migration",
     "allowRemoteMigrationDesc": "When enabled, other axisrelay instances can pull healthy accounts from this instance.",
-    "allowRemoteMigrationRequiresSecret": "Set an admin secret first. Remote migration cannot be enabled without admin authentication.",
+    "allowRemoteMigrationRequiresSecret": "Create an administrator account first. Remote migration requires administrator authentication.",
     "resinTitle": "Resin Sticky Proxy Pool",
     "resinDesc": "When configured, every account-bound Codex egress (responses, WS, usage/subscription lookups, token refresh) goes through the Resin reverse proxy for sticky per-account IPs. Both fields must be set to enable; clearing either disables it. Resin overrides the whole chain: while it is on, account proxies, group proxies, the proxy pool and the global proxy do not take part in Codex egress. Claude / Grok / Antigravity are unaffected.",
     "resinActiveBadge": "Active",
@@ -4514,8 +4516,8 @@
     "security": "Security",
     "adminSecret": "Admin Secret",
     "adminSecretPlaceholder": "Leave empty to disable admin auth",
-    "adminSecretDesc": "When set, all /api/admin/* endpoints require X-Admin-Key header. Leave empty to disable.",
-    "adminSecretEnvOverride": "AXISRELAY_ADMIN_SECRET is currently enabled in the environment, so admin login uses the environment value first.",
+    "adminSecretDesc": "The dashboard uses a dedicated administrator account and an HttpOnly session.",
+    "adminSecretEnvOverride": "The legacy admin secret is migration-only and is no longer used for login.",
     "promptFilterEnabled": "Prompt Filter",
     "promptFilterEnabledDesc": "System-level switch. Detailed rules live in the Prompt Filter page.",
     "promptFilterMode": "Prompt Handling Mode",
@@ -6090,7 +6092,7 @@
       "desc": "Check service status and available account count. This endpoint does not require authentication."
     },
     "accountSection": "Account Management",
-    "accountSectionDesc": "The following endpoints are for managing Codex accounts. Requires X-Admin-Key header with admin secret.",
+    "accountSectionDesc": "The following endpoints manage Codex accounts and require an authenticated administrator session.",
     "addAccount": {
       "title": "Add Account (Refresh Token)",
       "desc": "Add a single account via Refresh Token. Automatically refreshes Access Token and joins the account pool. name is optional, proxy_url can be empty."
@@ -6210,7 +6212,7 @@
     },
     "authentication": {
       "title": "Authentication",
-      "description": "All endpoints except /health require an API key. Admin endpoints additionally require X-Admin-Key.",
+      "description": "Public endpoints require an API key. Admin endpoints use the authenticated administrator session.",
       "bearerNote": "Standard (recommended)",
       "xApiKeyNote": "Anthropic SDK default",
       "adminNote": "Admin endpoints only"
@@ -6221,7 +6223,7 @@
     },
     "adminApi": {
       "title": "Account Management API",
-      "description": "Add, delete, and list pool accounts. All endpoints require X-Admin-Key."
+      "description": "Add, delete, and list pool accounts. An administrator session is required."
     }
   },
   "imageStudioPortal": {

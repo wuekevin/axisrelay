@@ -2,7 +2,7 @@ import type { ChangeEvent, DragEvent, ReactNode } from "react";
 import { memo, useCallback, useEffect, useRef, useState, useMemo } from "react";
 import "./accounts-cards.css";
 import { useLocation, useNavigate } from "react-router-dom";
-import { api, getAdminKey, resetAdminAuthState } from "../api";
+import { api, resetAdminAuthState } from "../api";
 import type { ProxyRow } from "../api";
 import { ProxyField } from "../components/ProxyField";
 import AccountProxyBadge from "../components/AccountProxyBadge";
@@ -1013,8 +1013,6 @@ async function readAdminStreamError(res: Response): Promise<string> {
 
 async function postAdminSSE(path: string, body?: unknown): Promise<Response> {
   const headers: Record<string, string> = {};
-  const adminKey = getAdminKey();
-  if (adminKey) headers["X-Admin-Key"] = adminKey;
   if (body !== undefined) headers["Content-Type"] = "application/json";
 
   const res = await fetch(`/api/admin${path}`, {
@@ -1979,7 +1977,8 @@ export default function Accounts() {
     getInitialEmailDomainVisibility,
   );
   const [migrateUrl, setMigrateUrl] = useState("");
-  const [migrateKey, setMigrateKey] = useState("");
+  const [migrateUsername, setMigrateUsername] = useState("admin");
+  const [migratePassword, setMigratePassword] = useState("");
   const [migrating, setMigrating] = useState(false);
   const [importProgress, setImportProgress] = useState<{
     show: boolean;
@@ -4202,7 +4201,6 @@ export default function Accounts() {
         const res = await fetch("/api/admin/accounts/import", {
           method: "POST",
           body: formData,
-          headers: getAdminKey() ? { "X-Admin-Key": getAdminKey() } : {},
         });
 
         // 只有最后一批完成后才标记 done,让进度条在多批之间保持运行态。
@@ -4651,11 +4649,11 @@ export default function Accounts() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          ...(getAdminKey() ? { "X-Admin-Key": getAdminKey() } : {}),
         },
         body: JSON.stringify({
           url: migrateUrl.trim(),
-          admin_key: migrateKey.trim(),
+          admin_username: migrateUsername.trim(),
+          admin_password: migratePassword,
         }),
       });
       if (res.headers.get("content-type")?.includes("text/event-stream")) {
@@ -4688,7 +4686,7 @@ export default function Accounts() {
     } finally {
       setMigrating(false);
       setMigrateUrl("");
-      setMigrateKey("");
+      setMigratePassword("");
     }
   };
 
@@ -5227,7 +5225,6 @@ export default function Accounts() {
         `/api/admin/accounts/${modelsAccount.id}/models/probe?stream=true`,
         {
           method: "POST",
-          headers: getAdminKey() ? { "X-Admin-Key": getAdminKey() } : {},
         },
       );
       if (!res.ok) {
@@ -8889,7 +8886,7 @@ export default function Accounts() {
             onClose={() => {
               setShowMigrate(false);
               setMigrateUrl("");
-              setMigrateKey("");
+              setMigratePassword("");
             }}
           >
             <div className="space-y-4">
@@ -8910,16 +8907,20 @@ export default function Accounts() {
               </div>
               <div>
                 <label className="block mb-2 text-sm font-semibold text-muted-foreground">
-                  {t("accounts.migrateKeyLabel")}
+                  {t("accounts.migrateUsernameLabel")}
                 </label>
                 <Input
-                  type="password"
-                  placeholder={t("accounts.migrateKeyPlaceholder")}
-                  value={migrateKey}
+                  autoComplete="username"
+                  placeholder={t("accounts.migrateUsernamePlaceholder")}
+                  value={migrateUsername}
                   onChange={(e: ChangeEvent<HTMLInputElement>) =>
-                    setMigrateKey(e.target.value)
+                    setMigrateUsername(e.target.value)
                   }
                 />
+              </div>
+              <div>
+                <label className="block mb-2 text-sm font-semibold text-muted-foreground">{t("accounts.migratePasswordLabel")}</label>
+                <Input type="password" autoComplete="current-password" placeholder={t("accounts.migratePasswordPlaceholder")} value={migratePassword} onChange={(e: ChangeEvent<HTMLInputElement>) => setMigratePassword(e.target.value)} />
               </div>
               <div className="flex justify-end gap-2 pt-2">
                 <Button
@@ -8927,7 +8928,7 @@ export default function Accounts() {
                   onClick={() => {
                     setShowMigrate(false);
                     setMigrateUrl("");
-                    setMigrateKey("");
+                    setMigratePassword("");
                   }}
                 >
                   {t("common.cancel")}
@@ -8935,7 +8936,7 @@ export default function Accounts() {
                 <Button
                   onClick={() => void handleMigrate()}
                   disabled={
-                    migrating || !migrateUrl.trim() || !migrateKey.trim()
+                    migrating || !migrateUrl.trim() || !migrateUsername.trim() || !migratePassword
                   }
                 >
                   {migrating

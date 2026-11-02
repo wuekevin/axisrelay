@@ -36,7 +36,7 @@ import {
   ArrowUpDown,
   Clock,
 } from "lucide-react";
-import { api, getAdminKey } from "../api";
+import { api } from "../api";
 import type { ProxyRow } from "../api";
 import { ProxyField } from "../components/ProxyField";
 import AccountProxyBadge from "../components/AccountProxyBadge";
@@ -5504,7 +5504,6 @@ function GrokTestConnectionModal({
           `/api/admin/accounts/${account.id}/test?${params.toString()}`,
           {
             signal: controller.signal,
-            headers: getAdminKey() ? { "X-Admin-Key": getAdminKey() } : {},
           },
         );
         if (!res.ok) {

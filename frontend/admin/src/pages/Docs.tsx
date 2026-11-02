@@ -17,7 +17,7 @@ import {
   LifeBuoy,
   List,
 } from "lucide-react";
-import { api, getAdminKey } from "../api";
+import { api } from "../api";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -433,7 +433,7 @@ function encodeBase64(text: string): string {
 export default function Docs() {
   const { t, i18n } = useTranslation();
   const baseUrl = useMemo(() => window.location.origin, []);
-  const adminSeed = useMemo(() => getAdminKey(), []);
+  const adminSeed = useMemo(() => '', []);
   const docsLocale = useMemo<DocsLocale>(
     () => ((i18n.language || "zh").startsWith("zh") ? "zh" : "en"),
     [i18n.language],

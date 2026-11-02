@@ -184,7 +184,7 @@ test('Claude admin API reference covers import, sampling, probing, and config co
   ]) {
     assert.match(apiReference, new RegExp(`id=["']${id}["']`))
   }
-  assert.match(apiReference, /X-Admin-Key/)
+  assert.match(apiReference, /axisrelay_admin_session/)
   assert.match(apiReference, /Claude \/ Anthropic 管理 API/)
   assert.match(apiReference, /Messages API/)
 })

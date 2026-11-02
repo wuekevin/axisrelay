@@ -80,10 +80,10 @@ export function buildGuides(baseUrl: string, locale: DocsLocale): GuideSpec[] {
           ],
           [
             c("管理 API", "Admin API"),
-            "X-Admin-Key: YOUR_ADMIN_SECRET",
+            c("浏览器 HttpOnly 管理员会话", "Browser HttpOnly administrator session"),
             c(
-              "用于 /api/admin/*，不要填入普通客户端配置。",
-              "For /api/admin/*; keep it out of ordinary client configuration.",
+              "登录后台后自动携带，不使用共享管理密钥。",
+              "Sent automatically after dashboard login; no shared admin secret is used.",
             ),
           ],
         ],
