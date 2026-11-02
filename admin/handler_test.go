@@ -1486,12 +1486,20 @@ func TestRuntimeStatusRouteReturnsDependencySnapshot(t *testing.T) {
 		t.Fatalf("imagestore.Configure: %v", err)
 	}
 
-	handler := NewHandler(store, db, tc, nil, "admin-secret")
+	user, err := db.CreateAdminUser(context.Background(), "runtime-admin", "unused-test-password-hash", false)
+	if err != nil {
+		t.Fatalf("create runtime admin: %v", err)
+	}
+	const sessionToken = "runtime-status-test-session"
+	if err := db.CreateAdminSession(context.Background(), user.ID, database.HashAdminSessionToken(sessionToken), "127.0.0.1", "test", time.Now().Add(time.Hour)); err != nil {
+		t.Fatalf("create runtime admin session: %v", err)
+	}
+	handler := NewHandler(store, db, tc, nil, "")
 	router := gin.New()
 	handler.RegisterRoutes(router)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/admin/runtime-status", nil)
-	req.Header.Set("X-Admin-Key", "admin-secret")
+	req.AddCookie(&http.Cookie{Name: adminSessionCookie, Value: sessionToken, Path: adminSessionCookiePath})
 	recorder := httptest.NewRecorder()
 	router.ServeHTTP(recorder, req)
 
@@ -1512,8 +1520,8 @@ func TestRuntimeStatusRouteReturnsDependencySnapshot(t *testing.T) {
 	if !payload.Cache.Healthy || payload.Cache.Driver != "memory" {
 		t.Fatalf("cache = healthy:%v driver:%q, want healthy memory", payload.Cache.Healthy, payload.Cache.Driver)
 	}
-	if !payload.AdminAuth.Configured || payload.AdminAuth.Source != "env" {
-		t.Fatalf("admin auth = configured:%v source:%q, want env configured", payload.AdminAuth.Configured, payload.AdminAuth.Source)
+	if !payload.AdminAuth.Configured || payload.AdminAuth.Source != "account" {
+		t.Fatalf("admin auth = configured:%v source:%q, want account configured", payload.AdminAuth.Configured, payload.AdminAuth.Source)
 	}
 	if payload.ImageStorage.Backend != imagestore.BackendLocal || payload.ImageStorage.LocalDir != imageDir {
 		t.Fatalf("image storage = %q %q, want local %q", payload.ImageStorage.Backend, payload.ImageStorage.LocalDir, imageDir)
